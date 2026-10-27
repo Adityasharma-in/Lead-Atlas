@@ -6,7 +6,7 @@
 ## Phase 2: Updater module (server)
 - [x] T002: Pure helpers in `src/selfupdate.js` (repository parsing, ahead/behind compare,
       package-file change detection) + `test/selfupdate.test.js` for them — Done when: unit tests pass.
-- [ ] T003: Git/network layer in `src/selfupdate.js` (`localVersion`, `remoteVersion` with
+- [x] T003: Git/network layer in `src/selfupdate.js` (`localVersion`, `remoteVersion` with
       GitHub API → `ls-remote` fallback, 60s TTL cache, `applyUpdate` stash+reset+npm,
       `scheduleRestart` detached spawn) — Done when: module loads, smoke checks in manual run.
 - [ ] T004: Fast version unit tests for injected-runner flows (no real git/network) — Done when: tests pass.
