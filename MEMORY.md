@@ -2,6 +2,10 @@
 
 ## Last Updated: 2026-10-27
 
+## E2E smoke marker
+- [x] One-click self-update E2E: pushed marker commit → local reset behind origin →
+      POST /api/update applied the update behind a running server.
+
 ## Current Phase: EXECUTE (T002 next)
 
 ## Last Completed Task: T001 — planning artifacts written
