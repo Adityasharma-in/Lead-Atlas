@@ -446,3 +446,154 @@ describe('Lead Atlas server', () => {
     assert.equal(unknown.json.error.code, 'NOT_FOUND');
   });
 });
+
+describe('Lead Atlas self-update routes', () => {
+  const LOCAL_SHA = '1111111111111111111111111111111111111111';
+  const REMOTE_SHA = '2222222222222222222222222222222222222222';
+  let appServer;
+  let baseUrl;
+  let actions;
+
+  after(async () => {
+    if (appServer) await new Promise((resolve) => appServer.close(resolve));
+  });
+
+  const STATUS = {
+    canRestart: true,
+    enabled: true,
+    reason: null,
+    repository: { host: 'github.com', owner: 'Adityasharma-in', repo: 'Lead-Atlas' },
+    branch: 'main',
+    current: { sha: LOCAL_SHA, short: '1111111', subject: 'local', committedAt: null, dirtyFiles: 0 },
+    latest: { sha: REMOTE_SHA, short: '2222222', subject: 'remote tip', committedAt: null, via: 'github' },
+    updateAvailable: true,
+    lastCheckedAt: new Date().toISOString(),
+    checkError: null,
+  };
+
+  function makeUpdaterStub(overrides = {}) {
+    actions = { statusCalls: 0, applyCalls: 0, restartCalls: 0 };
+    const errorToThrow = overrides.applyError || null;
+    return {
+      status: async () => {
+        actions.statusCalls += 1;
+        return overrides.status || STATUS;
+      },
+      apply: async () => {
+        actions.applyCalls += 1;
+        if (errorToThrow) throw errorToThrow;
+        return overrides.applyResult || {
+          beforeSha: LOCAL_SHA,
+          afterSha: REMOTE_SHA,
+          short: '2222222',
+          branch: 'main',
+          stashCreated: false,
+          npmInstalled: false,
+          notes: [],
+        };
+      },
+      scheduleRestart: () => {
+        actions.restartCalls += 1;
+        return overrides.restart === null ? null : { pid: 4321, exitDelayMs: 1200 };
+      },
+    };
+  }
+
+  async function startApp(updater) {
+    const { createApp } = await import('../src/server.js');
+    const app = createApp({ selfUpdate: updater });
+    const server = await new Promise((resolve) => {
+      const listenServer = app.listen(0, '127.0.0.1', () => resolve(listenServer));
+    });
+    return {
+      server,
+      url: `http://127.0.0.1:${server.address().port}`,
+    };
+  }
+
+  async function call(path, { method = 'GET' } = {}) {
+    const response = await fetch(`${baseUrl}${path}`, { method });
+    const text = await response.text();
+    let json = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = null;
+    }
+    return { status: response.status, json };
+  }
+
+  it('exposes the current build and the remote tip', async () => {
+    const app = await startApp(makeUpdaterStub());
+    appServer = app.server;
+    baseUrl = app.url;
+
+    const result = await call('/api/version');
+    assert.equal(result.status, 200);
+    assert.equal(result.json.enabled, true);
+    assert.equal(result.json.updateAvailable, true);
+    assert.equal(result.json.current.sha, LOCAL_SHA);
+    assert.equal(result.json.latest.sha, REMOTE_SHA);
+    assert.equal(actions.statusCalls, 1);
+  });
+
+  it('applies a one-click update and hands over to a new process', async () => {
+    const result = await call('/api/update', { method: 'POST' });
+    assert.equal(result.status, 200);
+    assert.equal(result.json.status, 'restarting');
+    assert.equal(result.json.restarting, true);
+    assert.equal(result.json.afterSha, REMOTE_SHA);
+    assert.equal(actions.applyCalls, 1);
+    assert.equal(actions.restartCalls, 1);
+  });
+
+  it('surfaces updater errors such as being up to date', async () => {
+    const { createApp } = await import('../src/server.js');
+    const { ApiError } = await import('../src/errors.js');
+    const app = createApp({
+      selfUpdate: makeUpdaterStub({
+        applyError: new ApiError(409, 'UP_TO_DATE', 'Already at the newest commit.'),
+      }),
+    });
+    await new Promise((resolve) => appServer.close(resolve));
+    const next = await new Promise((resolve) => {
+      const listenServer = app.listen(0, '127.0.0.1', () => resolve(listenServer));
+    });
+    appServer = next;
+    baseUrl = `http://127.0.0.1:${appServer.address().port}`;
+
+    const result = await call('/api/update', { method: 'POST' });
+    assert.equal(result.status, 409);
+    assert.equal(result.json.error.code, 'UP_TO_DATE');
+    assert.match(result.json.error.message, /newest commit/i);
+  });
+
+  it('rate-limits repeated update attempts', async () => {
+    const { createApp } = await import('../src/server.js');
+    const app = createApp({ selfUpdate: makeUpdaterStub() });
+    await new Promise((resolve) => appServer.close(resolve));
+    const fresh = await new Promise((resolve) => {
+      const listenServer = app.listen(0, '127.0.0.1', () => resolve(listenServer));
+    });
+    appServer = fresh;
+    baseUrl = `http://127.0.0.1:${appServer.address().port}`;
+
+    const first = await call('/api/update', { method: 'POST' });
+    const second = await call('/api/update', { method: 'POST' });
+    const third = await call('/api/update', { method: 'POST' });
+    const fourth = await call('/api/update', { method: 'POST' });
+    assert.equal(first.status, 200);
+    assert.equal(second.status, 200);
+    assert.equal(third.status, 200);
+    assert.equal(fourth.status, 429);
+    assert.equal(fourth.json.error.code, 'UPDATE_RATE_LIMITED');
+  });
+
+  it('rejects cross-origin POSTs to the update route', async () => {
+    const response = await fetch(`${baseUrl}/api/update`, {
+      method: 'POST',
+      headers: { Origin: 'https://evil.example' },
+    });
+    assert.equal(response.status, 403);
+  });
+});

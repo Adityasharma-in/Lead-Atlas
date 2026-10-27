@@ -27,6 +27,7 @@ import {
 } from './validation.js';
 import { normalizeLeads } from './leads.js';
 import { buildJsonExport, exportFilename, leadsToCsv } from './csv.js';
+import { createSelfUpdater } from './selfupdate.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -211,20 +212,6 @@ function rateLimit({ windowMs, max, code, message }) {
   };
 }
 
-const runLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 20,
-  code: 'RUN_RATE_LIMITED',
-  message: 'That is a lot of scans in a short time. Wait a few minutes before starting another.',
-});
-
-const keyLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 40,
-  code: 'KEY_RATE_LIMITED',
-  message: 'Too many key checks. Wait a moment, then try again.',
-});
-
 function sameOriginOnly(req, res, next) {
   const origin = req.get('origin');
   if (!origin) {
@@ -250,10 +237,42 @@ function sameOriginOnly(req, res, next) {
   next();
 }
 
-export function createApp() {
+export function createApp(options = {}) {
+  const selfUpdate =
+    options.selfUpdate || createSelfUpdater({ canRestart: options.canRestart === true });
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', false);
+
+  // Rate limiters are scoped to this app instance so tests and multiple
+  // instances never share buckets.
+  const runLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 20,
+    code: 'RUN_RATE_LIMITED',
+    message: 'That is a lot of scans in a short time. Wait a few minutes before starting another.',
+  });
+
+  const keyLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 40,
+    code: 'KEY_RATE_LIMITED',
+    message: 'Too many key checks. Wait a moment, then try again.',
+  });
+
+  const versionLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    code: 'UPDATE_CHECK_RATE_LIMITED',
+    message: 'Too many update checks. Wait a minute, then try again.',
+  });
+
+  const updateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 3,
+    code: 'UPDATE_RATE_LIMITED',
+    message: 'Too many update attempts. Wait a minute, then try again.',
+  });
 
   app.use((req, res, next) => {
     for (const [header, value] of Object.entries(BROWSER_HEADERS)) {
@@ -301,6 +320,29 @@ export function createApp() {
       },
       tokenHeader: 'x-apify-token',
     });
+  });
+
+  app.get('/api/version', versionLimiter, async (req, res, next) => {
+    try {
+      res.json(await selfUpdate.status());
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/api/update', sameOriginOnly, updateLimiter, async (req, res, next) => {
+    try {
+      const result = await selfUpdate.apply();
+      const restart = selfUpdate.scheduleRestart();
+      res.json({
+        status: restart ? 'restarting' : 'updated',
+        restarting: Boolean(restart),
+        canRestart: Boolean(restart),
+        ...result,
+      });
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.post('/api/key/validate', keyLimiter, sameOriginOnly, async (req, res, next) => {
@@ -613,7 +655,12 @@ const isMain =
 if (isMain) {
   const port = Number(process.env.PORT) || 4317;
   const host = process.env.HOST || '127.0.0.1';
-  const app = createApp();
+  // When the self-updater respawns this process, the previous server may still
+  // hold the port for up to ~1.2s. A restarted child waits politely instead of
+  // exiting, then behaves like a normal server once bound.
+  const isUpdateChild = process.env.LA_UPDATE_CHILD === '1';
+  const app = createApp({ canRestart: true });
+  let bindAttempts = 0;
   const server = app.listen(port, host, () => {
     console.log(`\n  Lead Atlas is charting at http://${host}:${port}\n`);
     console.log(`  Actor: ${ACTOR.slug}`);
@@ -622,6 +669,13 @@ if (isMain) {
 
   server.on('error', (error) => {
     if (error?.code === 'EADDRINUSE') {
+      if (isUpdateChild && bindAttempts < 40) {
+        bindAttempts += 1;
+        console.info(`  [update] Waiting for the previous server to release port ${port} (attempt ${bindAttempts})…`);
+        server.close();
+        setTimeout(() => server.listen(port, host), 500);
+        return;
+      }
       console.error(`\n  Port ${port} is already in use. Start with another port, e.g. PORT=4318 npm start\n`);
       process.exitCode = 1;
       return;

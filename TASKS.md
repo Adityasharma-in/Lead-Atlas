@@ -12,7 +12,7 @@
 - [x] T004: Fast version unit tests for injected-runner flows (no real git/network) — Done when: tests pass.
 
 ## Phase 3: Server wiring
-- [ ] T005: `src/server.js` — optional `{selfUpdate}` injection into `createApp`;
+- [x] T005: `src/server.js` — optional `{selfUpdate}` injection into `createApp`;
       `GET /api/version` (light limiter), `POST /api/update` (`sameOriginOnly` + limiter,
       mutex/conflict math); main block: `LA_UPDATE_CHILD` bind-retry + restart handoff —
       Done when: `npm test` green including route tests with stub updater.
