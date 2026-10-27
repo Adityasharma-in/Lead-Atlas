@@ -9,7 +9,7 @@
 - [x] T003: Git/network layer in `src/selfupdate.js` (`localVersion`, `remoteVersion` with
       GitHub API → `ls-remote` fallback, 60s TTL cache, `applyUpdate` stash+reset+npm,
       `scheduleRestart` detached spawn) — Done when: module loads, smoke checks in manual run.
-- [ ] T004: Fast version unit tests for injected-runner flows (no real git/network) — Done when: tests pass.
+- [x] T004: Fast version unit tests for injected-runner flows (no real git/network) — Done when: tests pass.
 
 ## Phase 3: Server wiring
 - [ ] T005: `src/server.js` — optional `{selfUpdate}` injection into `createApp`;
