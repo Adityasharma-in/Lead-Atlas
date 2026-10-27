@@ -52,6 +52,29 @@ dataset, or a generic spreadsheet with headers — and it opens in the normal re
 filters, search, sorting, the lead drawer, outreach tracking, map links, and CSV/JSON
 downloads.
 
+## One-click updates from GitHub
+
+Lead Atlas is served from the same git clone it runs in, so the app can update itself the
+same way you would: pull the newest commit and restart, in one click.
+
+- On page load — and every 5 minutes after that — the app asks the local server to compare
+  its build with the tip of your repository's branch on GitHub.
+- When a newer commit exists, a **Update available** chip appears in the header. The footer
+  always shows the build you are running (`Build <sha> · <branch>`).
+- Click the chip and the server **stashes any uncommitted local edits**, fetches and resets
+  to the remote tip, runs `npm install` only if `package.json` or the lockfile changed, and
+  respawns itself onto the new build. The page waits for the new server, reloads, and
+  confirms with a toast.
+- Nothing is lost by default: pre-update edits go to a git stash, recoverable with
+  `git stash list`. Brave-new-code days only: check `git status` before forcing anything.
+
+The check goes through the GitHub REST API (fallback: plain `git ls-remote`) and is cached
+for 60 seconds, so polling stays cheap. The browser never talks to GitHub directly.
+
+Disable the feature with `SELF_UPDATE=off` — the chip disappears and `/api/update` answers
+with a clear "turned off" message. Requirements: the folder must be a git clone of a
+GitHub repository with `origin` set, and `git` must be on your PATH.
+
 ## Importing an existing lead file
 
 1. Open the **Data desk** (no Apify key or scan required).
@@ -227,6 +250,9 @@ the separate employee-level **business leads enrichment** add-on is intentionall
 - API responses use `Cache-Control: no-store`; security headers include a strict CSP,
   `X-Frame-Options: DENY`, and `nosniff`.
 - Cross-origin POSTs are blocked, and run/key endpoints are rate-limited per IP.
+- The update endpoints follow the same rules: `/api/update` accepts same-origin POSTs only
+  and is limited to 3 attempts per minute; `/api/version` is limited to 60 per minute. The
+  updater talks to GitHub from the server, never from the browser.
 - Scraped text is escaped before rendering and prefixed when it could be interpreted as a
   spreadsheet formula in CSV exports.
 - Imported lead files are read with the browser `File` API and parsed in memory. Their
@@ -244,10 +270,15 @@ the separate employee-level **business leads enrichment** add-on is intentionall
 | `PORT` | `4317` | Local HTTP port |
 | `HOST` | `127.0.0.1` | Bind address |
 | `APIFY_API_BASE` | `https://api.apify.com/v2` | Apify API base URL (used by tests) |
+| `SELF_UPDATE` | on | Set to `off` (or `0`/`false`) to disable the one-click updater |
+| `GITHUB_TOKEN` | — | Optional token sent to the GitHub API for private repos and higher rate limits |
 
 ```bash
 PORT=4318 npm start
 ```
+
+A `GITHUB_TOKEN` is not needed for public repositories. If you set one, it is only used in
+the server's update check against `api.github.com` and is never sent anywhere else.
 
 ## Tests
 
@@ -264,6 +295,8 @@ network access required. It covers:
 - CSV escaping, formula injection protection, JSON export, and filenames
 - Browser-side CSV/TSV/JSON/JSONL import parsing, aliases, deduplication, extras,
   outreach fields, and export round-trips
+- Self-update helpers (repository URLs, commit/ls-remote parsing, dependency detection),
+  update/apply flows with injected git and fetch runners, and the version/update routes
 - Server routes, token handling, origin checks, live status, abort, and exports
 
 ## Project structure
@@ -279,6 +312,7 @@ lead-atlas/
 │   └── favicon.svg
 ├── src/
 │   ├── server.js         Express app and API routes
+│   ├── selfupdate.js     One-click git-based self-update (checks, apply, restart)
 │   ├── apify.js          Apify HTTP client and error mapping
 │   ├── validation.js     Brief validation, Actor input, cost estimate
 │   ├── leads.js          Dataset normalization and summaries
@@ -291,6 +325,7 @@ lead-atlas/
     ├── csv.test.js
     ├── import-core.test.js
     ├── outreach-core.test.js
+    ├── selfupdate.test.js
     └── server.test.js
 ```
 
@@ -308,6 +343,11 @@ lead-atlas/
 - Outreach marks live in one browser profile. They do not sync between devices. Export
   the report to move the call list elsewhere, and re-import it to restore the marks.
 - Clearing site data resets the outreach ledger. Export before clearing browser storage.
+- The one-click updater syncs the working copy to the remote branch tip. Local uncommitted
+  changes are swept into a git stash first; they are kept, but not merged back. If you
+  develop in the same clone you serve, commit or stash your work as you would normally.
+- Updates are only offered when a scan is not running, and the update check needs `git` on
+  the PATH plus GitHub reachability. When either fails, the UI simply stays quiet.
 
 ## Troubleshooting
 
@@ -322,6 +362,10 @@ lead-atlas/
 | Imported report has no niche or location | That metadata was not in the file. The report still works; its heading falls back to the file name. |
 | The scan says “lost contact” | Check Apify Console; the run may still be running there |
 | Outreach marks disappeared | They are stored per browser profile. Export and re-import a CSV/JSON file to restore them, or check that site data was not cleared. |
+| The update chip never appears | The folder may not be a git clone, `origin` may not point at GitHub, the working copy is detached, or `SELF_UPDATE=off` is set. Check `git remote -v` and `git status`. |
+| An update leaves old code running | Restart the terminal command once (`Ctrl+C`, `npm start`). `/api/update` always reports whether it respawned the server. |
+| “Local changes could not be stashed” | The updater stops before touching anything. Inspect `git status`, commit or discard your edits, then click update again. |
+| Recover pre-update edits | `git stash list` shows the snapshot (e.g. *Lead Atlas pre-update snapshot …*); `git stash pop` or `git stash apply` brings the edits back. |
 
 ## Disclaimer
 

@@ -25,7 +25,7 @@
       auto-reload → post-reload toast via `sessionStorage` flag.
 
 ## Phase 5: Docs, verify, ship
-- [ ] T008: README — feature section, env vars, recovery from a stash, troubleshooting,
+- [x] T008: README — feature section, env vars, recovery from a stash, troubleshooting,
       structure/Limitations updates.
 - [ ] T009: Full `npm test`; manual smoke: start server, confirm `/api/version` and footer
       build label; E2E: push a commit, see chip, fire `POST /api/update`, watch restart + new sha.
