@@ -1,0 +1,1573 @@
+<!doctype html>
+<html lang="en" class="js">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4eee0" />
+    <title>Lead Atlas — Google Maps field scanner</title>
+    <meta
+      name="description"
+      content="Turn a location and a niche into a verified Google Maps lead report with phone numbers, emails, websites, social profiles, and browser-local outreach tracking. Export CSV or JSON. Powered by Apify."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#scanner">Skip to the scanner</a>
+
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="i-compass" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1 5.1-2.1Z" fill="currentColor" />
+        <circle cx="12" cy="12" r="1.1" fill="var(--paper, #f4eee0)" />
+      </symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24">
+        <path d="M5 19 19 5M8 5h11v11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24">
+        <path d="M4 12h15m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24">
+        <path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11Z" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <circle cx="12" cy="10" r="2.4" fill="currentColor" />
+      </symbol>
+      <symbol id="i-star" viewBox="0 0 24 24">
+        <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6-5.4-2.9-5.4 2.9 1-6-4.4-4.3 6.1-.9L12 3Z" fill="currentColor" />
+      </symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24">
+        <path d="M6.7 3.5 9 3.2l1.8 4-2 1.5a13.4 13.4 0 0 0 6.5 6.5l1.5-2 4 1.8-.3 2.3c-.2 1.5-1.5 2.6-3 2.5C10.8 19.1 4.9 13.2 4.2 6.5c-.1-1.5 1-2.8 2.5-3Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24">
+        <rect x="3" y="5" width="18" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="m4 7 8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="M3 12h18M12 3c2.6 2.5 4 5.5 4 9s-1.4 6.5-4 9c-2.6-2.5-4-5.5-4-9s1.4-6.5 4-9Z" fill="none" stroke="currentColor" stroke-width="1.2" />
+      </symbol>
+      <symbol id="i-map" viewBox="0 0 24 24">
+        <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+        <path d="M9 3v15m6-12v15" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".65" />
+      </symbol>
+      <symbol id="i-download" viewBox="0 0 24 24">
+        <path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 18v2h16v-2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24">
+        <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-search" viewBox="0 0 24 24">
+        <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="m15.5 15.5 5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="m4 12.5 5 5L20 6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-circle" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+      </symbol>
+      <symbol id="i-ban" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="m6.4 6.4 11.2 11.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-x" viewBox="0 0 24 24">
+        <path d="m5 5 14 14M19 5 5 19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-key" viewBox="0 0 24 24">
+        <circle cx="8" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="M12.5 12H21m-3 0v3m-3-3v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-external" viewBox="0 0 24 24">
+        <path d="M13 5h6v6M19 5l-8 8M19 14v5H5V5h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24">
+        <rect x="8" y="8" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="M16 8V4H4v12h4" fill="none" stroke="currentColor" stroke-width="1.4" />
+      </symbol>
+      <symbol id="i-table" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="M3 9h18M9 9v11" fill="none" stroke="currentColor" stroke-width="1.3" />
+      </symbol>
+      <symbol id="i-code" viewBox="0 0 24 24">
+        <path d="m8 7-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24">
+        <path d="m8 10 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24">
+        <path d="M12 2v20M2 12h20M5 5l14 14M19 5 5 19" fill="none" stroke="currentColor" stroke-width="1.1" />
+      </symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24">
+        <rect x="4" y="10" width="16" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.5" />
+      </symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24">
+        <path d="M12 3 2.5 20h19L12 3Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+        <path d="M12 9v5m0 2.5v.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+      </symbol>
+    </svg>
+
+    <div class="grain" aria-hidden="true"></div>
+
+    <header class="site-header" id="siteHeader">
+      <div class="shell header-inner">
+        <a
+          class="brand"
+          href="#top"
+          aria-label="Lead Atlas — Google Maps field scanner, home"
+          data-home-link
+        >
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 40 40" role="presentation">
+              <circle cx="20" cy="20" r="17.5" fill="none" stroke="currentColor" stroke-width="1.3" />
+              <circle cx="20" cy="20" r="12" fill="none" stroke="currentColor" stroke-width=".7" stroke-dasharray="1 3" />
+              <path d="m25.7 14.3-3.4 8-8 3.4 3.4-8 8-3.4Z" fill="currentColor" />
+              <circle cx="20" cy="20" r="1.6" fill="var(--paper)" />
+            </svg>
+          </span>
+          <span class="brand-text">
+            <strong>Lead Atlas</strong>
+            <span>Google Maps field scanner</span>
+          </span>
+        </a>
+
+        <nav class="header-nav" aria-label="Primary">
+          <a href="#scanner">The brief</a>
+          <button type="button" class="link-button" id="navDataBtn" data-open-data>
+            Data desk
+          </button>
+          <a href="#field-notes">Field notes</a>
+        </nav>
+
+        <div class="header-actions">
+          <button
+            type="button"
+            class="key-chip"
+            id="keyChip"
+            aria-haspopup="dialog"
+            aria-controls="keyDialog"
+          >
+            <span class="key-dot" id="keyDot" aria-hidden="true"></span>
+            <span id="keyChipText">Connect Apify key</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ============================== SETUP ============================== -->
+      <div class="view" id="viewSetup" data-view="setup">
+        <section class="hero shell" id="top">
+          <div class="hero-copy">
+            <p class="eyebrow reveal">
+              <span class="eyebrow-rule" aria-hidden="true"></span>
+              Field tool no. 04 · Local market recon
+            </p>
+            <h1 class="reveal">
+              Put your next<br />
+              <em>100 leads</em> on<br />
+              the map.
+            </h1>
+            <p class="lede reveal">
+              Enter a place. Name a trade. Lead Atlas reads Google Maps through Apify and returns
+              a clean, callable field report — phone numbers, emails, websites, social profiles,
+              and a map link you can verify yourself.
+            </p>
+            <div class="hero-actions reveal">
+              <a class="btn btn-primary" href="#scanner">
+                Draft a field brief
+                <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+              </a>
+              <button type="button" class="btn btn-outline" data-open-data>
+                <svg class="icon" aria-hidden="true"><use href="#i-table"></use></svg>
+                Open data desk
+              </button>
+            </div>
+            <dl class="hero-meta reveal">
+              <div>
+                <dt>Source</dt>
+                <dd>Apify <span>· official Maps actor</span></dd>
+              </div>
+              <div>
+                <dt>Output</dt>
+                <dd>CSV + JSON <span>· 29 fields</span></dd>
+              </div>
+              <div>
+                <dt>Your key</dt>
+                <dd>Local only <span>· never stored server-side</span></dd>
+              </div>
+            </dl>
+          </div>
+
+          <figure class="map-folio reveal">
+            <div class="map-frame">
+              <span class="map-corner map-corner-a" aria-hidden="true"></span>
+              <span class="map-corner map-corner-b" aria-hidden="true"></span>
+              <div class="map-topline">
+                <span>30.2672° N</span>
+                <span>97.7431° W</span>
+                <span>Sheet 04 / ATX</span>
+              </div>
+              <svg
+                class="map-svg"
+                viewBox="0 0 560 620"
+                role="img"
+                aria-label="Stylized field map of East Austin with coffee shop pins"
+              >
+                <defs>
+                  <pattern id="mapGrid" width="36" height="36" patternUnits="userSpaceOnUse">
+                    <path d="M36 0H0v36" fill="none" stroke="#c4b8a1" stroke-width=".55" />
+                  </pattern>
+                  <pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                    <line x1="0" y1="0" x2="0" y2="7" stroke="#b9ad96" stroke-width=".7" opacity=".55" />
+                  </pattern>
+                </defs>
+                <rect width="560" height="620" fill="#e9e0cc" />
+                <rect width="560" height="620" fill="url(#mapGrid)" opacity=".62" />
+
+                <g fill="none" stroke="#bdb29c" stroke-width="1.05" opacity=".9">
+                  <path d="M-30 96C50 60 100 136 174 118S296 50 374 74s124 0 218 34" />
+                  <path d="M-32 150C42 116 96 188 164 176s122-64 206-38 132 10 224 38" />
+                  <path d="M-40 496c86-34 146 24 216 2s124-72 200-54 116 32 200 2" />
+                  <path d="M-42 550c86-34 146 24 216 2s124-72 200-54 116 32 200 2" />
+                  <path d="M-20 42C72 22 108 82 178 64S320 4 398 26s120 8 194 50" />
+                </g>
+
+                <path
+                  d="M398-30c-58 108-14 188-42 274s-68 144-28 242 42 96 26 154"
+                  fill="none"
+                  stroke="#b5c6b6"
+                  stroke-width="42"
+                  opacity=".82"
+                />
+                <path
+                  d="M398-30c-58 108-14 188-42 274s-68 144-28 242 42 96 26 154"
+                  fill="none"
+                  stroke="#eef0e2"
+                  stroke-width="1.2"
+                  stroke-dasharray="3 7"
+                  opacity=".9"
+                />
+
+                <g fill="#d9ceb8" opacity=".8">
+                  <rect x="52" y="206" width="76" height="48" transform="rotate(-4 52 206)" />
+                  <rect x="144" y="194" width="48" height="34" transform="rotate(2 144 194)" />
+                  <rect x="228" y="248" width="60" height="52" transform="rotate(-2 228 248)" />
+                  <rect x="66" y="282" width="52" height="42" transform="rotate(3 66 282)" />
+                  <rect x="132" y="300" width="80" height="38" transform="rotate(-1 132 300)" />
+                  <rect x="254" y="342" width="52" height="60" transform="rotate(2 254 342)" />
+                  <rect x="326" y="404" width="64" height="44" transform="rotate(-3 326 404)" />
+                  <rect x="78" y="404" width="70" height="46" transform="rotate(1 78 404)" />
+                  <rect x="162" y="430" width="52" height="44" transform="rotate(-2 162 430)" />
+                  <rect x="286" y="490" width="74" height="40" transform="rotate(2 286 490)" />
+                  <rect x="78" y="506" width="52" height="42" transform="rotate(-2 78 506)" />
+                  <rect x="438" y="188" width="46" height="40" transform="rotate(3 438 188)" />
+                  <rect x="422" y="272" width="62" height="50" transform="rotate(-2 422 272)" />
+                </g>
+
+                <g fill="none" stroke="#f7f0e1" stroke-width="13" opacity=".95">
+                  <path d="M-20 238c104 8 156-14 246-8s132 22 234 4 68-8 130 4" />
+                  <path d="M96-20c-4 106 18 204 8 310s-34 164-18 350" />
+                  <path d="M322-20c-8 110 18 190 4 300s-28 170-10 360" />
+                  <path d="M-20 452c96 8 180-10 260 0s166 16 340-2" />
+                </g>
+                <g fill="none" stroke="#a99d87" stroke-width=".8">
+                  <path d="M-20 238c104 8 156-14 246-8s132 22 234 4 68-8 130 4" stroke-dasharray="4 8" />
+                  <path d="M96-20c-4 106 18 204 8 310s-34 164-18 350" />
+                  <path d="M322-20c-8 110 18 190 4 300s-28 170-10 360" stroke-dasharray="2 6" />
+                  <path d="M-20 452c96 8 180-10 260 0s166 16 340-2" />
+                </g>
+
+                <path
+                  d="M60 560c54-72 86-102 156-128s104-72 190-70"
+                  fill="none"
+                  stroke="#c95521"
+                  stroke-width="2"
+                  stroke-dasharray="6 8"
+                />
+                <circle cx="60" cy="560" r="4.5" fill="#c95521" />
+                <circle cx="406" cy="362" r="4.5" fill="#c95521" />
+
+                <g transform="translate(92 138)" fill="#c95521">
+                  <path d="M0-15c-6.6 0-12 5.4-12 12 0 8.4 12 20 12 20S12 5.4 12-3c0-6.6-5.4-12-12-12Z" />
+                  <circle cy="-3" r="4" fill="#f3ecdc" />
+                </g>
+                <g transform="translate(394 206)" fill="#1e3a2c">
+                  <path d="M0-15c-6.6 0-12 5.4-12 12 0 8.4 12 20 12 20S12 5.4 12-3c0-6.6-5.4-12-12-12Z" />
+                  <circle cy="-3" r="4" fill="#f3ecdc" />
+                </g>
+                <g transform="translate(218 438)" fill="#1e3a2c">
+                  <path d="M0-15c-6.6 0-12 5.4-12 12 0 8.4 12 20 12 20S12 5.4 12-3c0-6.6-5.4-12-12-12Z" />
+                  <circle cy="-3" r="4" fill="#f3ecdc" />
+                </g>
+
+                <g transform="translate(468 512)" opacity=".85">
+                  <circle r="34" fill="none" stroke="#1e3a2c" stroke-width=".9" />
+                  <circle r="25" fill="none" stroke="#1e3a2c" stroke-width=".6" stroke-dasharray="2 4" />
+                  <path d="M0-31 6-5 0 4-6-5Z" fill="#c95521" />
+                  <path d="M0 31 6 5 0-4-6 5Z" fill="#1e3a2c" />
+                  <text x="0" y="-40" text-anchor="middle" fill="#1e3a2c" font-family="DM Mono, monospace" font-size="9">N</text>
+                </g>
+
+                <g font-family="DM Mono, monospace" fill="#7e7462" font-size="7" letter-spacing="1">
+                  <text x="24" y="608">CONTOUR 10M / SURVEY 04</text>
+                  <text x="428" y="608">SCALE 1:4,800</text>
+                </g>
+              </svg>
+
+              <div class="map-label map-label-a">
+                <span class="map-label-index">01</span>
+                <span class="map-label-text">
+                  <strong>Cedar &amp; Steam</strong>
+                  <small>4.8 ★ · no website</small>
+                </span>
+              </div>
+              <div class="map-label map-label-b">
+                <span class="map-label-index">02</span>
+                <span class="map-label-text">
+                  <strong>Mesa Roasters</strong>
+                  <small>4.6 ★ · site found</small>
+                </span>
+              </div>
+              <div class="map-label map-label-c">
+                <span class="map-label-index">03</span>
+                <span class="map-label-text">
+                  <strong>The Daily Grind</strong>
+                  <small>4.4 ★ · email found</small>
+                </span>
+              </div>
+              <div class="map-stamp" aria-hidden="true">
+                <span>FIELD</span>
+                <strong>MAP</strong>
+                <span>ATX / 04</span>
+              </div>
+              <div class="map-scale" aria-hidden="true">
+                <span class="map-scale-line"></span>
+                <span>500 m</span>
+              </div>
+            </div>
+            <figcaption class="map-caption">
+              <span>Plate 01</span>
+              <span>East Austin coffee survey</span>
+              <span>16 leads plotted</span>
+            </figcaption>
+          </figure>
+        </section>
+
+        <section class="scanner shell" id="scanner">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow"><span class="eyebrow-rule" aria-hidden="true"></span>01 / The brief</p>
+              <h2>Tell us where<br /><em>to look.</em></h2>
+            </div>
+            <p class="section-note">
+              Six decisions stand between you and a cleaner call sheet. Your browser keeps the
+              brief — and your API key.
+            </p>
+          </div>
+
+          <div class="scanner-grid">
+            <div class="brief-card">
+              <div class="brief-card-top">
+                <div>
+                  <p class="mono-label">Field brief / LA-04</p>
+                  <h3>Scan settings</h3>
+                </div>
+                <span class="brief-stamp" id="briefStamp">Draft</span>
+              </div>
+
+              <form id="scanForm" novalidate>
+                <div class="form-grid">
+                  <div class="field field-full">
+                    <label for="niche">
+                      <span class="field-index">A</span>
+                      Business type or niche
+                    </label>
+                    <input
+                      id="niche"
+                      name="niche"
+                      type="text"
+                      placeholder="e.g. specialty coffee shops"
+                      maxlength="120"
+                      autocomplete="off"
+                      spellcheck="false"
+                      required
+                      aria-describedby="nicheHint nicheError"
+                    />
+                    <p class="hint" id="nicheHint">A trade, category, or a specific business name to find.</p>
+                    <p class="field-error" id="nicheError" hidden></p>
+                  </div>
+
+                  <div class="field field-full">
+                    <label for="location">
+                      <span class="field-index">B</span>
+                      Location
+                    </label>
+                    <div class="input-with-icon">
+                      <svg class="icon" aria-hidden="true"><use href="#i-pin"></use></svg>
+                      <input
+                        id="location"
+                        name="location"
+                        type="text"
+                        placeholder="e.g. Austin, TX — or a postcode"
+                        maxlength="160"
+                        autocomplete="off"
+                        spellcheck="false"
+                        required
+                        aria-describedby="locationHint locationError"
+                      />
+                    </div>
+                    <p class="hint" id="locationHint">City, region, country, or a full street address.</p>
+                    <p class="field-error" id="locationError" hidden></p>
+                  </div>
+
+                  <fieldset class="field field-full">
+                    <legend><span class="field-index">C</span> Website requirement</legend>
+                    <div class="radio-cards">
+                      <label class="radio-card">
+                        <input type="radio" name="websiteFilter" value="allPlaces" checked />
+                        <span class="radio-card-body">
+                          <span class="radio-card-icon" aria-hidden="true">
+                            <svg class="icon"><use href="#i-globe"></use></svg>
+                          </span>
+                          <strong>Any business</strong>
+                          <small>With or without a site</small>
+                        </span>
+                      </label>
+                      <label class="radio-card">
+                        <input type="radio" name="websiteFilter" value="withWebsite" />
+                        <span class="radio-card-body">
+                          <span class="radio-card-icon" aria-hidden="true">
+                            <svg class="icon"><use href="#i-check"></use></svg>
+                          </span>
+                          <strong>Has a website</strong>
+                          <small>Established presence</small>
+                        </span>
+                      </label>
+                      <label class="radio-card">
+                        <input type="radio" name="websiteFilter" value="withoutWebsite" />
+                        <span class="radio-card-body">
+                          <span class="radio-card-icon" aria-hidden="true">
+                            <svg class="icon"><use href="#i-x"></use></svg>
+                          </span>
+                          <strong>No website</strong>
+                          <small>Potential web work</small>
+                        </span>
+                      </label>
+                    </div>
+                    <p class="hint" id="websiteHint">
+                      “No website” scans run without contact enrichment.
+                    </p>
+                  </fieldset>
+
+                  <div class="field field-full toggle-field">
+                    <div class="toggle-copy">
+                      <label for="includeContacts">
+                        <span class="field-index">D</span>
+                        Find emails &amp; social profiles
+                      </label>
+                      <p class="hint">
+                        Apify contact enrichment adds roughly $0.002 per place.
+                        <span id="contactsSuppressed" class="inline-note" hidden>
+                          Off for “no website” scans.
+                        </span>
+                      </p>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" id="includeContacts" name="includeContacts" checked />
+                      <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                      <span class="sr-only">Enable contact enrichment</span>
+                    </label>
+                  </div>
+
+                  <div class="field field-full range-field">
+                    <div class="range-head">
+                      <label for="maxResults">
+                        <span class="field-index">E</span>
+                        How many places?
+                      </label>
+                      <output class="range-output" id="resultsOutput" for="maxResults">40</output>
+                    </div>
+                    <input
+                      id="maxResults"
+                      name="maxResults"
+                      type="range"
+                      min="5"
+                      max="500"
+                      step="5"
+                      value="40"
+                      aria-describedby="resultsHint"
+                    />
+                    <div class="range-scale" aria-hidden="true">
+                      <span>5</span>
+                      <span>150</span>
+                      <span>300</span>
+                      <span>500</span>
+                    </div>
+                    <p class="hint" id="resultsHint">Apify may return fewer if the area has fewer matches.</p>
+                  </div>
+
+                  <div class="field">
+                    <label for="minStars">
+                      <span class="field-index">F</span>
+                      Minimum rating
+                    </label>
+                    <div class="select-wrap">
+                      <select id="minStars" name="minStars">
+                        <option value="">Any rating</option>
+                      </select>
+                      <svg class="icon select-chevron" aria-hidden="true"><use href="#i-chevron"></use></svg>
+                    </div>
+                  </div>
+
+                  <div class="field toggle-field field-inline-toggle">
+                    <div class="toggle-copy">
+                      <label for="skipClosed">
+                        <span class="field-index">G</span>
+                        Skip closed places
+                      </label>
+                      <p class="hint">Leave out permanently and temporarily closed listings.</p>
+                    </div>
+                    <label class="switch">
+                      <input type="checkbox" id="skipClosed" name="skipClosed" checked />
+                      <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                      <span class="sr-only">Skip closed places</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="form-alert" id="formAlert" role="alert" hidden></div>
+
+                <div class="brief-footer">
+                  <div class="brief-connection">
+                    <span class="key-dot" id="formKeyDot" aria-hidden="true"></span>
+                    <span id="formKeyText">Apify key not connected</span>
+                    <button type="button" class="inline-button" data-open-key>Add key</button>
+                  </div>
+                  <div class="brief-submit">
+                    <div class="brief-cost-inline">
+                      <span>Estimate</span>
+                      <strong id="estimateInline">$0.37</strong>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-run" id="runBtn">
+                      <span class="btn-run-label">Run the scan</span>
+                      <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                    </button>
+                  </div>
+                </div>
+                <p class="form-footnote">
+                  Your key is sent to this local server and then to Apify — nowhere else. Apify
+                  bills your account directly.
+                </p>
+              </form>
+            </div>
+
+            <aside class="scanner-aside">
+              <div class="estimate-card">
+                <div class="estimate-topline">
+                  <span>Estimated spend</span>
+                  <span class="live-pill"><span aria-hidden="true"></span>Live</span>
+                </div>
+                <div class="estimate-number">
+                  <span class="currency">$</span>
+                  <strong id="estimateMain">0.37</strong>
+                  <span class="currency-code">USD</span>
+                </div>
+                <p class="estimate-basis" id="estimateBasis">
+                  40 places × $0.009 + $0.007 run fee
+                </p>
+                <dl class="estimate-rows">
+                  <div>
+                    <dt>Places requested</dt>
+                    <dd id="estimatePlaces">40</dd>
+                  </div>
+                  <div>
+                    <dt>Per-place rate</dt>
+                    <dd id="estimatePerPlace">$0.009</dd>
+                  </div>
+                  <div>
+                    <dt>Run start fee</dt>
+                    <dd id="estimateStart">$0.007</dd>
+                  </div>
+                  <div>
+                    <dt>Apify safety cap</dt>
+                    <dd id="estimateCap">$0.56</dd>
+                  </div>
+                </dl>
+                <p class="estimate-note">
+                  Estimates use Apify’s public FREE-tier rates. Paid plans are cheaper, and Apify
+                  enforces the safety cap server-side.
+                </p>
+                <a
+                  class="estimate-link"
+                  href="https://apify.com/compass/crawler-google-places/pricing"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  View actor pricing
+                  <svg class="icon" aria-hidden="true"><use href="#i-external"></use></svg>
+                </a>
+              </div>
+
+              <div class="output-card">
+                <p class="mono-label">Packed in every report</p>
+                <ul class="output-list">
+                  <li>
+                    <svg class="icon" aria-hidden="true"><use href="#i-map"></use></svg>
+                    <span>Google Maps verification link</span>
+                  </li>
+                  <li>
+                    <svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg>
+                    <span>Phones, emails &amp; social profiles</span>
+                  </li>
+                  <li>
+                    <svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg>
+                    <span>Website status &amp; domain</span>
+                  </li>
+                  <li>
+                    <svg class="icon" aria-hidden="true"><use href="#i-star"></use></svg>
+                    <span>Ratings, reviews &amp; categories</span>
+                  </li>
+                  <li>
+                    <svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>
+                    <span>Outreach marks &amp; private notes</span>
+                  </li>
+                  <li>
+                    <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
+                    <span>Clean CSV &amp; structured JSON</span>
+                  </li>
+                </ul>
+                <div class="output-stamp-row">
+                  <span>29 fields</span>
+                  <span>UTF-8</span>
+                  <span>Map links</span>
+                </div>
+              </div>
+
+              <div class="data-card">
+                <p class="mono-label">Data desk / bring your own file</p>
+                <h3>Already have a lead list? Drop it in and read it like a report.</h3>
+                <div class="mini-table" aria-hidden="true">
+                  <div class="mini-row mini-head">
+                    <span>Format</span><span>Accepted</span><span></span>
+                  </div>
+                  <div class="mini-row">
+                    <span>CSV</span><span>Atlas or generic</span><span class="mini-map">↗</span>
+                  </div>
+                  <div class="mini-row">
+                    <span>JSON</span><span>Arrays &amp; JSONL</span><span class="mini-map">↗</span>
+                  </div>
+                  <div class="mini-row">
+                    <span>Privacy</span><span>Read in browser</span><span class="mini-map">↗</span>
+                  </div>
+                </div>
+                <button type="button" class="data-card-action" id="dataCardBtn">
+                  Import a lead file
+                  <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                </button>
+                <p class="data-card-foot">No scan or API key needed · files never leave your device</p>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="field-notes" id="field-notes">
+          <div class="shell field-notes-inner">
+            <div class="field-notes-copy reveal">
+              <p class="eyebrow light"><span class="eyebrow-rule" aria-hidden="true"></span>02 / Field notes</p>
+              <h2>The list is not<br />the <em>lead.</em></h2>
+              <p>
+                A lead you can verify is worth ten you can’t. Every row in Lead Atlas points back
+                to the actual Google Maps listing, so your first click can be a real conversation.
+              </p>
+              <a
+                class="text-link light"
+                href="https://apify.com/compass/crawler-google-places"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                About the Apify actor
+                <svg class="icon" aria-hidden="true"><use href="#i-arrow"></use></svg>
+              </a>
+            </div>
+            <div class="notes-grid">
+              <article class="note-card reveal">
+                <span class="note-number">01</span>
+                <div class="note-icon" aria-hidden="true">
+                  <svg class="icon"><use href="#i-map"></use></svg>
+                </div>
+                <h3>Verify every pin</h3>
+                <p>
+                  Each lead carries its Google Maps URL and place ID. Open the shop, check the
+                  details, and make the call with context.
+                </p>
+              </article>
+              <article class="note-card reveal">
+                <span class="note-number">02</span>
+                <div class="note-icon" aria-hidden="true">
+                  <svg class="icon"><use href="#i-lock"></use></svg>
+                </div>
+                <h3>The key stays yours</h3>
+                <p>
+                  Your Apify token lives in this browser’s local storage. It travels through the
+                  local server to Apify and is never written to a database.
+                </p>
+              </article>
+              <article class="note-card reveal">
+                <span class="note-number">03</span>
+                <div class="note-icon" aria-hidden="true">
+                  <svg class="icon"><use href="#i-download"></use></svg>
+                </div>
+                <h3>Choose the shape</h3>
+                <p>
+                  CSV for the spreadsheet, JSON for the pipeline. Both include contacts, website
+                  status, coordinates, and the Apify run ID.
+                </p>
+              </article>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ============================== PROGRESS ============================== -->
+      <div class="view view-progress" id="viewProgress" data-view="progress" hidden>
+        <div class="shell progress-shell">
+          <div class="progress-head">
+            <p class="eyebrow light">
+              <span class="eyebrow-rule" aria-hidden="true"></span>
+              Scan in progress / <span id="progressRunId">—</span>
+            </p>
+            <h1 id="progressTitle">Charting the<br /><em>territory.</em></h1>
+            <p class="progress-sub" id="progressSub">
+              Apify is reading Google Maps. Keep this tab open — progress checks happen right
+              here in your browser.
+            </p>
+          </div>
+
+          <div class="progress-grid">
+            <div class="progress-map" aria-hidden="true">
+              <div class="radar-sweep"></div>
+              <div class="progress-map-grid"></div>
+              <span class="plot-pin pin-1"></span>
+              <span class="plot-pin pin-2"></span>
+              <span class="plot-pin pin-3"></span>
+              <span class="plot-pin pin-4"></span>
+              <span class="plot-pin pin-5"></span>
+              <span class="plot-pin pin-6"></span>
+              <span class="plot-route"></span>
+              <div class="plot-compass">
+                <span>N</span>
+                <svg viewBox="0 0 40 40" aria-hidden="true">
+                  <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-width=".8" />
+                  <path d="M20 3 24 20 20 37 16 20Z" fill="currentColor" opacity=".8" />
+                </svg>
+              </div>
+              <div class="progress-count">
+                <span id="progressCount">0</span>
+                <small>places found</small>
+              </div>
+              <div class="plot-readout">
+                <span>Live plot</span>
+                <span id="progressStamp">Locating…</span>
+              </div>
+            </div>
+
+            <div class="progress-console">
+              <dl class="run-facts">
+                <div>
+                  <dt>Status</dt>
+                  <dd id="runStatus">Queued</dd>
+                </div>
+                <div>
+                  <dt>Elapsed</dt>
+                  <dd id="runElapsed">00:00</dd>
+                </div>
+                <div>
+                  <dt>Requested</dt>
+                  <dd id="runTarget">40 places</dd>
+                </div>
+                <div>
+                  <dt>Safety cap</dt>
+                  <dd id="runCap">$0.56</dd>
+                </div>
+              </dl>
+
+              <div class="progress-meter">
+                <div class="progress-meter-labels">
+                  <span id="progressPhase">Sending the brief</span>
+                  <span id="progressPercent">0%</span>
+                </div>
+                <div
+                  class="progress-track"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow="0"
+                  id="progressTrack"
+                >
+                  <div class="progress-fill" id="progressFill"></div>
+                </div>
+              </div>
+
+              <ol class="run-steps" id="runSteps">
+                <li data-step="queued">
+                  <span class="step-dot" aria-hidden="true"></span>
+                  <span>Request accepted by Apify</span>
+                </li>
+                <li data-step="scrape">
+                  <span class="step-dot" aria-hidden="true"></span>
+                  <span>Reading Google Maps listings</span>
+                </li>
+                <li data-step="collect">
+                  <span class="step-dot" aria-hidden="true"></span>
+                  <span>Pulling the field notes</span>
+                </li>
+                <li data-step="ready">
+                  <span class="step-dot" aria-hidden="true"></span>
+                  <span>Report ready to read</span>
+                </li>
+              </ol>
+
+              <div class="progress-actions">
+                <button type="button" class="btn btn-outline-light" id="abortBtn">
+                  <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+                  Abort scan
+                </button>
+                <a
+                  class="text-link light"
+                  id="consoleLink"
+                  href="https://console.apify.com/actors/runs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Watch in Apify
+                  <svg class="icon" aria-hidden="true"><use href="#i-external"></use></svg>
+                </a>
+              </div>
+              <p class="progress-note">
+                A scan can take one to five minutes depending on size. If the tab sleeps, reopen
+                it and poll again.
+              </p>
+            </div>
+          </div>
+          <p class="sr-only" id="progressLive" aria-live="polite" aria-atomic="true"></p>
+
+          <div class="progress-error" id="progressError" role="alert" hidden>
+            <div class="progress-error-head">
+              <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
+              <div>
+                <h2 id="progressErrorTitle">The scan hit a snag.</h2>
+                <p id="progressErrorText"></p>
+              </div>
+            </div>
+            <div class="progress-error-actions">
+              <button type="button" class="btn btn-primary" id="progressRetryBtn">Back to the brief</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================== REPORT ============================== -->
+      <div class="view view-report" id="viewReport" data-view="report" hidden>
+        <section class="report-hero">
+          <div class="shell">
+            <div class="report-nav">
+              <div class="report-nav-left">
+                <button type="button" class="text-link" id="backToSetup">
+                  <svg class="icon flip" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                  New scan
+                </button>
+                <button type="button" class="text-link" data-open-data>
+                  <svg class="icon" aria-hidden="true"><use href="#i-table"></use></svg>
+                  <span id="reportNavDataLabel">Data desk</span>
+                </button>
+              </div>
+              <div class="report-nav-right">
+                <span class="report-timestamp" id="reportTimestamp">—</span>
+              </div>
+            </div>
+
+            <div class="report-heading">
+              <div>
+                <p class="eyebrow">
+                  <span class="eyebrow-rule" aria-hidden="true"></span>
+                  Field report / <span id="reportRunLabel">—</span>
+                </p>
+                <h1>
+                  <span id="reportNiche">Coffee shops</span><br />
+                  <em id="reportInWord">in</em> <span id="reportLocation">Austin, TX</span>
+                </h1>
+                <p class="report-sub" id="reportSub">
+                  Scanned from Google Maps. Every row links back to its source listing.
+                </p>
+              </div>
+              <div class="report-actions">
+                <button type="button" class="btn btn-outline export-btn" id="exportCsvBtn">
+                  <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
+                  <span>CSV</span>
+                </button>
+                <button type="button" class="btn btn-outline export-btn" id="exportJsonBtn">
+                  <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
+                  <span>JSON</span>
+                </button>
+                <button type="button" class="btn btn-outline export-btn" data-open-data>
+                  <svg class="icon" aria-hidden="true"><use href="#i-table"></use></svg>
+                  <span id="reportDataLabel">Data desk</span>
+                </button>
+              </div>
+            </div>
+
+            <dl class="stats-strip" id="statsStrip">
+              <div>
+                <dt>Leads</dt>
+                <dd><span data-stat="total">—</span><small>in this report</small></dd>
+              </div>
+              <div>
+                <dt>Reachable</dt>
+                <dd><span data-stat="reachable">—</span><small>phone or email</small></dd>
+              </div>
+              <div>
+                <dt>No website</dt>
+                <dd><span data-stat="withoutWebsite">—</span><small>web work available</small></dd>
+              </div>
+              <div>
+                <dt>Avg. rating</dt>
+                <dd><span data-stat="avgRating">—</span><small>across rated leads</small></dd>
+              </div>
+              <div>
+                <dt>Social found</dt>
+                <dd><span data-stat="withSocial">—</span><small>profiles in reach</small></dd>
+              </div>
+              <div>
+                <dt>Reviews</dt>
+                <dd><span data-stat="totalReviews">—</span><small>combined audience</small></dd>
+              </div>
+            </dl>
+
+            <section class="outreach-strip" id="outreachStrip" aria-label="Outreach ledger">
+              <div class="outreach-lede">
+                <p class="mono-label">Outreach ledger</p>
+                <p class="outreach-lede-copy">
+                  Check off who you have reached. Marks stay in this browser and travel with
+                  every export.
+                </p>
+              </div>
+
+              <div class="outreach-meter">
+                <div class="outreach-meter-head">
+                  <span class="outreach-meter-rate" id="outreachRate">0%</span>
+                  <span class="outreach-meter-label">reached out</span>
+                </div>
+                <div
+                  class="outreach-progress"
+                  id="outreachProgress"
+                  role="progressbar"
+                  aria-label="Outreach progress"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow="0"
+                >
+                  <span
+                    class="outreach-progress-fill is-contacted"
+                    id="outreachProgressContacted"
+                  ></span>
+                  <span class="outreach-progress-fill is-dnc" id="outreachProgressDnc"></span>
+                </div>
+                <p class="outreach-meter-note">
+                  <strong data-outreach-count="marked">0</strong> marked ·
+                  <span data-outreach-count="toContact">0</span> still to contact
+                </p>
+              </div>
+
+              <div
+                class="outreach-tallies"
+                role="group"
+                aria-label="Filter the report by outreach status"
+              >
+                <button
+                  type="button"
+                  class="outreach-tally"
+                  data-outreach-filter="all"
+                  aria-pressed="true"
+                >
+                  <span class="outreach-tally-dot is-all" aria-hidden="true"></span>
+                  <span class="outreach-tally-label">All leads</span>
+                  <span class="outreach-tally-count" data-outreach-count="total">0</span>
+                </button>
+                <button
+                  type="button"
+                  class="outreach-tally"
+                  data-outreach-filter="to-contact"
+                  aria-pressed="false"
+                >
+                  <span class="outreach-tally-dot is-to-contact" aria-hidden="true"></span>
+                  <span class="outreach-tally-label">To contact</span>
+                  <span class="outreach-tally-count" data-outreach-count="toContact">0</span>
+                </button>
+                <button
+                  type="button"
+                  class="outreach-tally"
+                  data-outreach-filter="contacted"
+                  aria-pressed="false"
+                >
+                  <span class="outreach-tally-dot is-contacted" aria-hidden="true"></span>
+                  <span class="outreach-tally-label">Reached out</span>
+                  <span class="outreach-tally-count" data-outreach-count="contacted">0</span>
+                </button>
+                <button
+                  type="button"
+                  class="outreach-tally"
+                  data-outreach-filter="do-not-contact"
+                  aria-pressed="false"
+                >
+                  <span class="outreach-tally-dot is-do-not-contact" aria-hidden="true"></span>
+                  <span class="outreach-tally-label">Do not contact</span>
+                  <span class="outreach-tally-count" data-outreach-count="doNotContact">0</span>
+                </button>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="report-body shell">
+          <div class="toolbar" id="reportToolbar">
+            <label class="search-field" for="leadSearch">
+              <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+              <input
+                id="leadSearch"
+                type="search"
+                placeholder="Search names, streets, emails…"
+                autocomplete="off"
+              />
+            </label>
+
+            <label class="select-field" for="filterWebsite">
+              <span>Website</span>
+              <span class="select-wrap">
+                <select id="filterWebsite">
+                  <option value="all">Any</option>
+                  <option value="with">Has website</option>
+                  <option value="without">No website</option>
+                </select>
+                <svg class="icon select-chevron" aria-hidden="true"><use href="#i-chevron"></use></svg>
+              </span>
+            </label>
+
+            <label class="select-field" for="filterContact">
+              <span>Contact</span>
+              <span class="select-wrap">
+                <select id="filterContact">
+                  <option value="all">Any</option>
+                  <option value="email">Has email</option>
+                  <option value="phone">Has phone</option>
+                  <option value="reachable">Phone or email</option>
+                  <option value="none">No contact</option>
+                </select>
+                <svg class="icon select-chevron" aria-hidden="true"><use href="#i-chevron"></use></svg>
+              </span>
+            </label>
+
+            <label class="select-field" for="filterOutreach">
+              <span>Outreach</span>
+              <span class="select-wrap">
+                <select id="filterOutreach">
+                  <option value="all">Any mark</option>
+                  <option value="to-contact">To contact</option>
+                  <option value="contacted">Reached out</option>
+                  <option value="do-not-contact">Do not contact</option>
+                </select>
+                <svg class="icon select-chevron" aria-hidden="true"><use href="#i-chevron"></use></svg>
+              </span>
+            </label>
+
+            <label class="select-field" for="filterRating">
+              <span>Rating</span>
+              <span class="select-wrap">
+                <select id="filterRating">
+                  <option value="all">Any</option>
+                  <option value="4.5">4.5+</option>
+                  <option value="4">4.0+</option>
+                  <option value="3">3.0+</option>
+                </select>
+                <svg class="icon select-chevron" aria-hidden="true"><use href="#i-chevron"></use></svg>
+              </span>
+            </label>
+
+            <label class="select-field" for="sortBy">
+              <span>Sort</span>
+              <span class="select-wrap">
+                <select id="sortBy">
+                  <option value="rating">Best rated</option>
+                  <option value="reviews">Most reviewed</option>
+                  <option value="name">Name A–Z</option>
+                  <option value="contact">Contact first</option>
+                  <option value="outreach">Outreach status</option>
+                  <option value="contacted">Last contacted</option>
+                </select>
+                <svg class="icon select-chevron" aria-hidden="true"><use href="#i-chevron"></use></svg>
+              </span>
+            </label>
+
+            <button type="button" class="reset-filters" id="clearFilters" hidden>
+              Reset
+              <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+            </button>
+
+            <p class="result-count" id="resultCount" aria-live="polite">—</p>
+          </div>
+
+          <div class="table-wrap" id="tableWrap">
+            <table class="leads-table" id="leadsTable">
+              <caption class="sr-only">Business leads with contacts, outreach marks, and Google Maps verification links</caption>
+              <thead>
+                <tr>
+                  <th scope="col" class="col-rank">No.</th>
+                  <th scope="col">Business</th>
+                  <th scope="col">Contact</th>
+                  <th scope="col" class="col-outreach">Outreach</th>
+                  <th scope="col">Web presence</th>
+                  <th scope="col">Rating</th>
+                  <th scope="col" class="col-map">Verify</th>
+                </tr>
+              </thead>
+              <tbody id="leadsBody"></tbody>
+            </table>
+
+            <div class="empty-state" id="emptyState" hidden>
+              <div class="empty-compass" aria-hidden="true">
+                <svg class="icon"><use href="#i-compass"></use></svg>
+              </div>
+              <h3 id="emptyTitle">No rows match that filter.</h3>
+              <p id="emptyText">Loosen a filter or clear the search to see the rest of the report.</p>
+              <button type="button" class="btn btn-outline" id="emptyResetBtn">Clear filters</button>
+            </div>
+          </div>
+
+          <div class="report-footer-row">
+            <p class="report-footnote" id="reportFootnote">
+              Every lead links to Google Maps. Contact details can be incomplete or outdated —
+              verify before you reach out.
+            </p>
+            <nav class="pagination" id="pagination" aria-label="Report pages"></nav>
+          </div>
+        </section>
+      </div>
+
+      <!-- ============================== DATA DESK / IMPORT ============================== -->
+      <div class="view view-data" id="viewData" data-view="data" hidden>
+        <section class="data-hero">
+          <div class="shell">
+            <div class="report-nav data-nav">
+              <div class="report-nav-left">
+                <button type="button" class="text-link" id="dataBackToReport">
+                  <svg class="icon flip" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                  Back to report
+                </button>
+                <button type="button" class="text-link" id="dataNewScan">New scan</button>
+              </div>
+              <div class="report-nav-right">
+                <span class="report-timestamp" id="dataTimestamp">Browser-local import</span>
+              </div>
+            </div>
+
+            <div class="data-heading">
+              <div>
+                <p class="eyebrow light">
+                  <span class="eyebrow-rule" aria-hidden="true"></span>
+                  Data desk / <span id="dataRunLabel">New import</span>
+                </p>
+                <h1>Bring your own<br /><em>leads.</em></h1>
+                <p class="data-sub" id="dataSub">
+                  Drop a CSV or JSON lead file. It is read here in your browser and opened in the
+                  same report view as a live scan — filters, outreach marks, drawer, stats, map
+                  links and exports included.
+                </p>
+              </div>
+              <dl class="data-stats">
+                <div>
+                  <dt>Leads</dt>
+                  <dd id="dataLeadCount">—</dd>
+                  <small>in this file</small>
+                </div>
+                <div>
+                  <dt>Fields</dt>
+                  <dd id="dataFieldCount">—</dd>
+                  <small>recognised</small>
+                </div>
+                <div>
+                  <dt>Source</dt>
+                  <dd class="data-source" id="dataSource">Device</dd>
+                  <small>never uploaded</small>
+                </div>
+              </dl>
+            </div>
+
+            <div class="data-meta">
+              <div>
+                <span>File</span>
+                <strong id="dataFileName">No file loaded</strong>
+              </div>
+              <div>
+                <span>Format</span>
+                <code id="dataFormat">CSV / JSON / JSONL</code>
+              </div>
+              <div>
+                <span>Read</span>
+                <code id="dataReadStat">Waiting for a file</code>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="data-body shell">
+          <div class="import-layout">
+            <div class="import-main">
+              <div class="import-drop" id="dataDropZone">
+                <input
+                  class="import-file-input"
+                  id="dataFileInput"
+                  type="file"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  accept=".csv,.tsv,.json,.jsonl,.ndjson,text/csv,text/tab-separated-values,application/json"
+                />
+                <span class="import-drop-icon" aria-hidden="true">
+                  <svg class="icon"><use href="#i-upload"></use></svg>
+                </span>
+                <p class="mono-label">Browser-local import</p>
+                <h2>Drop your lead file here.</h2>
+                <p class="import-drop-copy">
+                  Use a Lead Atlas export or any CSV, TSV, JSON or JSONL file with business names,
+                  phones, emails or websites. Up to 8 MB or 5,000 leads.
+                </p>
+                <div class="import-drop-actions">
+                  <button type="button" class="btn btn-primary" id="dataPickBtn">
+                    <span id="dataPickLabel">Choose a file</span>
+                    <svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg>
+                  </button>
+                  <span class="import-drop-hint">CSV · TSV · JSON · JSONL</span>
+                </div>
+              </div>
+
+              <div class="import-status" id="dataImportStatus" role="alert" hidden>
+                <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
+                <div>
+                  <h3>That file could not be imported.</h3>
+                  <p id="dataImportError"></p>
+                </div>
+              </div>
+
+              <div class="import-current" id="dataCurrent" hidden>
+                <div class="import-current-head">
+                  <div>
+                    <p class="mono-label">Loaded in this report</p>
+                    <h2 id="dataCurrentName">—</h2>
+                    <p id="dataCurrentMeta"></p>
+                  </div>
+                  <span class="import-current-badge">Ready</span>
+                </div>
+                <div class="import-current-stats" id="dataCurrentStats"></div>
+                <div class="import-section" id="dataMappedWrap">
+                  <h3>Recognised fields</h3>
+                  <div class="import-chips" id="dataMappedFields"></div>
+                </div>
+                <div class="import-section" id="dataWarningsWrap" hidden>
+                  <h3>Import notes</h3>
+                  <ul class="import-warnings" id="dataWarnings"></ul>
+                </div>
+                <div class="import-current-actions">
+                  <button type="button" class="btn btn-primary" id="dataOpenReport">
+                    Open lead report
+                    <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                  </button>
+                  <button type="button" class="btn btn-outline" id="dataReplaceBtn">
+                    Replace file
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <aside class="import-guide">
+              <p class="mono-label">What gets recognised</p>
+              <h3>Messy files welcome.</h3>
+              <p>
+                Columns are matched by name, so you do not need our exact export format. Common
+                aliases and Apify-style fields are understood automatically.
+              </p>
+              <ul class="import-guide-list">
+                <li>Business name, category and address</li>
+                <li>Phone numbers, emails and websites</li>
+                <li>Social profiles, place IDs and map links</li>
+                <li>Ratings, reviews, coordinates and status</li>
+                <li>Outreach status, contact dates and notes</li>
+                <li>Any extra column — kept in the drawer and exports</li>
+              </ul>
+              <div class="import-privacy">
+                <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg>
+                <p>
+                  <strong>Stays on this device.</strong> Nothing is uploaded, stored on a server, or
+                  sent to Apify.
+                </p>
+              </div>
+              <details class="import-format-help">
+                <summary>Accepted file shapes</summary>
+                <p>
+                  Lead Atlas CSV or JSON exports, Apify Google Maps dataset JSON, generic
+                  spreadsheets with headers, JSONL/NDJSON files, and JSON documents with a
+                  <code>leads</code> or <code>items</code> array.
+                </p>
+              </details>
+            </aside>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-inner">
+        <div class="footer-brand">
+          <span class="brand-mark small" aria-hidden="true">
+            <svg viewBox="0 0 40 40" role="presentation">
+              <circle cx="20" cy="20" r="17.5" fill="none" stroke="currentColor" stroke-width="1.3" />
+              <path d="m25.7 14.3-3.4 8-8 3.4 3.4-8 8-3.4Z" fill="currentColor" />
+              <circle cx="20" cy="20" r="1.6" fill="var(--paper)" />
+            </svg>
+          </span>
+          <div>
+            <strong>Lead Atlas</strong>
+            <span>A local-first Google Maps field scanner.</span>
+          </div>
+        </div>
+        <p class="footer-note">
+          Powered by
+          <a href="https://apify.com/compass/crawler-google-places" target="_blank" rel="noopener noreferrer">Apify’s Google Maps Scraper</a>.
+          Not affiliated with Google or Apify.
+        </p>
+        <p class="footer-coord">30.2672° N / 97.7431° W</p>
+      </div>
+    </footer>
+
+    <!-- ============================== KEY DIALOG ============================== -->
+    <dialog class="dialog key-dialog" id="keyDialog" aria-labelledby="keyDialogTitle">
+      <div class="key-dialog-inner">
+        <div class="key-dialog-head">
+          <div>
+            <p class="mono-label">Connection / Apify</p>
+            <h2 id="keyDialogTitle">Connect your key.</h2>
+          </div>
+          <button type="button" class="icon-button" id="closeKeyDialog" aria-label="Close key dialog">
+            <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+          </button>
+        </div>
+
+        <p class="key-dialog-lede">
+          Lead Atlas runs the official Google Maps Scraper on your Apify account. Paste a personal
+          API token to connect this browser. We’ll check it with Apify before saving.
+        </p>
+
+        <div class="key-status" id="keyStatusBox">
+          <span class="key-dot" aria-hidden="true"></span>
+          <span id="keyStatusText">Not connected</span>
+        </div>
+
+        <form id="keyForm" novalidate>
+          <label for="apiKeyInput">Apify API token</label>
+          <div class="key-input-wrap">
+            <svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg>
+            <input
+              id="apiKeyInput"
+              name="apiKey"
+              type="password"
+              placeholder="apify_api_…"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              aria-describedby="keyHint keyError"
+            />
+            <button type="button" class="key-reveal" id="toggleKeyVisibility" aria-label="Show key">
+              Show
+            </button>
+          </div>
+          <p class="hint" id="keyHint">
+            Create or copy a token in
+            <a href="https://console.apify.com/account/integrations" target="_blank" rel="noopener noreferrer">
+              Apify Console → Integrations
+              <svg class="icon" aria-hidden="true"><use href="#i-external"></use></svg>
+            </a>.
+          </p>
+          <p class="field-error" id="keyError" role="alert" hidden></p>
+
+          <div class="key-actions">
+            <button type="submit" class="btn btn-primary" id="saveKeyBtn">
+              Save &amp; connect
+              <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+            </button>
+            <button type="button" class="btn btn-quiet" id="forgetKeyBtn" hidden>Forget key</button>
+          </div>
+        </form>
+
+        <div class="privacy-note">
+          <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg>
+          <p>
+            <strong>Stored in this browser only.</strong> The token is kept in
+            <code>localStorage</code>, sent to this local server over HTTP, and forwarded to
+            Apify’s API. It is never written to a database or logged.
+          </p>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- ============================== LEAD DRAWER ============================== -->
+    <dialog class="dialog drawer" id="leadDialog" aria-labelledby="drawerName">
+      <div class="drawer-inner">
+        <header class="drawer-head">
+          <div>
+            <p class="eyebrow" id="drawerCategory">Business</p>
+            <h2 id="drawerName">Lead name</h2>
+            <p class="drawer-address" id="drawerAddress"></p>
+          </div>
+          <button type="button" class="icon-button" id="closeLeadDialog" aria-label="Close lead details">
+            <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+          </button>
+        </header>
+
+        <div class="drawer-rating" id="drawerRating"></div>
+
+        <a
+          class="btn btn-primary drawer-map-link"
+          id="drawerMapLink"
+          href="https://www.google.com/maps"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <svg class="icon" aria-hidden="true"><use href="#i-map"></use></svg>
+          Open in Google Maps
+          <svg class="icon" aria-hidden="true"><use href="#i-external"></use></svg>
+        </a>
+
+        <section class="drawer-section drawer-outreach">
+          <div class="drawer-section-head">
+            <h3>Outreach trail</h3>
+            <span class="mono-label" id="drawerOutreachStamp">Not marked</span>
+          </div>
+
+          <div
+            class="outreach-choices"
+            id="drawerOutreachChoices"
+            role="group"
+            aria-label="Outreach status"
+          >
+            <button
+              type="button"
+              class="outreach-choice is-to-contact"
+              data-outreach-status="to-contact"
+              aria-pressed="false"
+            >
+              <span class="outreach-choice-mark" aria-hidden="true">
+                <svg class="icon"><use href="#i-circle"></use></svg>
+              </span>
+              <span class="outreach-choice-copy">
+                <strong>To contact</strong>
+                <small>Still on the outreach list</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              class="outreach-choice is-contacted"
+              data-outreach-status="contacted"
+              aria-pressed="false"
+            >
+              <span class="outreach-choice-mark" aria-hidden="true">
+                <svg class="icon"><use href="#i-check"></use></svg>
+              </span>
+              <span class="outreach-choice-copy">
+                <strong>Reached out</strong>
+                <small>Already made contact · dates the mark</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              class="outreach-choice is-do-not-contact"
+              data-outreach-status="do-not-contact"
+              aria-pressed="false"
+            >
+              <span class="outreach-choice-mark" aria-hidden="true">
+                <svg class="icon"><use href="#i-ban"></use></svg>
+              </span>
+              <span class="outreach-choice-copy">
+                <strong>Do not contact</strong>
+                <small>Keep this lead off the next call list</small>
+              </span>
+            </button>
+          </div>
+
+          <label class="outreach-note-field" for="drawerOutreachNote">
+            <span class="outreach-note-label">
+              Private note
+              <span class="outreach-note-count">
+                <span id="drawerOutreachNoteCount">0</span> / 280
+              </span>
+            </span>
+            <textarea
+              id="drawerOutreachNote"
+              maxlength="280"
+              rows="2"
+              placeholder="Best time to call, who answered, what you sent…"
+            ></textarea>
+          </label>
+          <div class="outreach-note-actions">
+            <button type="button" class="btn btn-outline" id="drawerOutreachSave" disabled>
+              Save note
+            </button>
+            <span class="outreach-note-hint">Browser-local · included in CSV &amp; JSON</span>
+          </div>
+        </section>
+
+        <section class="drawer-section">
+          <div class="drawer-section-head">
+            <h3>Contact book</h3>
+            <span class="mono-label" id="drawerContactCount">—</span>
+          </div>
+          <div class="drawer-contacts" id="drawerContacts"></div>
+        </section>
+
+        <section class="drawer-section">
+          <div class="drawer-section-head">
+            <h3>Web presence</h3>
+            <span class="mono-label" id="drawerWebStatus">—</span>
+          </div>
+          <div class="drawer-web" id="drawerWeb"></div>
+        </section>
+
+        <section class="drawer-section">
+          <div class="drawer-section-head">
+            <h3>At a glance</h3>
+            <span class="mono-label">Source data</span>
+          </div>
+          <dl class="drawer-facts" id="drawerFacts"></dl>
+        </section>
+
+        <footer class="drawer-foot">
+          <button type="button" class="btn btn-outline" id="copyLeadBtn">
+            <svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg>
+            Copy lead details
+          </button>
+          <span class="drawer-footnote">Verify before outreach.</span>
+        </footer>
+      </div>
+    </dialog>
+
+    <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+    <div class="boot-error" id="bootError" role="alert" hidden>
+      <strong>Lead Atlas could not start.</strong>
+      <span id="bootErrorText">Reload the page, or check the server terminal.</span>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
