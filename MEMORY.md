@@ -2,34 +2,53 @@
 
 ## Last Updated: 2026-10-27
 
-## E2E smoke marker
-- [x] One-click self-update E2E: pushed marker commit → local reset behind origin →
-      POST /api/update applied the update behind a running server.
+## Current Phase: SHIP — complete
 
-## Current Phase: EXECUTE (T002 next)
+## Last Completed Task: T010 — all tasks done, pushed to GitHub
 
-## Last Completed Task: T001 — planning artifacts written
+## Next Task: none (feature shipped)
 
-## Next Task: T002 — pure helpers in src/selfupdate.js + unit tests
+## E2E smoke (T009) — verified 2026-10-27
+- All 118 tests green; server started on 127.0.0.1:4317 with `npm start`.
+- `/api/version` returned `enabled: true`, `canRestart: true`, real GitHub API tip
+  (`via: github`), `updateAvailable: false` while local == origin.
+- After pushing marker commit `ec06d6b` and resetting local one commit behind with a
+  dirty tracked README: `/api/version` → `updateAvailable: true`, `dirtyFiles: 1`.
+- `POST /api/update` → `{status: restarting, beforeSha 6b89480, afterSha ec06d6b,
+  stashCreated: true, npmInstalled: false}` with the stash recovery note.
+- Old process spawned the updated server (pid printed), child retried port bind
+  (attempt 1), bound 4317 and answered the next `/api/version` with `current: ec06d6b`.
+- Repo afterwards: local == origin/main, working tree clean, stash dropped
+  (scratch edit was disposable; recovery path itself covered by unit tests).
 
 ## Active Context
-- Repo: git clone of https://github.com/Adityasharma-in/Lead-Atlas.git (branch `main`,
-  commit b12f47a5 at planning time). Identity configured locally:
-  `Adityasharma-in` / `Adityasharma-in@users.noreply.github.com`.
-- Node ≥ 20 (global fetch available), Express 4, no new deps allowed.
-- Test harness: `node --test` (`npm test`), mock Apify HTTP server in server.test.js —
-  routes are tested via real app instances on ephemeral ports.
+- Repo: git clone of https://github.com/Adityasharma-in/Lead-Atlas.git (branch `main`),
+  identity `Adityasharma-in` / `Adityasharma-in@users.noreply.github.com`.
+- Node ≥ 20 (global fetch), Express 4, zero new dependencies.
+- Test harness: `node --test` (`npm test`), mock Apify HTTP server; routes tested via
+  real app instances on ephemeral ports. Rate limiters are scoped per `createApp`.
 - Server binds 127.0.0.1:PORT (default 4317). Tests must not bind port 4317.
-- `createApp()` in src/server.js currently takes no options — T005 adds `{selfUpdate}`.
-- Frontend is a single IIFE in public/app.js with element cache (`cacheElements` ids list),
-  `showView`, `showToast(message, type, options)`, `api()` helper. Boot at bottom in `init()`.
+- Frontend: single IIFE in public/app.js, element-cache ids list, `showToast`,
+  `api(path, {method, body, tokenOverride})`; update polling + reload flow self-contained
+  in the "self-update" section.
+
+## Self-update feature map (where things live)
+- `src/selfupdate.js` — pure parsers + `createSelfUpdater` (git/GitHub runners injectable).
+- `src/server.js` — `GET /api/version`, `POST /api/update`, `LA_UPDATE_CHILD` bind retry.
+- `public/app.js` — `state.update`, chip sync, `checkForUpdates` (5-min interval,
+  suppressed during scans), `runUpdate`, `waitForRestart`, `announceUpdatedBuild`.
+- `public/index.html` + `styles.css` — `.update-chip` pill in header-actions, footer
+  `Build <sha> · <branch>` label.
+- Env: `SELF_UPDATE=off` disables; `GITHUB_TOKEN` optional; cached tip TTL 60s.
 
 ## Blockers
-- Awaiting user confirmation of the 4 assumptions in PROJECT.md (auto-restart, header chip,
-  stash-before-update, definition of "update") before starting T002.
+- none
 
 ## Decisions Made This Session
-- Detect via GitHub API with `git ls-remote` fallback; apply via stash + fetch + hard reset.
-- Inject the updater into `createApp` so tests can stub it (no real git/network in tests).
-- Restart = detached respawn with `LA_UPDATE_CHILD=1` + EADDRINUSE retry in child.
-- No new npm dependencies; feature is self-contained in src/selfupdate.js.
+- Detect via GitHub API with `git ls-remote` fallback; apply via stash + fetch + hard
+  reset; npm install only when root package files changed.
+- Inject the updater into `createApp` so tests stub it (no real git/network in tests).
+- Restart = detached respawn with `LA_UPDATE_CHILD=1` + EADDRINUSE retry in child;
+  old process exits ~1.2 s after the POST response flushes.
+- Flag on success only: `sessionStorage.leadAtlas.updatedTo.v1` is written only after
+  the restart is confirmed by a changed sha, then shown once as a toast and cleared.

@@ -27,9 +27,9 @@
 ## Phase 5: Docs, verify, ship
 - [x] T008: README — feature section, env vars, recovery from a stash, troubleshooting,
       structure/Limitations updates.
-- [ ] T009: Full `npm test`; manual smoke: start server, confirm `/api/version` and footer
+- [x] T009: Full `npm test`; manual smoke: start server, confirm `/api/version` and footer
       build label; E2E: push a commit, see chip, fire `POST /api/update`, watch restart + new sha.
-- [ ] T010: Commit + push everything; final planning-file status update; deliver summary.
+- [x] T010: Commit + push everything; final planning-file status update; deliver summary.
 
 ## Notes
 - Tasks ≤ ~100 source lines each; module and its tests are separate tasks (T002/T004).
