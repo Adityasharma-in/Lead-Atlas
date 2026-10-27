@@ -1,4 +1,8 @@
 import {
+  isActiveRunFresh,
+  parseActiveRun,
+} from "./active-run-core.js";
+import {
   IMPORT_LIMITS,
   buildClientJsonExport,
   leadsToCsv,
@@ -26,6 +30,7 @@ import {
     brief: "leadAtlas.brief.v1",
     outreach: "leadAtlas.outreach.v1",
     updated: "leadAtlas.updatedTo.v1",
+    activeRun: "leadAtlas.activeRun.v1",
   };
 
   const FALLBACK_CONFIG = {
@@ -1294,6 +1299,93 @@ import {
     return String(runId || "").slice(-8).toUpperCase();
   }
 
+  // The scan keeps running on Apify when the tab closes, so a small pointer to
+  // it survives in localStorage until the run finishes or the user aborts.
+  function saveActiveRun(run) {
+    const record = {
+      runId: run.runId,
+      startedAt: run.startedAt,
+      brief: {
+        niche: run.brief.niche,
+        location: run.brief.location,
+        maxResults: run.brief.maxResults,
+      },
+      target: run.target,
+      cap: run.cap,
+      consoleUrl: els.consoleLink?.href || null,
+    };
+    try {
+      window.localStorage.setItem(STORAGE.activeRun, JSON.stringify(record));
+    } catch {
+      /* storage can be unavailable in private mode */
+    }
+  }
+
+  function clearActiveRun() {
+    try {
+      window.localStorage.removeItem(STORAGE.activeRun);
+    } catch {
+      /* non-critical */
+    }
+  }
+
+  function readActiveRun() {
+    try {
+      const record = parseActiveRun(window.localStorage.getItem(STORAGE.activeRun));
+      if (!record || !isActiveRunFresh(record)) {
+        clearActiveRun();
+        return null;
+      }
+      return record;
+    } catch {
+      return null;
+    }
+  }
+
+  // Boot-time reattach: mount the progress view for the run saved before the
+  // tab closed, then let the normal poll loop reconcile (still running, done,
+  // failed, or gone).
+  async function resumeActiveRun() {
+    if (state.running) return false;
+    const record = readActiveRun();
+    if (!record || !state.token) return false;
+
+    const run = {
+      token: state.token,
+      brief: record.brief,
+      startedAt: record.startedAt,
+      finishedAt: null,
+      runId: record.runId,
+      target: record.target,
+      cap: record.cap,
+      cost: null,
+      status: "RUNNING",
+      itemCount: 0,
+      pollTimer: null,
+      tickTimer: null,
+      polling: false,
+      pollFailures: 0,
+      stopped: false,
+      lastPercent: 3,
+    };
+
+    state.running = run;
+    state.results = null;
+    state.importDesk = null;
+    state.resultsToken = null;
+    resetProgressUI(run);
+    els.progressSub.textContent =
+      "Reconnected to the scan you started earlier. It kept running while this tab was away — progress checks happen right here in your browser.";
+    els.progressRunId.textContent = `RUN ${shortRunId(run.runId)}`;
+    if (record.consoleUrl) els.consoleLink.href = record.consoleUrl;
+    els.abortBtn.disabled = false;
+    showView("progress", { scroll: false, focus: false });
+    startProgressTimers(run);
+    showToast("Reconnected to your last scan. Catching up…", "info");
+    startPolling(run);
+    return true;
+  }
+
   function setRunButtonLoading(loading, label = "Sending brief…") {
     if (!els.runBtn) return;
     els.runBtn.disabled = loading;
@@ -1460,6 +1552,7 @@ import {
     }
     // Release the run slot so a failed or partial run never locks the scanner.
     state.running = null;
+    clearActiveRun();
     els.progressErrorTitle.textContent = title;
     els.progressErrorText.textContent = message;
     els.progressError.hidden = false;
@@ -1541,6 +1634,7 @@ import {
       els.progressRunId.textContent = `RUN ${shortRunId(run.runId)}`;
       els.abortBtn.disabled = false;
       updateProgressFromRun(data.run);
+      saveActiveRun(run);
       startPolling(run);
     } catch (error) {
       if (state.running !== run) return;
@@ -1618,6 +1712,14 @@ import {
       }
     } catch (error) {
       if (state.running !== run) return;
+      if (error.status === 404) {
+        clearActiveRun();
+        showRunFailure(
+          "That scan can't be found.",
+          "Apify has no record of this run — it may have been deleted or belong to a different account. Start a fresh scan.",
+        );
+        return;
+      }
       if (error.status === 401 || error.status === 403) {
         state.account = null;
         setKeyStatus("invalid");
@@ -1720,6 +1822,7 @@ import {
     setRunButtonLoading(false);
     stopProgressTimers(run);
     state.running = null;
+    clearActiveRun();
     showView("report", { scroll: true, focus: true });
 
     if (partial) {
@@ -3192,6 +3295,7 @@ import {
       if (state.token) {
         setKeyStatus("checking");
         validateStoredKey({ silent: true });
+        await resumeActiveRun();
       }
       checkForUpdates();
     } catch (error) {

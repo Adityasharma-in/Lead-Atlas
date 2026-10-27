@@ -4,9 +4,21 @@
 
 ## Current Phase: SHIP — complete
 
-## Last Completed Task: T010 — all tasks done, pushed to GitHub
+## Last Completed Task: T010 + R1–R5 — self-update shipped; reattach-to-running-scan shipped
 
-## Next Task: none (feature shipped)
+## Next Task: none (features shipped)
+
+## Resume-scan feature (R1–R5) — verified 2026-10-27
+- `public/active-run-core.js` + `test/active-run-core.test.js` (17 tests): parses/purges
+  the `leadAtlas.activeRun.v1` pointer, 24 h freshness, http(s)-only console URL.
+- `public/app.js`: saves the pointer after the run ID returns; clears it on report,
+  failure screen, 404, stale/corrupt read; `resumeActiveRun()` on boot reuses the normal
+  poll loop to reconcile running/succeeded/failed/gone. No server changes.
+- Browser E2E vs mock Apify (temp file, not in repo): scan started → second tab opened →
+  reattached to the same run with "Reconnected" toast and live count → finished to a
+  3-lead report → pointer cleared. Stale (25 h), corrupt JSON and keyless records do not
+  resume; keyless keeps the pointer for a later key.
+- beforeunload guard confirmed working during the test (real dialog on mid-scan reload).
 
 ## E2E smoke (T009) — verified 2026-10-27
 - All 118 tests green; server started on 127.0.0.1:4317 with `npm start`.
@@ -40,6 +52,14 @@
 - `public/index.html` + `styles.css` — `.update-chip` pill in header-actions, footer
   `Build <sha> · <branch>` label.
 - Env: `SELF_UPDATE=off` disables; `GITHUB_TOKEN` optional; cached tip TTL 60s.
+
+## Resume-scan map
+- `public/active-run-core.js` — pure parsing/freshness for the pointer.
+- `public/app.js` — `saveActiveRun`/`clearActiveRun`/`readActiveRun`, `resumeActiveRun`
+  (boot, after token exists), `pollRun` 404 branch, clear hooks in `finishRun` and
+  `showProgressError`.
+- Record shape: `{runId, startedAt, brief{niche,location,maxResults}, target, cap, consoleUrl}`.
+- Design record: `RESUME-SCAN.md`.
 
 ## Blockers
 - none

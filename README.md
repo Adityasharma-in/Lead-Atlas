@@ -52,6 +52,23 @@ dataset, or a generic spreadsheet with headers — and it opens in the normal re
 filters, search, sorting, the lead drawer, outreach tracking, map links, and CSV/JSON
 downloads.
 
+## Scans survive a closed tab
+
+A scan runs on Apify, not in your browser, so a closed tab, a refresh, or a crash does not
+lose it. Reopen Lead Atlas within 24 hours and the app reconnects to the scan you were
+watching:
+
+- **Still running** — the live progress screen comes back, with the same run ID, elapsed
+  time, and a "Reconnected" note.
+- **Finished while you were away** — the report opens automatically; nothing to re-run.
+- **The pointer** lives in `localStorage` under `leadAtlas.activeRun.v1`. It is cleared as
+  soon as the report opens, the scan fails, or you abort — so it never hijacks a normal
+  visit.
+
+Reconnecting needs the same Apify account key saved in this browser, because that key is
+what allows the app to read the run. Only the most recent scan is remembered; starting a
+new scan replaces the pointer.
+
 ## One-click updates from GitHub
 
 Lead Atlas is served from the same git clone it runs in, so the app can update itself the
@@ -295,6 +312,8 @@ network access required. It covers:
 - CSV escaping, formula injection protection, JSON export, and filenames
 - Browser-side CSV/TSV/JSON/JSONL import parsing, aliases, deduplication, extras,
   outreach fields, and export round-trips
+- Active-scan records — parsing, brief normalization, URL and freshness rules for
+  reattaching after a closed tab
 - Self-update helpers (repository URLs, commit/ls-remote parsing, dependency detection),
   update/apply flows with injected git and fetch runners, and the version/update routes
 - Server routes, token handling, origin checks, live status, abort, and exports
@@ -307,6 +326,7 @@ lead-atlas/
 │   ├── index.html        Page structure and dialogs
 │   ├── styles.css        Design system and responsive layout
 │   ├── app.js            UI state, polling, report, outreach, import desk, exports
+│   ├── active-run-core.js Active-scan pointer parsing and freshness rules
 │   ├── import-core.js    Browser-side CSV/JSON import parser and exports
 │   ├── outreach-core.js  Outreach states, keys, notes, dates and counts
 │   └── favicon.svg
@@ -325,6 +345,7 @@ lead-atlas/
     ├── csv.test.js
     ├── import-core.test.js
     ├── outreach-core.test.js
+    ├── active-run-core.test.js
     ├── selfupdate.test.js
     └── server.test.js
 ```
@@ -336,8 +357,10 @@ lead-atlas/
 - Contact enrichment depends on the business website and is best-effort. Some places will
   have no email.
 - A scan is one niche + one location. Run separate scans for multiple areas.
-- The browser tab must stay open to watch progress. Closing it does not cancel the Apify
-  run, but the app cannot reattach to that run after a reload.
+- The browser tab can be closed mid-scan without losing the run — reopen the app within
+  24 hours and it reconnects (see **Scans survive a closed tab**). Only the most recent
+  scan is remembered, and place counts only advance while the tab is open, because the
+  polling runs in your browser.
 - The app is designed for local, single-user use. It has no multi-user authentication or
   persistent job queue.
 - Outreach marks live in one browser profile. They do not sync between devices. Export
@@ -363,6 +386,8 @@ lead-atlas/
 | The scan says “lost contact” | Check Apify Console; the run may still be running there |
 | Outreach marks disappeared | They are stored per browser profile. Export and re-import a CSV/JSON file to restore them, or check that site data was not cleared. |
 | The update chip never appears | The folder may not be a git clone, `origin` may not point at GitHub, the working copy is detached, or `SELF_UPDATE=off` is set. Check `git remote -v` and `git status`. |
+| Reopening the app jumps into an old scan | That is the resume feature. Start a new scan, open the report, or click **Abort scan** to clear it. Records older than 24 hours are ignored automatically. |
+| A closed-tab scan did not come back | Resume needs the same Apify key in this browser, the scan must be under 24 hours old, and only the most recent scan is remembered. The run remains visible in Apify Console. |
 | An update leaves old code running | Restart the terminal command once (`Ctrl+C`, `npm start`). `/api/update` always reports whether it respawned the server. |
 | “Local changes could not be stashed” | The updater stops before touching anything. Inspect `git status`, commit or discard your edits, then click update again. |
 | Recover pre-update edits | `git stash list` shows the snapshot (e.g. *Lead Atlas pre-update snapshot …*); `git stash pop` or `git stash apply` brings the edits back. |

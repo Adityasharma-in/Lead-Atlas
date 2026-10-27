@@ -35,3 +35,19 @@
 - Tasks ≤ ~100 source lines each; module and its tests are separate tasks (T002/T004).
 - The E2E in T009 uses the trick that pushing the *final* commit makes the running
   pre-feature server… run the feature during its own first update flow.
+
+## Follow-up feature: reattach to a running scan (see RESUME-SCAN.md)
+- [x] R1: `public/active-run-core.js` — record parsing, brief normalization, freshness
+      window + `test/active-run-core.test.js`.
+- [x] R2: `public/app.js` — save the active-run pointer on start; clear it on report,
+      failure, abort, 404 and stale reads.
+- [x] R3: `public/app.js` — `resumeActiveRun()` on boot; reuse the normal poll loop to
+      reconcile running/succeeded/failed/gone; beforeunload guard already covers it.
+- [x] R4: README — "Scans survive a closed tab", limitations, structure, troubleshooting.
+- [x] R5: E2E against a mock Apify: scan → second tab reattaches → report opens → record
+      cleared; stale/corrupt/keyless records stay on the brief.
+
+## Notes — resume feature
+- These tasks touch only the browser bundle and docs; no server-side changes.
+- The record is read with `parseActiveRun`/`isActiveRunFresh` before use; never trust raw
+  localStorage.
