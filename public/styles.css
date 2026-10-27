@@ -6051,5 +6051,145 @@ a.contact-row:hover {
   }
 }
 
+/* ============================== SELF-UPDATE ============================== */
+
+.update-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: var(--ink);
+  box-shadow: 3px 3px 0 var(--orange);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background 0.18s var(--ease),
+    box-shadow 0.18s var(--ease),
+    transform 0.18s var(--ease);
+}
+
+.update-chip[hidden] {
+  display: none;
+}
+
+.update-chip:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--orange);
+}
+
+.update-chip:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--orange);
+}
+
+.update-chip:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+.update-chip.is-busy {
+  cursor: progress;
+  background: var(--forest);
+  box-shadow: 3px 3px 0 var(--moss);
+}
+
+.update-chip-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--orange);
+  animation: updateChime 1.8s var(--ease) infinite;
+}
+
+.update-chip.is-busy .update-chip-dot {
+  background: var(--amber);
+  animation-duration: 0.9s;
+}
+
+.update-chip-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.update-chip-copy strong {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--paper);
+}
+
+.update-chip-ver {
+  color: rgba(244, 238, 224, 0.62);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+}
+
+.update-chip .icon {
+  width: 12px;
+  height: 12px;
+  color: var(--orange);
+}
+
+.update-chip.is-restarting .icon {
+  color: var(--amber);
+}
+
+@keyframes updateChime {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(207, 85, 33, 0.55);
+  }
+  55% {
+    box-shadow: 0 0 0 6px rgba(207, 85, 33, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .update-chip-dot {
+    animation: none;
+  }
+  .update-chip:hover,
+  .update-chip:active {
+    transform: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .update-chip {
+    padding: 8px 11px;
+    min-height: 34px;
+  }
+  .update-chip-copy {
+    display: none;
+  }
+  .update-chip .icon {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.footer-build {
+  margin: 4px 0 0;
+  color: var(--muted-2);
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.footer-build[hidden] {
+  display: none;
+}
+
 
 

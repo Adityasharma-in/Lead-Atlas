@@ -145,6 +145,14 @@
         </nav>
 
         <div class="header-actions">
+          <button type="button" class="update-chip" id="updateChip" hidden>
+            <span class="update-chip-dot" aria-hidden="true"></span>
+            <span class="update-chip-copy">
+              <strong id="updateChipText">Update available</strong>
+              <span class="update-chip-ver" id="updateChipVer"></span>
+            </span>
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+          </button>
           <button
             type="button"
             class="key-chip"
@@ -1348,6 +1356,7 @@
           <a href="https://apify.com/compass/crawler-google-places" target="_blank" rel="noopener noreferrer">Apify’s Google Maps Scraper</a>.
           Not affiliated with Google or Apify.
         </p>
+        <p class="footer-build" id="footerBuild" hidden>Build</p>
         <p class="footer-coord">30.2672° N / 97.7431° W</p>
       </div>
     </footer>

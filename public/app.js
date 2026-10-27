@@ -25,6 +25,7 @@ import {
     token: "leadAtlas.apifyToken.v1",
     brief: "leadAtlas.brief.v1",
     outreach: "leadAtlas.outreach.v1",
+    updated: "leadAtlas.updatedTo.v1",
   };
 
   const FALLBACK_CONFIG = {
@@ -75,6 +76,12 @@ import {
     drawerLead: null,
     drawerNoteDirty: false,
     emptyAction: "reset",
+    update: {
+      available: false,
+      info: null,
+      applying: false,
+      mode: "idle",
+    },
   };
 
   const els = {};
@@ -518,6 +525,9 @@ import {
   function cacheElements() {
     const ids = [
       "siteHeader",
+      "updateChip",
+      "updateChipText",
+      "updateChipVer",
       "keyChip",
       "keyDot",
       "keyChipText",
@@ -664,8 +674,164 @@ import {
       "toastRegion",
       "bootError",
       "bootErrorText",
+      "footerBuild",
     ];
     for (const id of ids) els[id] = byId(id);
+  }
+
+  /* ---------------- self-update ---------------- */
+
+  function syncUpdateChip() {
+    const chip = els.updateChip;
+    if (!chip || !els.updateChipText) return;
+    const update = state.update;
+    if (!update.available && update.mode !== "restarting") {
+      chip.hidden = true;
+      chip.classList.remove("is-busy", "is-restarting");
+      return;
+    }
+
+    chip.hidden = !state.running ? false : true;
+    chip.classList.toggle("is-busy", update.mode !== "idle");
+    chip.classList.toggle("is-restarting", update.mode === "restarting");
+    els.updateChipText.textContent =
+      update.mode === "restarting"
+        ? "Restarting…"
+        : update.mode === "applying"
+          ? "Updating…"
+          : "Update available";
+
+    const latest = update.info?.latest;
+    const short = update.mode === "restarting" ? latest?.short : (latest?.short || "");
+    if (els.updateChipVer) {
+      els.updateChipVer.textContent = update.mode === "idle" && short ? `to ${short}` : "";
+    }
+    chip.title = latest?.subject
+      ? `${latest.short}${latest.committedAt ? ` · ${formatDate(latest.committedAt)}` : ""} — ${latest.subject}`
+      : "Update Lead Atlas from the GitHub repository";
+  }
+
+  function renderFooterBuild(status) {
+    if (!els.footerBuild) return;
+    const current = status?.enabled ? status.current : null;
+    if (!current?.short) {
+      els.footerBuild.hidden = true;
+      return;
+    }
+    const when = current.committedAt ? ` · ${formatDate(current.committedAt)}` : "";
+    const dirty = current.dirtyFiles ? ` · ${current.dirtyFiles} uncommitted` : "";
+    els.footerBuild.textContent = `Build ${current.short}${when}${dirty} · ${current.branch || "main"}`;
+    els.footerBuild.hidden = false;
+  }
+
+  async function checkForUpdates(force = false) {
+    const update = state.update;
+    if (state.running || update.applying) return null;
+    try {
+      const status = await api("/api/version", { tokenOverride: null });
+      if (status?.enabled) {
+        update.info = status;
+        update.available = Boolean(status.updateAvailable);
+        renderFooterBuild(status);
+      } else {
+        update.info = null;
+        update.available = false;
+        renderFooterBuild(null);
+      }
+      syncUpdateChip();
+      return status;
+    } catch (error) {
+      // Offline, restarting, or rate-limited: stay quiet; the interval retries.
+      console.warn("[lead-atlas] Update check skipped:", error?.message || error);
+      return null;
+    }
+  }
+
+  async function runUpdate() {
+    const update = state.update;
+    if (!update.available || update.applying || state.running) return;
+    update.applying = true;
+    update.mode = "applying";
+    syncUpdateChip();
+
+    try {
+      const result = await api("/api/update", { method: "POST", tokenOverride: null, body: {} });
+      const nextShort = result?.short || update.info?.latest?.short || "";
+
+      if (result?.restarting) {
+        update.mode = "restarting";
+        showToast("Update applied — restarting the local server…", "info");
+        const confirmed = await waitForRestart();
+        if (confirmed) {
+          try {
+            window.sessionStorage.setItem(STORAGE.updated, nextShort);
+          } catch {
+            /* storage can be unavailable in private mode */
+          }
+        }
+        window.location.reload();
+        return;
+      }
+
+      showToast(
+        "Update applied. Restart the local server once to load the new build.",
+        "success",
+        { duration: 9000 },
+      );
+      update.applying = false;
+      update.mode = "idle";
+      update.available = false;
+      syncUpdateChip();
+      checkForUpdates(true);
+    } catch (error) {
+      showToast(error?.message || "The update could not be applied.", "error");
+      update.applying = false;
+      update.mode = "idle";
+      syncUpdateChip();
+      checkForUpdates(true);
+    }
+  }
+
+  async function waitForRestart() {
+    const beforeSha = state.update.info?.current?.sha || "";
+    const deadline = Date.now() + 20_000;
+    let gap = 800;
+    while (Date.now() < deadline) {
+      await delay(gap);
+      try {
+        const status = await api("/api/version", { tokenOverride: null });
+        const currentSha = status?.current?.sha || "";
+        if (status?.enabled && currentSha && currentSha !== beforeSha) return true;
+      } catch {
+        // The server is down while the old process exits and the new one binds.
+      }
+      gap = Math.min(1_500, gap + 200);
+    }
+    return false;
+  }
+
+  function startUpdatePolling() {
+    // Quiet background heartbeat while any tab is open; the server caches the
+    // GitHub check for a minute, so several tabs stay cheap.
+    window.setInterval(() => {
+      checkForUpdates();
+    }, 5 * 60 * 1000);
+  }
+
+  // Reload landing after a successful one-click update: announce the new build
+  // once, then clear the flag so a later refresh stays quiet.
+  function announceUpdatedBuild() {
+    let updatedTo = null;
+    try {
+      updatedTo = window.sessionStorage.getItem(STORAGE.updated);
+      window.sessionStorage.removeItem(STORAGE.updated);
+    } catch {
+      return;
+    }
+    if (!updatedTo) return;
+    showToast(`Updated to build ${updatedTo}. You are on the newest code.`, "success", {
+      duration: 9000,
+    });
   }
 
   /* ---------------- view ---------------- */
@@ -2662,6 +2828,7 @@ import {
   function bindEvents() {
     const saveBriefDebounced = debounce(saveBrief, 250);
 
+    els.updateChip?.addEventListener("click", runUpdate);
     els.keyChip?.addEventListener("click", openKeyDialog);
     els.closeKeyDialog?.addEventListener("click", closeKeyDialog);
     els.keyForm?.addEventListener("submit", handleKeySubmit);
@@ -3006,6 +3173,7 @@ import {
     try {
       cacheElements();
       bindEvents();
+      announceUpdatedBuild();
       populateMinStars();
       setRangeBounds();
       state.token = readStoredToken();
@@ -3018,12 +3186,14 @@ import {
       updateKeyUI();
       updateHeaderVisibility();
       initReveal();
+      startUpdatePolling();
 
       await loadConfig();
       if (state.token) {
         setKeyStatus("checking");
         validateStoredKey({ silent: true });
       }
+      checkForUpdates();
     } catch (error) {
       console.error("[lead-atlas] Boot error:", error);
       if (els.bootError) {

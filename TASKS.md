@@ -18,9 +18,9 @@
       Done when: `npm test` green including route tests with stub updater.
 
 ## Phase 4: Frontend
-- [ ] T006: `public/index.html` header update chip + footer build label;
+- [x] T006: `public/index.html` header update chip + footer build label;
       `public/styles.css` chip styles following `.key-chip` family; responsive hiding.
-- [ ] T007: `public/app.js` — `state.update`, version check on boot + 5-min interval
+- [x] T007: `public/app.js` — `state.update`, version check on boot + 5-min interval
       (suppressed while scan running), chip click → POST → restart-aware polling →
       auto-reload → post-reload toast via `sessionStorage` flag.
 
