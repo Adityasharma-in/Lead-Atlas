@@ -1,10 +1,10 @@
 # TASKS.md — Execution plan
 
 ## Phase 1: Planning artifacts
-- [ ] T001: Write PROJECT.md, PLANNING.md, TASKS.md, MEMORY.md, AGENTS.md — Done when: files exist and are committed.
+- [x] T001: Write PROJECT.md, PLANNING.md, TASKS.md, MEMORY.md, AGENTS.md — Done when: files exist and are committed.
 
 ## Phase 2: Updater module (server)
-- [ ] T002: Pure helpers in `src/selfupdate.js` (repository parsing, ahead/behind compare,
+- [x] T002: Pure helpers in `src/selfupdate.js` (repository parsing, ahead/behind compare,
       package-file change detection) + `test/selfupdate.test.js` for them — Done when: unit tests pass.
 - [ ] T003: Git/network layer in `src/selfupdate.js` (`localVersion`, `remoteVersion` with
       GitHub API → `ls-remote` fallback, 60s TTL cache, `applyUpdate` stash+reset+npm,
