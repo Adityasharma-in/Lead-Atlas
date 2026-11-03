@@ -1,12 +1,41 @@
 # MEMORY.md — Session state
 
-## Last Updated: 2026-10-31
+## Last Updated: 2026-11-03
 
 ## Current Phase: SHIP — complete
 
-## Last Completed Task: Rating column click-to-sort (2026-10-31)
+## Last Completed Task: Cold-call script library + call sheet (2026-11-03)
 
 ## Next Task: none (features shipped)
+
+## Cold-call script library + call sheet (2026-11-03)
+- Goal: keep the words for a cold call inside Lead Atlas so the user never leaves the
+  report to find a script in WhatsApp or a notes app.
+- New pure module `public/scripts-core.js` + `test/scripts-core.test.js` (15 tests):
+  normalization, limits, store ops, active/default selection, placeholder fill,
+  JSON/array/text import, merge, export payload.
+- Storage key exactly `leadAtlas.scripts.v1`; store shape
+  `{version:1, activeId, scripts:[{id,title,body,createdAt,updatedAt}]}`. Browser-local
+  only, like `leadAtlas.outreach.v1`. Limits: 60 scripts, 80-char titles, 12,000-char
+  bodies, 2 MB imports.
+- UI: header **Scripts** chip, report toolbar **Call sheet**, lead drawer **Read call
+  script**; library dialog with search, autosave editor, starter sample, duplicate,
+  delete + undo, explicit **Use by default**, JSON export/import, `.txt`/`.md` import;
+  call-sheet dialog with placeholders, script switcher, copy, edit, mark reached out.
+- Placeholders: `{business}`, `{category}`, `{city}`, `{address}`, `{phone}`, `{email}`,
+  `{website}`, `{niche}`, `{location}`. Lead fields win, then report query; missing values
+  use natural fallbacks; unknown tokens stay visible.
+- Changing the script inside the call sheet only changes that call sheet. The saved
+  default changes only via **Use by default** (or when creating a new script).
+- Toasts: `syncDialogState()` moves `#toastRegion` into the topmost open `<dialog>` so it
+  renders above modal backdrops; close events move it back (lead → call sheet → body).
+- Verified in Chromium 2026-11-03: starter creation, autosave + reload persistence,
+  duplicate/delete/undo, search, explicit default, lead placeholder fill, call-sheet
+  switch without default change, mark reached out (drawer + ledger), corrupt storage boot,
+  corrupt/oversized import errors, storage-quota failure, toast placement in stacked
+  dialogs. Test data cleared; 170 tests green.
+- Docs: `docs/CALL-SCRIPTS.md`, README section + privacy/limitations/troubleshooting,
+  TASKS C1–C7. Version bumped 1.1.0 → 1.2.0.
 
 ## Rating column click-to-sort (2026-10-31)
 - `public/app.js`: new sort value `rating-asc` = lowest rated first, unrated leads last.
@@ -61,6 +90,7 @@
   (scratch edit was disposable; recovery path itself covered by unit tests).
 
 ## Active Context
+- Current app version: `1.2.0` (cold-call scripts feature).
 - Repo: git clone of https://github.com/Adityasharma-in/Lead-Atlas.git (branch `main`),
   identity `Adityasharma-in` / `Adityasharma-in@users.noreply.github.com`.
 - Node ≥ 20 (global fetch), Express 4, zero new dependencies.
@@ -88,6 +118,24 @@
 - Record shape: `{runId, startedAt, brief{niche,location,maxResults}, target, cap, consoleUrl}`.
 - Design record: `RESUME-SCAN.md`.
 
+## Call-scripts map
+- `public/scripts-core.js` — pure engine: `SCRIPT_LIMITS`, `SCRIPT_PLACEHOLDERS`,
+  `SCRIPT_STORAGE_KEY`, `activeScript`, `createScript`, `emptyScriptStore`,
+  `exportScriptsPayload`, `fillScriptTemplate`, `filterScripts`, `findScript`,
+  `importScriptsContent`, `mergeScriptStores`, `parseScriptStore`, `removeScript`,
+  `scriptContextFor`, `scriptExcerpt`, `serializeScriptStore`, `setActiveScript`,
+  `upsertScript`.
+- `public/app.js` — `state.scripts`, `state.scriptUi`, `state.callSheet`;
+  `loadScriptStore`/`writeScriptStore`, autosave, `renderScriptLibrary`,
+  `renderScriptList`, `renderScriptEditor`, `createNewScript`, `selectScript`,
+  `makeSelectedScriptDefault`, `duplicateSelectedScript`, `deleteSelectedScript`,
+  `handleScriptImportFile`, `downloadScriptsBackup`, `openCallSheet`, `renderCallSheet`,
+  `markCallSheetContacted`, `syncDialogState`.
+- `public/index.html` — `#scriptChip`, `#reportScriptBtn`, `#drawerScriptBtn`,
+  `#scriptDialog`, `#callSheetDialog`, toast region moved between them.
+- Storage: `leadAtlas.scripts.v1`; export filename `lead-atlas-scripts-YYYY-MM-DD.json`.
+- Design record: `docs/CALL-SCRIPTS.md`.
+
 ## Blockers
 - none
 
@@ -99,3 +147,9 @@
   old process exits ~1.2 s after the POST response flushes.
 - Flag on success only: `sessionStorage.leadAtlas.updatedTo.v1` is written only after
   the restart is confirmed by a changed sha, then shown once as a toast and cleared.
+- Scripts are browser-local `localStorage`, not server data: no API, CSP, or dependency
+  change, mirroring the outreach ledger pattern.
+- The call sheet's script switcher is scoped to the open call sheet; only **Use by
+  default** (or creating a new script) changes the saved default.
+- Toasts are moved into the topmost open `<dialog>` because a body-level live region
+  renders behind `::backdrop`; close events restore the body parent.

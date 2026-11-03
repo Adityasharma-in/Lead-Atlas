@@ -21,6 +21,27 @@ import {
   outreachKeyForLead,
   outreachStatusLabel,
 } from "./outreach-core.js";
+import {
+  SCRIPT_LIMITS,
+  SCRIPT_PLACEHOLDERS,
+  SCRIPT_STORAGE_KEY,
+  activeScript,
+  createScript,
+  emptyScriptStore,
+  exportScriptsPayload,
+  fillScriptTemplate,
+  filterScripts,
+  findScript,
+  importScriptsContent,
+  mergeScriptStores,
+  parseScriptStore,
+  removeScript,
+  scriptContextFor,
+  scriptExcerpt,
+  serializeScriptStore,
+  setActiveScript,
+  upsertScript,
+} from "./scripts-core.js";
 
 (() => {
   "use strict";
@@ -29,6 +50,7 @@ import {
     token: "leadAtlas.apifyToken.v1",
     brief: "leadAtlas.brief.v1",
     outreach: "leadAtlas.outreach.v1",
+    scripts: SCRIPT_STORAGE_KEY,
     updated: "leadAtlas.updatedTo.v1",
     activeRun: "leadAtlas.activeRun.v1",
   };
@@ -75,6 +97,20 @@ import {
     pageSize: 12,
     contactPreference: true,
     outreach: { version: 1, entries: {} },
+    scripts: emptyScriptStore(),
+    scriptUi: {
+      selectedId: null,
+      search: "",
+      saveState: "saved",
+      savedAt: null,
+      saveTimer: null,
+      storageErrorShown: false,
+    },
+    callSheet: {
+      lead: null,
+      scriptId: null,
+      source: "report",
+    },
     running: null,
     pendingRunBrief: null,
     keyVisible: false,
@@ -525,6 +561,602 @@ import {
     return true;
   }
 
+  /* ---------------- call scripts ---------------- */
+
+  const STARTER_SCRIPT_BODY = `Hi, this is [your name] from [your company] — is now a bad time?
+
+I was looking at {business} in {city} and noticed [what you noticed — no website, a quiet listing, a busy season]. I help {category} businesses [the single result you deliver], and I’m not calling to sell you anything today.
+
+Would it be worth two minutes this week to see whether [the problem you solve] is on your radar? If not, I’ll leave you to it — thanks for picking up.`;
+
+  function readScriptStore() {
+    try {
+      const raw = window.localStorage.getItem(STORAGE.scripts);
+      if (!raw) return emptyScriptStore();
+      return parseScriptStore(raw);
+    } catch {
+      return emptyScriptStore();
+    }
+  }
+
+  function writeScriptStore() {
+    try {
+      window.localStorage.setItem(
+        STORAGE.scripts,
+        JSON.stringify(serializeScriptStore(state.scripts)),
+      );
+      return true;
+    } catch (error) {
+      console.warn("[lead-atlas] Could not save call scripts.", error);
+      return false;
+    }
+  }
+
+  function scriptCountLabel(count) {
+    return `${formatNumber(count)} ${count === 1 ? "script" : "scripts"}`;
+  }
+
+  function selectedScript() {
+    return findScript(state.scripts, state.scriptUi.selectedId) || activeScript(state.scripts);
+  }
+
+  function currentReportQuery() {
+    return state.results?.query || {};
+  }
+
+  function renderScriptChip() {
+    const count = state.scripts.scripts.length;
+    if (els.scriptChipCount) {
+      els.scriptChipCount.textContent = String(count);
+      els.scriptChipCount.hidden = count === 0;
+    }
+    els.scriptChip?.classList.toggle("has-scripts", count > 0);
+    if (els.scriptChip) {
+      els.scriptChip.title = count
+        ? `${scriptCountLabel(count)} saved — open the call library`
+        : "Save a cold-call script for your next call";
+    }
+    renderDrawerScriptAction();
+  }
+
+  function renderDrawerScriptAction() {
+    if (!els.drawerScriptBtn) return;
+    const choice = activeScript(state.scripts);
+    if (els.drawerScriptLabel) {
+      els.drawerScriptLabel.textContent = choice ? "Read call script" : "Add a call script";
+    }
+    if (els.drawerScriptDefault) {
+      els.drawerScriptDefault.textContent = choice ? choice.title : "Write once";
+    }
+    els.drawerScriptBtn.title = choice
+      ? `Open “${choice.title}” filled for this lead`
+      : "Write a cold-call script once and read it beside every lead";
+  }
+
+  function updateScriptSaveState() {
+    if (!els.scriptSaveState) return;
+    const ui = state.scriptUi;
+    const saving = ui.saveState === "saving";
+    const error = ui.saveState === "error";
+    els.scriptSaveState.classList.toggle("is-saving", saving);
+    els.scriptSaveState.classList.toggle("is-error", error);
+    if (error) {
+      els.scriptSaveState.textContent = "Not saved";
+    } else if (saving) {
+      els.scriptSaveState.textContent = "Saving…";
+    } else if (ui.savedAt) {
+      const saved = new Date(ui.savedAt);
+      els.scriptSaveState.textContent = Number.isNaN(saved.getTime())
+        ? "Saved"
+        : `Saved ${saved.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+          })}`;
+    } else {
+      els.scriptSaveState.textContent = "Saved";
+    }
+  }
+
+  function saveScriptStore({ announceError = true } = {}) {
+    window.clearTimeout(state.scriptUi.saveTimer);
+    state.scriptUi.saveTimer = null;
+    const saved = writeScriptStore();
+    state.scriptUi.saveState = saved ? "saved" : "error";
+    state.scriptUi.savedAt = saved ? new Date().toISOString() : null;
+    if (!saved && announceError && !state.scriptUi.storageErrorShown) {
+      state.scriptUi.storageErrorShown = true;
+      showToast(
+        "Scripts could not be saved in this browser. Export a backup and check that site storage is available.",
+        "error",
+        { duration: 8000 },
+      );
+    }
+    if (saved) state.scriptUi.storageErrorShown = false;
+    updateScriptSaveState();
+    return saved;
+  }
+
+  function scheduleScriptSave() {
+    window.clearTimeout(state.scriptUi.saveTimer);
+    state.scriptUi.saveState = "saving";
+    updateScriptSaveState();
+    state.scriptUi.saveTimer = window.setTimeout(() => saveScriptStore(), 450);
+  }
+
+  function renderScriptPlaceholders() {
+    if (!els.scriptPlaceholders) return;
+    els.scriptPlaceholders.innerHTML = SCRIPT_PLACEHOLDERS.map(
+      (placeholder) => `<button
+        type="button"
+        class="script-placeholder"
+        data-script-token="${escapeHtml(placeholder.token)}"
+        title="${escapeHtml(`Insert ${placeholder.token} — ${placeholder.hint}`)}"
+      >${escapeHtml(placeholder.token)}</button>`,
+    ).join("");
+  }
+
+  function updateScriptEditorMeta() {
+    const script = selectedScript();
+    if (!script) return;
+    const isDefault = state.scripts.activeId === script.id;
+    if (els.scriptDefaultLabel) {
+      els.scriptDefaultLabel.textContent = isDefault ? "Opens by default" : "Saved script";
+    }
+    if (els.scriptUpdatedLabel) {
+      els.scriptUpdatedLabel.textContent = `Updated ${formatDate(script.updatedAt, true)}`;
+    }
+    if (els.scriptCharCount) {
+      els.scriptCharCount.textContent = `${formatNumber(script.body.length)} / ${formatNumber(
+        SCRIPT_LIMITS.bodyLength,
+      )}`;
+    }
+    if (els.makeDefaultScriptBtn) {
+      els.makeDefaultScriptBtn.disabled = isDefault;
+      els.makeDefaultScriptBtn.textContent = isDefault ? "Opens by default" : "Use by default";
+    }
+  }
+
+  function renderScriptEditor({ syncFields = false } = {}) {
+    const hasScripts = state.scripts.scripts.length > 0;
+    const script = selectedScript();
+
+    if (els.scriptEditorEmpty) els.scriptEditorEmpty.hidden = hasScripts;
+    if (els.scriptEditorMain) els.scriptEditorMain.hidden = !script;
+    if (!script) {
+      updateScriptSaveState();
+      return;
+    }
+
+    state.scriptUi.selectedId = script.id;
+    if (syncFields) {
+      if (els.scriptTitleInput) {
+        els.scriptTitleInput.value = script.title === "Untitled script" ? "" : script.title;
+      }
+      if (els.scriptBodyInput) els.scriptBodyInput.value = script.body;
+    }
+    updateScriptEditorMeta();
+    updateScriptSaveState();
+  }
+
+  function renderScriptList() {
+    if (!els.scriptList) return;
+    const all = state.scripts.scripts;
+    const visible = filterScripts(all, state.scriptUi.search);
+    const selected = selectedScript();
+    const selectedId = selected?.id || null;
+
+    if (els.scriptSearch && els.scriptSearch.value !== state.scriptUi.search) {
+      els.scriptSearch.value = state.scriptUi.search;
+    }
+    if (els.scriptListLabel) {
+      els.scriptListLabel.textContent = state.scriptUi.search ? "Matches" : "Saved scripts";
+    }
+    if (els.scriptListCount) {
+      els.scriptListCount.textContent = formatNumber(visible.length);
+    }
+
+    if (!all.length) {
+      els.scriptList.innerHTML = `<p class="script-list-empty">No scripts yet. Write your opening line.</p>`;
+      return;
+    }
+    if (!visible.length) {
+      els.scriptList.innerHTML = `<p class="script-list-empty">No script matches “${escapeHtml(
+        state.scriptUi.search,
+      )}”.</p>`;
+      return;
+    }
+
+    els.scriptList.innerHTML = visible
+      .map((script) => {
+        const isSelected = script.id === selectedId;
+        const isDefault = script.id === state.scripts.activeId;
+        return `<button
+          type="button"
+          class="script-list-item${isSelected ? " is-selected" : ""}"
+          data-script-id="${escapeHtml(script.id)}"
+          ${isSelected ? 'aria-current="true"' : ""}
+        >
+          <span class="script-list-title">${escapeHtml(script.title)}</span>
+          <span class="script-list-excerpt">${escapeHtml(scriptExcerpt(script.body, 74))}</span>
+          <span class="script-list-meta">${
+            isDefault
+              ? '<span class="script-list-default">Opens by default</span>'
+              : escapeHtml(`Updated ${formatDate(script.updatedAt)}`)
+          }</span>
+        </button>`;
+      })
+      .join("");
+  }
+
+  function renderScriptLibrary({ syncFields = true } = {}) {
+    renderScriptList();
+    renderScriptEditor({ syncFields });
+    renderScriptChip();
+  }
+
+  function scriptLimitToast() {
+    showToast(
+      `You can keep up to ${formatNumber(
+        SCRIPT_LIMITS.maxScripts,
+      )} scripts. Delete one before adding another.`,
+      "error",
+      { duration: 6000 },
+    );
+  }
+
+  function createNewScript({ starter = false, focusTitle = true } = {}) {
+    if (state.scripts.scripts.length >= SCRIPT_LIMITS.maxScripts) {
+      scriptLimitToast();
+      return null;
+    }
+    if (state.scriptUi.saveTimer) saveScriptStore();
+    const created = createScript({
+      title: starter ? "Starter call script" : "Untitled script",
+      body: starter ? STARTER_SCRIPT_BODY : "",
+    });
+    state.scripts = upsertScript(state.scripts, created);
+    state.scripts = setActiveScript(state.scripts, created.id);
+    state.scriptUi.selectedId = created.id;
+    state.scriptUi.search = "";
+    saveScriptStore();
+    renderScriptLibrary({ syncFields: true });
+    if (focusTitle) {
+      window.setTimeout(() => {
+        els.scriptTitleInput?.focus();
+        els.scriptTitleInput?.select();
+      }, 30);
+    }
+    if (starter) {
+      showToast("Sample script added. Make the words your own.", "success");
+    }
+    return created;
+  }
+
+  function selectScript(id, { focus = false } = {}) {
+    const script = findScript(state.scripts, id);
+    if (!script) return;
+    if (state.scriptUi.saveTimer) saveScriptStore();
+    state.scriptUi.selectedId = script.id;
+    renderScriptLibrary({ syncFields: true });
+    if (focus) els.scriptBodyInput?.focus();
+  }
+
+  function handleScriptFormInput() {
+    const script = selectedScript();
+    if (!script) return;
+    state.scripts = upsertScript(state.scripts, {
+      ...script,
+      title: els.scriptTitleInput?.value || "",
+      body: els.scriptBodyInput?.value || "",
+      updatedAt: new Date().toISOString(),
+    });
+    state.scriptUi.selectedId = script.id;
+    renderScriptList();
+    updateScriptEditorMeta();
+    scheduleScriptSave();
+    renderScriptChip();
+  }
+
+  function insertScriptToken(token) {
+    const field = els.scriptBodyInput;
+    if (!field) return;
+    const start = field.selectionStart ?? field.value.length;
+    const end = field.selectionEnd ?? start;
+    field.setRangeText(token, start, end, "end");
+    field.focus();
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function makeSelectedScriptDefault() {
+    const script = selectedScript();
+    if (!script || state.scripts.activeId === script.id) return;
+    saveScriptStore();
+    state.scripts = setActiveScript(state.scripts, script.id);
+    saveScriptStore();
+    renderScriptLibrary({ syncFields: false });
+    showToast(`“${script.title}” now opens by default.`, "success", { duration: 3000 });
+  }
+
+  function duplicateSelectedScript() {
+    const script = selectedScript();
+    if (!script) return;
+    if (state.scripts.scripts.length >= SCRIPT_LIMITS.maxScripts) {
+      scriptLimitToast();
+      return;
+    }
+    if (state.scriptUi.saveTimer) saveScriptStore();
+    const copy = createScript({
+      title: `${script.title} copy`,
+      body: script.body,
+    });
+    state.scripts = upsertScript(state.scripts, copy);
+    state.scriptUi.selectedId = copy.id;
+    saveScriptStore();
+    renderScriptLibrary({ syncFields: true });
+    showToast(`“${script.title}” duplicated.`, "success", { duration: 2600 });
+  }
+
+  function deleteSelectedScript() {
+    const script = selectedScript();
+    if (!script) return;
+    if (state.scriptUi.saveTimer) saveScriptStore();
+    const wasActive = state.scripts.activeId === script.id;
+    const index = state.scripts.scripts.findIndex((entry) => entry.id === script.id);
+    state.scripts = removeScript(state.scripts, script.id);
+    const next = state.scripts.scripts[Math.min(index, state.scripts.scripts.length - 1)] || null;
+    state.scriptUi.selectedId = next?.id || null;
+    saveScriptStore();
+    renderScriptLibrary({ syncFields: true });
+    showToast(`“${script.title}” deleted.`, "info", {
+      actionLabel: "Undo",
+      duration: 8000,
+      onAction: () => {
+        const restored = upsertScript(state.scripts, script);
+        state.scripts = wasActive ? setActiveScript(restored, script.id) : restored;
+        state.scriptUi.selectedId = script.id;
+        saveScriptStore();
+        renderScriptLibrary({ syncFields: true });
+      },
+    });
+  }
+
+  function openScriptLibrary({ selectId = null, createIfEmpty = false, focusTitle = false } = {}) {
+    if (createIfEmpty && !state.scripts.scripts.length) {
+      createNewScript({ focusTitle });
+    }
+    state.scriptUi.search = "";
+    if (selectId) {
+      const match = findScript(state.scripts, selectId);
+      if (match) state.scriptUi.selectedId = match.id;
+    }
+    if (!selectedScript()) {
+      state.scriptUi.selectedId = state.scripts.scripts[0]?.id || null;
+    }
+    renderScriptLibrary({ syncFields: true });
+    if (!els.scriptDialog.open) els.scriptDialog.showModal();
+    document.body.classList.add("has-dialog");
+    syncDialogState();
+    window.setTimeout(() => {
+      if (focusTitle && state.scripts.scripts.length) {
+        els.scriptTitleInput?.focus();
+        els.scriptTitleInput?.select();
+        return;
+      }
+      const selected = $$(".script-list-item", els.scriptList).find(
+        (item) => item.dataset.scriptId === state.scriptUi.selectedId,
+      );
+      (selected || els.newScriptBtn)?.focus({ preventScroll: true });
+    }, 40);
+  }
+
+  function closeScriptLibrary() {
+    if (state.scriptUi.saveTimer) saveScriptStore();
+    if (els.scriptDialog?.open) els.scriptDialog.close();
+    syncDialogState();
+  }
+
+  function handleScriptImportFile(file) {
+    if (!file) return;
+    if (file.size > SCRIPT_LIMITS.importBytes) {
+      const limitMb = Math.round(SCRIPT_LIMITS.importBytes / (1024 * 1024));
+      showToast(
+        `That file is too large. Keep script imports under ${limitMb} MB.`,
+        "error",
+        { duration: 6000 },
+      );
+      return;
+    }
+
+    if (els.importScriptsBtn) els.importScriptsBtn.disabled = true;
+    file
+      .text()
+      .then((source) => {
+        const imported = importScriptsContent({ name: file.name, text: source });
+        const merged = mergeScriptStores(state.scripts, imported.store);
+        state.scripts = merged.store;
+        state.scriptUi.selectedId =
+          activeScript(merged.store)?.id || state.scriptUi.selectedId;
+        saveScriptStore();
+        renderScriptLibrary({ syncFields: true });
+        const parts = [];
+        if (merged.added) parts.push(`${pluralize(merged.added, "script")} added`);
+        if (merged.updated) parts.push(`${pluralize(merged.updated, "script")} updated`);
+        if (merged.skipped) parts.push(`${pluralize(merged.skipped, "script")} already here`);
+        showToast(`Imported ${file.name}: ${parts.join(" · ")}.`, "success", {
+          duration: 6500,
+        });
+      })
+      .catch((error) => {
+        showToast(
+          error?.message || "That file could not be read as a script or backup.",
+          "error",
+          { duration: 8000 },
+        );
+      })
+      .finally(() => {
+        if (els.importScriptsBtn) els.importScriptsBtn.disabled = false;
+        if (els.scriptImportInput) els.scriptImportInput.value = "";
+      });
+  }
+
+  function downloadScriptsBackup() {
+    if (!state.scripts.scripts.length) {
+      showToast("Write a script before exporting a backup.", "info", { duration: 3200 });
+      return;
+    }
+    if (state.scriptUi.saveTimer) saveScriptStore();
+    const payload = exportScriptsPayload(state.scripts);
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadBlobFile(
+      JSON.stringify(payload, null, 2),
+      "application/json;charset=utf-8",
+      `lead-atlas-scripts-${stamp}.json`,
+    );
+    showToast(
+      `Exported ${pluralize(payload.scripts.length, "script")} as a JSON backup.`,
+      "success",
+    );
+  }
+
+  function callSheetScript() {
+    return (
+      findScript(state.scripts, state.callSheet.scriptId) ||
+      activeScript(state.scripts) ||
+      state.scripts.scripts[0] ||
+      null
+    );
+  }
+
+  function refreshCallSheetOutreach() {
+    const lead = state.callSheet.lead;
+    if (!lead) {
+      if (els.markCallSheetContactedBtn) els.markCallSheetContactedBtn.hidden = true;
+      return;
+    }
+    const status = normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO;
+    const contacted = status === OUTREACH.CONTACTED;
+    const blocked = status === OUTREACH.DO_NOT_CONTACT;
+    if (els.markCallSheetContactedBtn) {
+      els.markCallSheetContactedBtn.hidden = false;
+      els.markCallSheetContactedBtn.disabled = contacted || blocked;
+      els.markCallSheetContactedBtn.classList.toggle("is-done", contacted);
+      els.markCallSheetContactedBtn.classList.toggle("is-blocked", blocked);
+    }
+    if (els.markCallSheetContactedLabel) {
+      if (contacted) {
+        els.markCallSheetContactedLabel.textContent = lead.contactedAt
+          ? `Reached out · ${formatDate(lead.contactedAt)}`
+          : "Reached out";
+      } else if (blocked) {
+        els.markCallSheetContactedLabel.textContent = "Marked do not contact";
+      } else {
+        els.markCallSheetContactedLabel.textContent = "Mark reached out";
+      }
+    }
+  }
+
+  function renderCallSheet() {
+    const script = callSheetScript();
+    const lead = state.callSheet.lead;
+    const hasScripts = Boolean(script);
+
+    if (els.callSheetEmpty) els.callSheetEmpty.hidden = hasScripts;
+    if (els.callSheetContent) els.callSheetContent.hidden = !hasScripts;
+    if (!script) {
+      if (els.callSheetKicker) els.callSheetKicker.textContent = "Call sheet / No script";
+      if (els.callSheetTitle) els.callSheetTitle.textContent = "Cold-call script";
+      if (els.callSheetSub) {
+        els.callSheetSub.textContent = "A script written once, ready beside every lead.";
+      }
+      return;
+    }
+
+    state.callSheet.scriptId = script.id;
+    const query = currentReportQuery();
+    const context = scriptContextFor({ lead, query });
+    const filled = fillScriptTemplate(script.body, context);
+    const empty = !filled.trim();
+    const leadPhone = lead ? lead.phones?.[0] || lead.phone || "" : "";
+
+    if (els.callSheetKicker) {
+      els.callSheetKicker.textContent = `Call sheet / ${script.title}`;
+    }
+    if (els.callSheetTitle) {
+      els.callSheetTitle.textContent = lead?.name || "Cold-call script";
+    }
+    if (els.callSheetSub) {
+      if (lead) {
+        els.callSheetSub.textContent =
+          [lead.category, leadPhone, lead.city].filter(Boolean).join(" · ") ||
+          "Read it once, then dial.";
+      } else {
+        const brief = [query.niche, query.location].filter(Boolean).join(" in ");
+        els.callSheetSub.textContent = brief
+          ? `Preview filled for ${brief}.`
+          : "A generic read-through before you start dialing.";
+      }
+    }
+
+    if (els.callSheetBody) {
+      els.callSheetBody.textContent = empty
+        ? "This script has no words yet. Open the library and write your opening line."
+        : filled;
+      els.callSheetBody.classList.toggle("is-empty", empty);
+    }
+    if (els.callSheetContext) {
+      els.callSheetContext.textContent = lead
+        ? "Using this lead’s details for the placeholders. Missing fields are replaced with plain fallbacks."
+        : "Using this report’s search details. Open a lead to fill the business-specific placeholders.";
+    }
+
+    if (els.callSheetScriptSelect) {
+      els.callSheetScriptSelect.innerHTML = "";
+      for (const entry of state.scripts.scripts) {
+        const option = document.createElement("option");
+        option.value = entry.id;
+        option.textContent = entry.title;
+        option.selected = entry.id === script.id;
+        els.callSheetScriptSelect.appendChild(option);
+      }
+    }
+
+    if (els.copyCallSheetBtn) {
+      els.copyCallSheetBtn.disabled = empty;
+      els.copyCallSheetBtn.title = empty ? "Add some words to this script first" : "Copy the filled script";
+    }
+    refreshCallSheetOutreach();
+  }
+
+  function openCallSheet(lead = null, { source = "report", scriptId = null } = {}) {
+    state.callSheet.lead = lead || null;
+    state.callSheet.source = source;
+    const script =
+      findScript(state.scripts, scriptId) ||
+      activeScript(state.scripts) ||
+      state.scripts.scripts[0] ||
+      null;
+    state.callSheet.scriptId = script?.id || null;
+    renderCallSheet();
+    if (!els.callSheetDialog.open) els.callSheetDialog.showModal();
+    document.body.classList.add("has-dialog");
+    syncDialogState();
+    window.setTimeout(() => els.callSheetBody?.focus({ preventScroll: true }), 40);
+  }
+
+  function closeCallSheet() {
+    if (els.callSheetDialog?.open) els.callSheetDialog.close();
+    syncDialogState();
+  }
+
+  function markCallSheetContacted() {
+    const lead = state.callSheet.lead;
+    if (!lead) return;
+    const status = normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO;
+    if (status === OUTREACH.CONTACTED || status === OUTREACH.DO_NOT_CONTACT) return;
+    setOutreachStatus(lead, OUTREACH.CONTACTED);
+    refreshCallSheetOutreach();
+  }
+
   /* ---------------- element cache ---------------- */
 
   function cacheElements() {
@@ -533,6 +1165,8 @@ import {
       "updateChip",
       "updateChipText",
       "updateChipVer",
+      "scriptChip",
+      "scriptChipCount",
       "keyChip",
       "keyDot",
       "keyChipText",
@@ -602,6 +1236,7 @@ import {
       "reportLocation",
       "reportInWord",
       "reportSub",
+      "reportScriptBtn",
       "exportCsvBtn",
       "exportJsonBtn",
       "dataCardBtn",
@@ -667,6 +1302,9 @@ import {
       "drawerAddress",
       "drawerRating",
       "drawerMapLink",
+      "drawerScriptBtn",
+      "drawerScriptLabel",
+      "drawerScriptDefault",
       "drawerContactCount",
       "drawerContacts",
       "drawerWebStatus",
@@ -683,6 +1321,47 @@ import {
       "bootErrorText",
       "footerBuild",
       "footerVersion",
+      "scriptDialog",
+      "closeScriptDialog",
+      "scriptSearch",
+      "scriptListLabel",
+      "scriptListCount",
+      "scriptList",
+      "newScriptBtn",
+      "importScriptsBtn",
+      "exportScriptsBtn",
+      "scriptImportInput",
+      "scriptEditorEmpty",
+      "scriptEditorMain",
+      "emptyNewScriptBtn",
+      "starterScriptBtn",
+      "scriptTitleInput",
+      "scriptSaveState",
+      "scriptDefaultLabel",
+      "scriptUpdatedLabel",
+      "scriptPlaceholders",
+      "scriptBodyInput",
+      "makeDefaultScriptBtn",
+      "duplicateScriptBtn",
+      "deleteScriptBtn",
+      "scriptCharCount",
+      "doneScriptBtn",
+      "callSheetDialog",
+      "closeCallSheet",
+      "callSheetKicker",
+      "callSheetTitle",
+      "callSheetSub",
+      "callSheetEmpty",
+      "writeFirstScriptBtn",
+      "callSheetContent",
+      "callSheetScriptSelect",
+      "editCallSheetScript",
+      "callSheetBody",
+      "callSheetContext",
+      "copyCallSheetBtn",
+      "markCallSheetContactedBtn",
+      "markCallSheetContactedLabel",
+      "closeCallSheetBtn",
     ];
     for (const id of ids) els[id] = byId(id);
   }
@@ -1005,6 +1684,7 @@ import {
     updateKeyUI();
     if (!els.keyDialog.open) els.keyDialog.showModal();
     document.body.classList.add("has-dialog");
+    syncDialogState();
     window.setTimeout(() => els.apiKeyInput?.focus(), 50);
   }
 
@@ -2732,6 +3412,7 @@ import {
     const lead = state.results?.leads?.find((entry) => entry.id === leadKey);
     if (!lead || !els.leadDialog) return;
     state.drawerLead = lead;
+    renderDrawerScriptAction();
 
     els.drawerCategory.textContent = [lead.category || "Business", lead.priceLevel]
       .filter(Boolean)
@@ -2838,6 +3519,7 @@ import {
 
     if (!els.leadDialog.open) els.leadDialog.showModal();
     document.body.classList.add("has-dialog");
+    syncDialogState();
     els.leadDialog.querySelector(".drawer-inner")?.scrollTo({ top: 0 });
   }
 
@@ -2995,6 +3677,98 @@ import {
       button.addEventListener("click", openDataDesk),
     );
     els.dataCardBtn?.addEventListener("click", openDataDesk);
+
+    els.scriptChip?.addEventListener("click", () => openScriptLibrary());
+    els.reportScriptBtn?.addEventListener("click", () =>
+      openCallSheet(null, { source: "report" }),
+    );
+    els.drawerScriptBtn?.addEventListener("click", () => {
+      if (!state.scripts.scripts.length) {
+        openScriptLibrary({ createIfEmpty: true, focusTitle: true });
+        return;
+      }
+      openCallSheet(state.drawerLead, { source: "drawer" });
+    });
+
+    els.closeScriptDialog?.addEventListener("click", closeScriptLibrary);
+    els.scriptDialog?.addEventListener("click", (event) => {
+      if (event.target === els.scriptDialog) closeScriptLibrary();
+    });
+    els.scriptDialog?.addEventListener("close", () => {
+      if (state.scriptUi.saveTimer) saveScriptStore();
+      syncDialogState();
+    });
+    els.scriptSearch?.addEventListener("input", () => {
+      state.scriptUi.search = els.scriptSearch.value;
+      renderScriptList();
+    });
+    els.scriptList?.addEventListener("click", (event) => {
+      const item = event.target.closest("button[data-script-id]");
+      if (item) selectScript(item.dataset.scriptId);
+    });
+    els.newScriptBtn?.addEventListener("click", () => createNewScript());
+    els.emptyNewScriptBtn?.addEventListener("click", () => createNewScript());
+    els.starterScriptBtn?.addEventListener("click", () => createNewScript({ starter: true }));
+    els.scriptTitleInput?.addEventListener("input", handleScriptFormInput);
+    els.scriptBodyInput?.addEventListener("input", handleScriptFormInput);
+    for (const input of [els.scriptTitleInput, els.scriptBodyInput]) {
+      input?.addEventListener("keydown", (event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+          event.preventDefault();
+          saveScriptStore();
+        }
+      });
+    }
+    els.scriptPlaceholders?.addEventListener("click", (event) => {
+      const chip = event.target.closest("button[data-script-token]");
+      if (chip) insertScriptToken(chip.dataset.scriptToken);
+    });
+    els.makeDefaultScriptBtn?.addEventListener("click", makeSelectedScriptDefault);
+    els.duplicateScriptBtn?.addEventListener("click", duplicateSelectedScript);
+    els.deleteScriptBtn?.addEventListener("click", deleteSelectedScript);
+    els.doneScriptBtn?.addEventListener("click", closeScriptLibrary);
+    els.importScriptsBtn?.addEventListener("click", () => els.scriptImportInput?.click());
+    els.exportScriptsBtn?.addEventListener("click", downloadScriptsBackup);
+    els.scriptImportInput?.addEventListener("change", (event) => {
+      const file = event.target.files?.[0];
+      if (file) handleScriptImportFile(file);
+    });
+
+    els.closeCallSheet?.addEventListener("click", closeCallSheet);
+    els.closeCallSheetBtn?.addEventListener("click", closeCallSheet);
+    els.callSheetDialog?.addEventListener("click", (event) => {
+      if (event.target === els.callSheetDialog) closeCallSheet();
+    });
+    els.callSheetDialog?.addEventListener("close", () => {
+      state.callSheet.lead = null;
+      state.callSheet.scriptId = null;
+      syncDialogState();
+    });
+    els.callSheetScriptSelect?.addEventListener("change", () => {
+      const id = els.callSheetScriptSelect.value;
+      if (!findScript(state.scripts, id)) return;
+      state.callSheet.scriptId = id;
+      renderCallSheet();
+    });
+    els.editCallSheetScript?.addEventListener("click", () => {
+      const scriptId = state.callSheet.scriptId;
+      closeCallSheet();
+      openScriptLibrary({ selectId: scriptId, focusTitle: true });
+    });
+    els.writeFirstScriptBtn?.addEventListener("click", () => {
+      closeCallSheet();
+      openScriptLibrary({ createIfEmpty: true, focusTitle: true });
+    });
+    els.copyCallSheetBtn?.addEventListener("click", async () => {
+      const script = els.callSheetBody?.textContent || "";
+      if (!script.trim()) return;
+      const copied = await copyText(script);
+      showToast(
+        copied ? "Call script copied to the clipboard." : "Could not access the clipboard.",
+        copied ? "success" : "error",
+      );
+    });
+    els.markCallSheetContactedBtn?.addEventListener("click", markCallSheetContacted);
 
     els.keyDialog?.addEventListener("click", (event) => {
       if (event.target === els.keyDialog) closeKeyDialog();
@@ -3272,8 +4046,16 @@ import {
   }
 
   function syncDialogState() {
-    const open = Boolean(els.keyDialog?.open || els.leadDialog?.open);
-    document.body.classList.toggle("has-dialog", open);
+    const openDialogs = $$("dialog[open]");
+    const topDialog = openDialogs[openDialogs.length - 1] || null;
+    document.body.classList.toggle("has-dialog", Boolean(topDialog));
+
+    // A toast outside an open modal dialog sits behind its top-layer backdrop.
+    // Move the live region into the topmost dialog while one is open.
+    if (els.toastRegion) {
+      const host = topDialog || document.body;
+      if (els.toastRegion.parentElement !== host) host.appendChild(els.toastRegion);
+    }
   }
 
   /* ---------------- init ---------------- */
@@ -3330,6 +4112,10 @@ import {
       setRangeBounds();
       state.token = readStoredToken();
       state.outreach = readOutreachLedger();
+      state.scripts = readScriptStore();
+      state.scriptUi.selectedId = activeScript(state.scripts)?.id || null;
+      renderScriptPlaceholders();
+      renderScriptChip();
       const savedBrief = readBrief();
       if (savedBrief) applyBrief(savedBrief);
       syncRangeVisual();

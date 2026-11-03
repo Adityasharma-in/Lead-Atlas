@@ -110,6 +110,16 @@
         <path d="M12 3 2.5 20h19L12 3Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
         <path d="M12 9v5m0 2.5v.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
       </symbol>
+      <symbol id="i-script" viewBox="0 0 24 24">
+        <path d="M6 3h9l4 4v14H6V3Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+        <path d="M15 3v4h4M9 11h7M9 14.5h7M9 18h4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      </symbol>
     </svg>
 
     <div class="grain" aria-hidden="true"></div>
@@ -152,6 +162,18 @@
               <span class="update-chip-ver" id="updateChipVer"></span>
             </span>
             <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+          </button>
+          <button
+            type="button"
+            class="script-chip"
+            id="scriptChip"
+            aria-haspopup="dialog"
+            aria-controls="scriptDialog"
+            title="Open your saved cold-call scripts"
+          >
+            <svg class="icon" aria-hidden="true"><use href="#i-script"></use></svg>
+            <span class="script-chip-label">Scripts</span>
+            <span class="script-chip-count" id="scriptChipCount" hidden>0</span>
           </button>
           <button
             type="button"
@@ -915,6 +937,10 @@
                 </p>
               </div>
               <div class="report-actions">
+                <button type="button" class="btn btn-outline export-btn" id="reportScriptBtn">
+                  <svg class="icon" aria-hidden="true"><use href="#i-script"></use></svg>
+                  <span>Call sheet</span>
+                </button>
                 <button type="button" class="btn btn-outline export-btn" id="exportCsvBtn">
                   <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
                   <span>CSV</span>
@@ -1471,6 +1497,12 @@
           <svg class="icon" aria-hidden="true"><use href="#i-external"></use></svg>
         </a>
 
+        <button type="button" class="btn btn-outline drawer-script-link" id="drawerScriptBtn">
+          <svg class="icon" aria-hidden="true"><use href="#i-script"></use></svg>
+          <span id="drawerScriptLabel">Read call script</span>
+          <span class="drawer-script-default" id="drawerScriptDefault"></span>
+        </button>
+
         <section class="drawer-section drawer-outreach">
           <div class="drawer-section-head">
             <h3>Outreach trail</h3>
@@ -1580,6 +1612,239 @@
           </button>
           <span class="drawer-footnote">Verify before outreach.</span>
         </footer>
+      </div>
+    </dialog>
+
+    <!-- ============================== SCRIPT LIBRARY ============================== -->
+    <dialog class="dialog script-dialog" id="scriptDialog" aria-labelledby="scriptDialogTitle">
+      <div class="script-dialog-inner">
+        <header class="script-dialog-head">
+          <div>
+            <p class="mono-label">Call library / Cold-call scripts</p>
+            <h2 id="scriptDialogTitle">Keep the words beside the calls.</h2>
+            <p class="script-dialog-lede">
+              Write the opening once. Open it beside any lead with the business details filled in,
+              or read it before the first dial. Everything stays in this browser.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            id="closeScriptDialog"
+            aria-label="Close script library"
+          >
+            <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+          </button>
+        </header>
+
+        <div class="script-workspace">
+          <aside class="script-sidebar" aria-label="Saved scripts">
+            <label class="script-search" for="scriptSearch">
+              <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+              <input
+                id="scriptSearch"
+                type="search"
+                placeholder="Search scripts"
+                aria-label="Search saved scripts"
+                autocomplete="off"
+              />
+            </label>
+
+            <p class="script-list-label">
+              <span id="scriptListLabel">Saved scripts</span>
+              <span id="scriptListCount">0</span>
+            </p>
+            <div class="script-list" id="scriptList"></div>
+
+            <div class="script-sidebar-actions">
+              <button type="button" class="btn btn-primary btn-small" id="newScriptBtn">
+                <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
+                New script
+              </button>
+              <div class="script-tools">
+                <button
+                  type="button"
+                  class="script-tool"
+                  id="importScriptsBtn"
+                  title="Import call scripts from JSON, TXT, or Markdown"
+                >
+                  Import
+                </button>
+                <span aria-hidden="true">·</span>
+                <button
+                  type="button"
+                  class="script-tool"
+                  id="exportScriptsBtn"
+                  title="Download a JSON backup of every saved script"
+                >
+                  Export
+                </button>
+              </div>
+              <input
+                type="file"
+                id="scriptImportInput"
+                accept=".json,.txt,.md,application/json,text/plain,text/markdown"
+                hidden
+              />
+            </div>
+          </aside>
+
+          <section class="script-editor" aria-label="Script editor">
+            <div class="script-editor-empty" id="scriptEditorEmpty" hidden>
+              <span class="script-empty-mark" aria-hidden="true">
+                <svg class="icon"><use href="#i-script"></use></svg>
+              </span>
+              <h3>No call script yet.</h3>
+              <p>
+                Write the words you actually say. Add a placeholder such as
+                <code>{business}</code> or <code>{city}</code> and the call sheet fills it from
+                the lead.
+              </p>
+              <div class="script-editor-empty-actions">
+                <button type="button" class="btn btn-primary" id="emptyNewScriptBtn">
+                  Write a script
+                </button>
+                <button type="button" class="btn btn-outline" id="starterScriptBtn">
+                  Start from a sample
+                </button>
+              </div>
+            </div>
+
+            <div class="script-editor-main" id="scriptEditorMain" hidden>
+              <div class="script-editor-topline">
+                <label class="script-title-field" for="scriptTitleInput">
+                  <span class="sr-only">Script title</span>
+                  <input
+                    id="scriptTitleInput"
+                    type="text"
+                    maxlength="80"
+                    placeholder="Name this script"
+                    autocomplete="off"
+                  />
+                </label>
+                <span class="script-save-state" id="scriptSaveState" aria-live="polite">Saved</span>
+              </div>
+
+              <div class="script-editor-meta">
+                <span class="mono-label" id="scriptDefaultLabel">Opens by default</span>
+                <span class="script-updated-label" id="scriptUpdatedLabel">Updated just now</span>
+              </div>
+
+              <div class="script-placeholder-bar">
+                <span class="mono-label">Insert</span>
+                <div class="script-placeholders" id="scriptPlaceholders"></div>
+              </div>
+
+              <label class="sr-only" for="scriptBodyInput">Script text</label>
+              <textarea
+                id="scriptBodyInput"
+                class="script-body-input"
+                rows="14"
+                maxlength="12000"
+                spellcheck="true"
+                placeholder="Write the call as you would say it. Add {business}, {city}, or {category} where the lead details should fill in."
+              ></textarea>
+
+              <p class="script-editor-hint">
+                Placeholders fill from the lead you are calling. Unknown tokens stay visible so
+                you can fix them.
+              </p>
+
+              <div class="script-editor-actions">
+                <button type="button" class="script-tool" id="makeDefaultScriptBtn">
+                  Use by default
+                </button>
+                <button type="button" class="script-tool" id="duplicateScriptBtn">
+                  Duplicate
+                </button>
+                <button type="button" class="script-tool is-danger" id="deleteScriptBtn">
+                  Delete
+                </button>
+                <span class="script-editor-count" id="scriptCharCount">0 / 12,000</span>
+                <button type="button" class="btn btn-primary btn-small" id="doneScriptBtn">
+                  Done
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <p class="script-dialog-foot">
+          <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg>
+          Saved in this browser only · Export a backup before clearing site data
+        </p>
+      </div>
+    </dialog>
+
+    <!-- ============================== CALL SHEET ============================== -->
+    <dialog class="dialog call-sheet" id="callSheetDialog" aria-labelledby="callSheetTitle">
+      <div class="call-sheet-inner">
+        <header class="call-sheet-head">
+          <div>
+            <p class="mono-label" id="callSheetKicker">Call sheet</p>
+            <h2 id="callSheetTitle">Cold-call script</h2>
+            <p class="call-sheet-sub" id="callSheetSub"></p>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            id="closeCallSheet"
+            aria-label="Close call sheet"
+          >
+            <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+          </button>
+        </header>
+
+        <div class="call-sheet-empty" id="callSheetEmpty" hidden>
+          <span class="script-empty-mark" aria-hidden="true">
+            <svg class="icon"><use href="#i-script"></use></svg>
+          </span>
+          <h3>No script saved yet.</h3>
+          <p>
+            Write your opening once, then it opens here beside every lead — no more switching
+            apps mid-call.
+          </p>
+          <button type="button" class="btn btn-primary" id="writeFirstScriptBtn">
+            Write a script
+          </button>
+        </div>
+
+        <div id="callSheetContent">
+          <div class="call-sheet-toolbar">
+            <label class="call-sheet-script-select" for="callSheetScriptSelect">
+              <span class="mono-label">Script</span>
+              <span class="select-wrap">
+                <select id="callSheetScriptSelect"></select>
+                <svg class="icon select-chevron" aria-hidden="true"><use href="#i-chevron"></use></svg>
+              </span>
+            </label>
+            <button type="button" class="text-link" id="editCallSheetScript">
+              <svg class="icon" aria-hidden="true"><use href="#i-script"></use></svg>
+              Edit script
+            </button>
+          </div>
+
+          <div
+            class="call-sheet-body"
+            id="callSheetBody"
+            tabindex="0"
+            aria-label="Script to read during the call"
+          ></div>
+
+          <p class="call-sheet-context" id="callSheetContext"></p>
+
+          <footer class="call-sheet-actions">
+            <button type="button" class="btn btn-outline" id="copyCallSheetBtn">
+              <svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg>
+              Copy script
+            </button>
+            <button type="button" class="btn btn-primary" id="markCallSheetContactedBtn">
+              <svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>
+              <span id="markCallSheetContactedLabel">Mark reached out</span>
+            </button>
+            <button type="button" class="btn btn-quiet" id="closeCallSheetBtn">Close</button>
+          </footer>
+        </div>
       </div>
     </dialog>
 

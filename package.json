@@ -1,6 +1,6 @@
 {
   "name": "lead-atlas",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Lead Atlas - a Google Maps lead scanner powered by Apify's compass/crawler-google-places Actor.",

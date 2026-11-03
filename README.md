@@ -2,8 +2,9 @@
 
 A local-first Google Maps lead scanner. Give it a niche and a location, and it returns a
 field report of businesses with phones, emails, websites, social profiles, ratings, and a
-verification link to each Google Maps listing — plus an outreach trail so you know who you
-have contacted. Ready to export as CSV or JSON.
+verification link to each Google Maps listing — plus an outreach trail and a browser-local
+script library so you know who you have contacted and what to say. Ready to export as CSV
+or JSON.
 
 Already have a lead file? The **Data desk** also imports an existing CSV, TSV, JSON, or
 JSONL file and opens it in the same report UI. Imports are parsed entirely in the browser:
@@ -77,7 +78,7 @@ same way you would: pull the newest commit and restart, in one click.
 - On page load — and every 5 minutes after that — the app asks the local server to compare
   its build with the tip of your repository's branch on GitHub.
 - When a newer commit exists, a **Update available** chip appears in the header. The footer
-  always shows the version and the build you are running (`Version 1.1.0`, then
+  always shows the version and the build you are running (`Version 1.2.0`, then
   `Build <sha> · <branch>` when the folder is a git clone).
 - Click the chip and the server **stashes any uncommitted local edits**, fetches and resets
   to the remote tip, runs `npm install` only if `package.json` or the lockfile changed, and
@@ -96,7 +97,7 @@ GitHub repository with `origin` set, and `git` must be on your PATH.
 ## Versioning
 
 The app version lives in the `version` field of `package.json` and is shown in the footer
-(`Version 1.1.0`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
+(`Version 1.2.0`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
 `GET /api/version`.
 
 The scheme is semver-like with one house rule — the minor part stops at 9:
@@ -168,6 +169,38 @@ CSV exports include `Outreach status`, `Contacted at`, `Outreach note`, and
 `outreach` count block in `report`. Re-importing either file restores the marks and notes.
 A bare `To contact` cell is treated as the default; an explicit state, contact date, or
 note from a file wins over the browser ledger.
+
+## Call scripts and the call sheet
+
+Keep the words you actually say beside the leads you call. Open the **Scripts** chip in the
+header on any screen to write, edit, search, duplicate, and delete scripts; the report
+toolbar and the lead drawer open the same scripts as a readable **call sheet**.
+
+- **Write once, read beside every lead.** The call sheet opened from a lead drawer fills
+  the business name, category, city, address, phone, email, and website from that lead. The
+  report-level **Call sheet** button previews the same script with the current search niche
+  and location.
+- **Placeholders keep the script reusable.** Put `{business}`, `{category}`, `{city}`,
+  `{address}`, `{phone}`, `{email}`, `{website}`, `{niche}`, or `{location}` anywhere in the
+  body. Missing values use plain fallbacks ("there", "your area", "this number"); unknown
+  tokens stay visible so you can correct them instead of silently losing text.
+- **Mark the call without leaving the script.** **Mark reached out** updates the lead's
+  outreach trail and the ledger immediately. **Copy script** copies the filled text, and
+  **Edit script** jumps from the call sheet to the library with the same script selected.
+- **Choose what opens first.** New scripts become the default automatically. Use **Use by
+  default** on any saved script to make the call sheet start there next time. Changing the
+  script inside a call sheet affects only that call sheet; it never changes your saved
+  default behind your back.
+- **Backups are portable.** **Export** downloads every script as a JSON backup. **Import**
+  accepts that backup, a JSON array, or a plain `.txt`/`.md` file (one script per file).
+  Import merges by id and by identical title + body, so running it twice does not create
+  duplicates.
+
+Scripts save automatically as you type. The library is stored in this browser only under
+`leadAtlas.scripts.v1`, beside the outreach ledger; nothing is sent to the local server,
+Apify, or any third party. Limits are 60 scripts, 80-character titles, 12,000-character
+bodies, and 2 MB per import. If the browser cannot save (quota, private mode, or storage
+disabled), the editor says **Not saved** and tells you to export a backup before retrying.
 
 ## What you get
 
@@ -303,6 +336,9 @@ the separate employee-level **business leads enrichment** add-on is intentionall
   contents are never sent to the local server, Apify, or any third party.
 - Outreach marks and notes are stored only in this browser under
   `leadAtlas.outreach.v1`. They are included in files you download, but never uploaded.
+- Call scripts are stored only in this browser under `leadAtlas.scripts.v1`. Script text
+  is never sent to the server or Apify. The JSON script backup is a separate download from
+  the lead report, and importing scripts does not touch the outreach ledger or report.
 - There is no telemetry. The only external requests are Google Fonts (page styling) and
   Apify (your scans). Fonts can be removed in `public/index.html` if you need a fully
   offline UI.
@@ -336,6 +372,8 @@ network access required. It covers:
 - Request validation, website/rating aliases, Actor input, and cost estimates
 - Lead normalization, contact/social extraction, deduplication, and summaries
 - Outreach normalization, stable lead keys, counts, note limits, and date handling
+- Cold-call script normalization, limits, store operations, placeholder filling,
+  import/export merging, and backup round-trips
 - CSV escaping, formula injection protection, JSON export, and filenames
 - Browser-side CSV/TSV/JSON/JSONL import parsing, aliases, deduplication, extras,
   outreach fields, and export round-trips
@@ -356,6 +394,7 @@ lead-atlas/
 │   ├── active-run-core.js Active-scan pointer parsing and freshness rules
 │   ├── import-core.js    Browser-side CSV/JSON import parser and exports
 │   ├── outreach-core.js  Outreach states, keys, notes, dates and counts
+│   ├── scripts-core.js   Script normalization, store, placeholders, import/export
 │   └── favicon.svg
 ├── src/
 │   ├── server.js         Express app and API routes
@@ -375,6 +414,7 @@ lead-atlas/
     ├── csv.test.js
     ├── import-core.test.js
     ├── outreach-core.test.js
+    ├── scripts-core.test.js
     ├── active-run-core.test.js
     ├── selfupdate.test.js
     ├── version.test.js
@@ -397,6 +437,13 @@ lead-atlas/
 - Outreach marks live in one browser profile. They do not sync between devices. Export
   the report to move the call list elsewhere, and re-import it to restore the marks.
 - Clearing site data resets the outreach ledger. Export before clearing browser storage.
+- Call scripts also live in one browser profile and do not sync between devices. Export the
+  JSON script backup before clearing site data. Scripts are plain text: there is no rich
+  formatting, teleprompter scrolling, recording, per-lead assignment, or campaign
+  automation.
+- Placeholders only fill from the open lead and the current report query. Unknown tokens
+  stay visible, and an unsupported field falls back to generic wording rather than empty
+  text.
 - The one-click updater syncs the working copy to the remote branch tip. Local uncommitted
   changes are swept into a git stash first; they are kept, but not merged back. If you
   develop in the same clone you serve, commit or stash your work as you would normally.
@@ -416,6 +463,10 @@ lead-atlas/
 | Imported report has no niche or location | That metadata was not in the file. The report still works; its heading falls back to the file name. |
 | The scan says “lost contact” | Check Apify Console; the run may still be running there |
 | Outreach marks disappeared | They are stored per browser profile. Export and re-import a CSV/JSON file to restore them, or check that site data was not cleared. |
+| Call scripts disappeared | Scripts are stored per browser profile under `leadAtlas.scripts.v1`. Restore them from a JSON script backup (**Scripts → Import**); lead report exports do not contain scripts. |
+| A script file will not import | Use a Lead Atlas script JSON backup, a JSON array of scripts, or a plain `.txt`/`.md` file under 2 MB. The import message names the problem; a backup exported from Lead Atlas always round-trips. |
+| The editor says “Not saved” | The browser refused to write `localStorage` (quota, private mode, or site storage disabled). Export a backup, free some site storage or allow storage for the app, then edit again. |
+| A placeholder stayed as text | Only the tokens listed in **Call scripts and the call sheet** are replaced. Check the spelling — unknown tokens stay visible on purpose. |
 | The update chip never appears | The folder may not be a git clone, `origin` may not point at GitHub, the working copy is detached, or `SELF_UPDATE=off` is set. Check `git remote -v` and `git status`. |
 | Reopening the app jumps into an old scan | That is the resume feature. Start a new scan, open the report, or click **Abort scan** to clear it. Records older than 24 hours are ignored automatically. |
 | A closed-tab scan did not come back | Resume needs the same Apify key in this browser, the scan must be under 24 hours old, and only the most recent scan is remembered. The run remains visible in Apify Console. |

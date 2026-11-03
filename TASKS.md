@@ -77,3 +77,27 @@
 - [x] S4: `npm test` (155 green) + browser check on an imported 6-lead CSV: 4.9 → 2.7,
       unrated last; second click reverses; choosing another sort clears the header state.
 
+## Feature: cold-call script library + call sheet (2026-11-03)
+- [x] C1: `docs/CALL-SCRIPTS.md` — problem, scope, acceptance criteria, data model,
+      placeholder list, privacy and verification plan.
+- [x] C2: `public/scripts-core.js` — pure script normalization, store operations,
+      default selection, placeholder filling, JSON/text import, merge/export helpers;
+      `test/scripts-core.test.js` (15 tests). Done when: `npm test` green.
+- [x] C3: `public/index.html` — Scripts chip in the header, Call sheet action in the
+      report toolbar and lead drawer, library dialog (search, list, editor, import/export)
+      and call-sheet dialog, plus new icons.
+- [x] C4: `public/app.js` — storage and autosave, create/duplicate/delete with undo,
+      explicit default selection, search, import/export, call-sheet placeholder fill,
+      script switching without changing the default, copy, mark reached out, and toasts
+      that move into the topmost open dialog.
+- [x] C5: `public/styles.css` — header chip, drawer action, library workspace/editor,
+      call-sheet reading surface, dialog toast safety, tablet/mobile breakpoints, reusing
+      the existing paper/ink/orange tokens.
+- [x] C6: Verified in Chromium — starter creation, autosave + reload persistence,
+      duplicate/delete/undo, search, explicit default, placeholder insertion and fill from
+      a lead, copy, mark reached out, JSON/plain-text import, JSON export shape, corrupt
+      storage boot, corrupt/oversized imports, and storage-quota failure. Test data cleared
+      afterwards.
+- [x] C7: README, docs, TASKS and MEMORY updated; app bumped 1.1.0 → 1.2.0; `npm test`
+      (170 green) and syntax checks pass.
+
