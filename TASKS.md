@@ -51,3 +51,29 @@
 - These tasks touch only the browser bundle and docs; no server-side changes.
 - The record is read with `parseActiveRun`/`isActiveRunFresh` before use; never trust raw
   localStorage.
+
+## Feature: app versioning + footer version label (2026-10-27)
+- [x] V1: `src/version.js` — parse/format/bump rules (patch uncapped, minor capped at 9
+      with rollover to major, major resets) + `APP_VERSION` read from package.json;
+      `scripts/bump-version.js` CLI + `bumpPackageVersion()`; npm run `bump:patch` /
+      `bump:minor` / `bump:major` — Done when: `test/version.test.js` green.
+- [x] V2: server exposes the version — `/api/health` `version`, `/api/config` and
+      `/api/version` `appVersion` (additive fields; version answers even when self-update
+      is disabled or the folder is not a clone), startup banner shows `v<version>`;
+      route assertions in `test/server.test.js` — Done when: `npm test` green.
+- [x] V3: footer version label — `index.html` `#footerVersion`, `.footer-version` styles
+      in `styles.css`, `renderFooterVersion()` in `app.js` fed by `/api/config` and
+      `/api/version`; README "Versioning" section; app bumped 1.0.0 → 1.1.0 with the new
+      tool — Done when: footer renders the version with no git repo required.
+
+## Feature: click-to-sort Rating column (2026-10-31)
+- [x] S1: `public/index.html` — Rating `<th>` is now a button with `aria-sort` and a
+      chevron; the Sort select gains a "Lowest rated" option (`rating-asc`).
+- [x] S2: `public/app.js` — `rating-asc` sorts low→high with unrated leads last;
+      `syncRatingSort()` keeps `aria-sort`, the active arrow and the Sort select in sync;
+      clicking the header toggles high→low ↔ low→high, starting high→low from any other sort.
+- [x] S3: `public/styles.css` — `.sort-toggle` hover, focus-visible, active and rotating
+      arrow styles, reusing the mono header type and orange accent.
+- [x] S4: `npm test` (155 green) + browser check on an imported 6-lead CSV: 4.9 → 2.7,
+      unrated last; second click reverses; choosing another sort clears the header state.
+

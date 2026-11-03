@@ -613,6 +613,8 @@ import {
       "filterOutreach",
       "filterRating",
       "sortBy",
+      "sortRating",
+      "ratingHeader",
       "clearFilters",
       "resultCount",
       "outreachStrip",
@@ -680,6 +682,7 @@ import {
       "bootError",
       "bootErrorText",
       "footerBuild",
+      "footerVersion",
     ];
     for (const id of ids) els[id] = byId(id);
   }
@@ -729,6 +732,14 @@ import {
     els.footerBuild.hidden = false;
   }
 
+  // The app version comes from package.json via the server, so the footer shows
+  // it on every install — git state and self-update settings don't matter.
+  function renderFooterVersion(version) {
+    if (!els.footerVersion || !version) return;
+    els.footerVersion.textContent = `Version ${version}`;
+    els.footerVersion.hidden = false;
+  }
+
   async function checkForUpdates(force = false) {
     const update = state.update;
     if (state.running || update.applying) return null;
@@ -743,6 +754,7 @@ import {
         update.available = false;
         renderFooterBuild(null);
       }
+      renderFooterVersion(status?.appVersion);
       syncUpdateChip();
       return status;
     } catch (error) {
@@ -1895,6 +1907,26 @@ import {
     );
   }
 
+  function syncRatingSort() {
+    const sort = state.filters.sort;
+    const active = sort === "rating" || sort === "rating-asc";
+    if (els.ratingHeader) {
+      els.ratingHeader.setAttribute(
+        "aria-sort",
+        active ? (sort === "rating" ? "descending" : "ascending") : "none",
+      );
+    }
+    if (!els.sortRating) return;
+    els.sortRating.classList.toggle("is-active", active);
+    els.sortRating.classList.toggle("is-asc", sort === "rating-asc");
+    els.sortRating.title =
+      sort === "rating"
+        ? "Sorted highest to lowest — click for lowest to highest"
+        : sort === "rating-asc"
+          ? "Sorted lowest to highest — click for highest to lowest"
+          : "Sort by rating, highest first";
+  }
+
   function getFilteredLeads() {
     if (!state.results) return [];
     const f = state.filters;
@@ -1949,6 +1981,14 @@ import {
     sorted.sort((a, b) => {
       if (f.sort === "reviews") {
         return (b.reviewsCount || 0) - (a.reviewsCount || 0) || a.name.localeCompare(b.name);
+      }
+      if (f.sort === "rating-asc") {
+        // Lowest rated first; places without a rating stay at the bottom.
+        return (
+          (a.rating ?? 99) - (b.rating ?? 99) ||
+          (b.reviewsCount || 0) - (a.reviewsCount || 0) ||
+          a.name.localeCompare(b.name)
+        );
       }
       if (f.sort === "name") {
         return a.name.localeCompare(b.name, "en", { sensitivity: "base" });
@@ -2299,6 +2339,7 @@ import {
 
   function renderTable() {
     if (!state.results) return;
+    syncRatingSort();
     const filtered = getFilteredLeads();
     const total = state.results.leads.length;
     const pageSize = state.pageSize;
@@ -3096,6 +3137,13 @@ import {
         renderOutreachSummary();
       });
     }
+    els.sortRating?.addEventListener("click", () => {
+      // First click: highest rated first. Second click: lowest rated first.
+      state.filters.sort = state.filters.sort === "rating" ? "rating-asc" : "rating";
+      state.filters.page = 1;
+      if (els.sortBy) els.sortBy.value = state.filters.sort;
+      renderTable();
+    });
     els.outreachStrip?.addEventListener("click", (event) => {
       const chip = event.target.closest("button[data-outreach-filter]");
       if (!chip) return;
@@ -3243,6 +3291,7 @@ import {
             ? config.minStars
             : FALLBACK_CONFIG.minStars,
       };
+      renderFooterVersion(config.appVersion);
       populateMinStars();
       setRangeBounds();
       syncRangeVisual();

@@ -77,7 +77,8 @@ same way you would: pull the newest commit and restart, in one click.
 - On page load — and every 5 minutes after that — the app asks the local server to compare
   its build with the tip of your repository's branch on GitHub.
 - When a newer commit exists, a **Update available** chip appears in the header. The footer
-  always shows the build you are running (`Build <sha> · <branch>`).
+  always shows the version and the build you are running (`Version 1.1.0`, then
+  `Build <sha> · <branch>` when the folder is a git clone).
 - Click the chip and the server **stashes any uncommitted local edits**, fetches and resets
   to the remote tip, runs `npm install` only if `package.json` or the lockfile changed, and
   respawns itself onto the new build. The page waits for the new server, reloads, and
@@ -91,6 +92,32 @@ for 60 seconds, so polling stays cheap. The browser never talks to GitHub direct
 Disable the feature with `SELF_UPDATE=off` — the chip disappears and `/api/update` answers
 with a clear "turned off" message. Requirements: the folder must be a git clone of a
 GitHub repository with `origin` set, and `git` must be on your PATH.
+
+## Versioning
+
+The app version lives in the `version` field of `package.json` and is shown in the footer
+(`Version 1.1.0`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
+`GET /api/version`.
+
+The scheme is semver-like with one house rule — the minor part stops at 9:
+
+| Part | Bumped when | Example |
+| --- | --- | --- |
+| Patch | bug fixes, tiny tweaks, copy nits | `1.1.0` → `1.1.1` |
+| Minor | a new feature or a notable change | `1.1.11` → `1.2.0` |
+| Major | minor rolls over past 9, or a breaking change | `1.9.4` → `2.0.0` |
+
+The patch part has no cap (`1.1.9` → `1.1.10` → `1.1.11`). Bump the version with npm —
+never by hand:
+
+```bash
+npm run bump:patch   # fix landed
+npm run bump:minor   # feature landed
+npm run bump:major   # minor passed 9 (rare)
+```
+
+Commit the bump together with the change that caused it, so the version that ships on
+GitHub is the version the updater reports after a one-click update.
 
 ## Importing an existing lead file
 
@@ -333,12 +360,15 @@ lead-atlas/
 ├── src/
 │   ├── server.js         Express app and API routes
 │   ├── selfupdate.js     One-click git-based self-update (checks, apply, restart)
+│   ├── version.js        App version parsing and bump rules (reads package.json)
 │   ├── apify.js          Apify HTTP client and error mapping
 │   ├── validation.js     Brief validation, Actor input, cost estimate
 │   ├── leads.js          Dataset normalization and summaries
 │   ├── csv.js            CSV/JSON exports and filenames
 │   ├── config.js         Actor, limits, pricing, security headers
 │   └── errors.js         Typed API errors
+├── scripts/
+│   └── bump-version.js   CLI behind npm run bump:patch / bump:minor / bump:major
 └── test/
     ├── validation.test.js
     ├── leads.test.js
@@ -347,6 +377,7 @@ lead-atlas/
     ├── outreach-core.test.js
     ├── active-run-core.test.js
     ├── selfupdate.test.js
+    ├── version.test.js
     └── server.test.js
 ```
 

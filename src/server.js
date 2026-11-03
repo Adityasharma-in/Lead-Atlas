@@ -28,6 +28,7 @@ import {
 import { normalizeLeads } from './leads.js';
 import { buildJsonExport, exportFilename, leadsToCsv } from './csv.js';
 import { createSelfUpdater } from './selfupdate.js';
+import { APP_VERSION } from './version.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -293,6 +294,7 @@ export function createApp(options = {}) {
     res.json({
       status: 'ok',
       service: 'lead-atlas',
+      version: APP_VERSION,
       actor: ACTOR.slug,
       uptimeSeconds: Math.round(process.uptime()),
       timestamp: new Date().toISOString(),
@@ -301,6 +303,7 @@ export function createApp(options = {}) {
 
   app.get('/api/config', (req, res) => {
     res.json({
+      appVersion: APP_VERSION,
       actor: {
         slug: ACTOR.slug,
         name: ACTOR.name,
@@ -324,7 +327,10 @@ export function createApp(options = {}) {
 
   app.get('/api/version', versionLimiter, async (req, res, next) => {
     try {
-      res.json(await selfUpdate.status());
+      const status = await selfUpdate.status();
+      // appVersion travels with every answer so the footer shows the version
+      // even when self-update is disabled or the folder is not a git clone.
+      res.json({ appVersion: APP_VERSION, ...status });
     } catch (error) {
       next(error);
     }
@@ -662,7 +668,7 @@ if (isMain) {
   const app = createApp({ canRestart: true });
   let bindAttempts = 0;
   const server = app.listen(port, host, () => {
-    console.log(`\n  Lead Atlas is charting at http://${host}:${port}\n`);
+    console.log(`\n  Lead Atlas v${APP_VERSION} is charting at http://${host}:${port}\n`);
     console.log(`  Actor: ${ACTOR.slug}`);
     console.log('  Your Apify key is entered in the browser and never stored by this server.\n');
   });

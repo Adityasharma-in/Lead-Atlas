@@ -3047,6 +3047,51 @@ hr {
   text-transform: uppercase;
 }
 
+.sort-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  transition: color 0.16s var(--ease);
+}
+
+.sort-toggle:hover {
+  color: var(--ink);
+}
+
+.sort-toggle:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 3px;
+}
+
+.sort-toggle .sort-arrow {
+  width: 9px;
+  height: 9px;
+  opacity: 0.45;
+  transition: transform 0.2s var(--ease), opacity 0.2s var(--ease);
+}
+
+.sort-toggle.is-active {
+  color: var(--ink);
+}
+
+.sort-toggle.is-active .sort-arrow {
+  color: var(--orange);
+  opacity: 1;
+}
+
+.sort-toggle.is-asc .sort-arrow {
+  transform: rotate(180deg);
+}
+
 .leads-table th:first-child,
 .leads-table td:first-child {
   padding-left: 0;
@@ -6176,6 +6221,19 @@ a.contact-row:hover {
     width: 14px;
     height: 14px;
   }
+}
+
+.footer-version {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.footer-version[hidden] {
+  display: none;
 }
 
 .footer-build {

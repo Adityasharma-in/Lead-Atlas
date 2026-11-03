@@ -1,12 +1,39 @@
 # MEMORY.md — Session state
 
-## Last Updated: 2026-10-27
+## Last Updated: 2026-10-31
 
 ## Current Phase: SHIP — complete
 
-## Last Completed Task: T010 + R1–R5 — self-update shipped; reattach-to-running-scan shipped
+## Last Completed Task: Rating column click-to-sort (2026-10-31)
 
 ## Next Task: none (features shipped)
+
+## Rating column click-to-sort (2026-10-31)
+- `public/app.js`: new sort value `rating-asc` = lowest rated first, unrated leads last.
+  `syncRatingSort()` updates `#ratingHeader[aria-sort]`, the `.is-active`/`.is-asc`
+  classes and the Sort select. Clicking `#sortRating` toggles `rating` ↔ `rating-asc`;
+  from any other sort the first click lands on high→low.
+- `public/index.html`: Rating `<th>` wraps a button with an `i-chevron`; Sort select has
+  "Best rated" and "Lowest rated". `public/styles.css`: `.sort-toggle` states + arrow
+  rotation (orange when active).
+- Verified in the browser on an imported 6-lead CSV: 4.9 → 2.7 with unrated last, second
+  click reverses, another sort clears `aria-sort` to `none`. 155 tests green.
+
+## App versioning (V1–V3) — verified 2026-10-27
+- Scheme (AGENTS.md house rule): patch uncapped for fixes (`1.1.9 → 1.1.11`), minor for
+  features capped at 9 — passing 9 rolls to major (`1.9.4 → 2.0.0`), major resets minor+patch.
+- Single source of truth: `package.json` `version`. Bump with `npm run bump:patch|minor|major`
+  (`scripts/bump-version.js`), never by hand; commit the bump with the change itself.
+- `src/version.js` — pure `parseVersion`/`formatVersion`/`bumpVersion` + `APP_VERSION`
+  (readFileSync of package.json at module load; throws if missing/invalid).
+- Exposed as: `/api/health` → `version`, `/api/config` + `/api/version` → `appVersion`
+  (additive; `/api/version` includes it even when self-update is disabled/not a clone).
+- Footer: `#footerVersion` (`.footer-version`) shows `Version 1.1.0` whenever the server
+  answers — `renderFooterVersion()` fed by `loadConfig()` and `checkForUpdates()`; the
+  existing `#footerBuild` label still needs git. Startup banner prints `Lead Atlas v<ver>`.
+- 155 tests green (19 in `test/version.test.js`; new server route assertions).
+- Gotcha fixed: a second `createApp` in a route test must close the previous `appServer`
+  first, or the leaked listener keeps the `node --test` child process alive forever.
 
 ## Resume-scan feature (R1–R5) — verified 2026-10-27
 - `public/active-run-core.js` + `test/active-run-core.test.js` (17 tests): parses/purges
@@ -50,7 +77,7 @@
 - `public/app.js` — `state.update`, chip sync, `checkForUpdates` (5-min interval,
   suppressed during scans), `runUpdate`, `waitForRestart`, `announceUpdatedBuild`.
 - `public/index.html` + `styles.css` — `.update-chip` pill in header-actions, footer
-  `Build <sha> · <branch>` label.
+  `Build <sha> · <branch>` label, `Version <x.y.z>` label (`.footer-version`).
 - Env: `SELF_UPDATE=off` disables; `GITHUB_TOKEN` optional; cached tip TTL 60s.
 
 ## Resume-scan map

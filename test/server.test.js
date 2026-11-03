@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
 import { after, before, describe, it } from 'node:test';
+
+import { APP_VERSION } from '../src/version.js';
 
 const TOKEN = 'apify_api_testtoken1234567890';
 const BAD_TOKEN = 'apify_api_badtoken1234567890';
@@ -218,6 +221,7 @@ describe('Lead Atlas server', () => {
     assert.equal(health.status, 200);
     assert.equal(health.json.status, 'ok');
     assert.equal(health.json.actor, 'compass/crawler-google-places');
+    assert.equal(health.json.version, APP_VERSION);
 
     const config = await request('/api/config');
     assert.equal(config.status, 200);
@@ -225,6 +229,7 @@ describe('Lead Atlas server', () => {
     assert.equal(config.json.pricing.currency, 'USD');
     assert.equal(config.json.limits.maxResults, 500);
     assert.equal(config.json.tokenHeader, 'x-apify-token');
+    assert.equal(config.json.appVersion, APP_VERSION);
     assert.ok(config.json.minStars.some((option) => option.value === 'fourAndHalf'));
 
     const home = await request('/');
@@ -530,11 +535,35 @@ describe('Lead Atlas self-update routes', () => {
 
     const result = await call('/api/version');
     assert.equal(result.status, 200);
+    assert.equal(result.json.appVersion, APP_VERSION);
     assert.equal(result.json.enabled, true);
     assert.equal(result.json.updateAvailable, true);
     assert.equal(result.json.current.sha, LOCAL_SHA);
     assert.equal(result.json.latest.sha, REMOTE_SHA);
     assert.equal(actions.statusCalls, 1);
+  });
+
+  it('still reports the app version when self-update is unavailable', async () => {
+    if (appServer) await new Promise((resolve) => appServer.close(resolve));
+    const app = await startApp(
+      makeUpdaterStub({
+        status: {
+          ...STATUS,
+          enabled: false,
+          reason: 'NOT_A_GIT_REPO',
+          message: 'This copy of Lead Atlas is not a git clone.',
+          current: null,
+          latest: null,
+        },
+      }),
+    );
+    appServer = app.server;
+    baseUrl = app.url;
+
+    const result = await call('/api/version');
+    assert.equal(result.status, 200);
+    assert.equal(result.json.enabled, false);
+    assert.equal(result.json.appVersion, APP_VERSION);
   });
 
   it('applies a one-click update and hands over to a new process', async () => {

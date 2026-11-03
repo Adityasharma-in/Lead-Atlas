@@ -1111,6 +1111,7 @@
               <span class="select-wrap">
                 <select id="sortBy">
                   <option value="rating">Best rated</option>
+                  <option value="rating-asc">Lowest rated</option>
                   <option value="reviews">Most reviewed</option>
                   <option value="name">Name A–Z</option>
                   <option value="contact">Contact first</option>
@@ -1139,7 +1140,17 @@
                   <th scope="col">Contact</th>
                   <th scope="col" class="col-outreach">Outreach</th>
                   <th scope="col">Web presence</th>
-                  <th scope="col">Rating</th>
+                  <th scope="col" class="col-rating" id="ratingHeader" aria-sort="descending">
+                    <button
+                      type="button"
+                      class="sort-toggle"
+                      id="sortRating"
+                      title="Sorted highest to lowest — click for lowest to highest"
+                    >
+                      Rating
+                      <svg class="icon sort-arrow" aria-hidden="true"><use href="#i-chevron"></use></svg>
+                    </button>
+                  </th>
                   <th scope="col" class="col-map">Verify</th>
                 </tr>
               </thead>
@@ -1356,6 +1367,7 @@
           <a href="https://apify.com/compass/crawler-google-places" target="_blank" rel="noopener noreferrer">Apify’s Google Maps Scraper</a>.
           Not affiliated with Google or Apify.
         </p>
+        <p class="footer-version" id="footerVersion" hidden></p>
         <p class="footer-build" id="footerBuild" hidden>Build</p>
         <p class="footer-coord">30.2672° N / 97.7431° W</p>
       </div>
