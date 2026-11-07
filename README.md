@@ -1,27 +1,34 @@
 # Lead Atlas
 
-A local-first Google Maps lead scanner. Give it a niche and a location, and it returns a
-field report of businesses with phones, emails, websites, social profiles, ratings, and a
-verification link to each Google Maps listing — plus an outreach trail and a browser-local
-script library so you know who you have contacted and what to say. Ready to export as CSV
-or JSON.
+A local-first Google Maps lead scanner with a private, Supabase-backed lead library. Give
+it a niche and a location, and it returns a field report of businesses with phones, emails,
+websites, social profiles, ratings, and a verification link to each Google Maps listing.
+Save the good ones to your workspace, work the call list, and pick it back up tomorrow.
+Ready to export as CSV or JSON.
 
-Already have a lead file? The **Data desk** also imports an existing CSV, TSV, JSON, or
-JSONL file and opens it in the same report UI. Imports are parsed entirely in the browser:
-the file never leaves your device.
+Already have a lead file? The **Data desk** imports an existing CSV, TSV, JSON, or JSONL
+file and opens it in the same report UI. Imports are parsed entirely in the browser: the
+file stays on your device unless you explicitly save the report to your library.
 
 Lead Atlas is a small Node.js app that runs the official
 [`compass/crawler-google-places`](https://apify.com/compass/crawler-google-places) Actor on
-your own Apify account. There is no database and no account system. Your Apify token lives
-in your browser and is sent only to your local server and then to Apify.
+your own Apify account. Accounts, saved reports, and leads live in your own Supabase
+project, protected by row level security. Your Apify token is saved to your account’s
+`profiles` row (owner-only RLS) and cached in your browser; it is sent only to your local
+server and then to Apify.
 
 ![Lead Atlas home screen](docs/lead-atlas-home.png)
 
 ![Lead Atlas field report](docs/lead-atlas-report.png)
 
+The current deployment is at **<https://lead-atlas-ochre.vercel.app>**. It runs the same
+multipage site and account workspace, backed by the same Supabase project.
+
 ## Requirements
 
 - Node.js 20 or newer
+- A [Supabase project](https://supabase.com/dashboard) for accounts and the lead library
+  (the free tier is enough)
 - An [Apify account](https://console.apify.com/sign-up) with a little credit
 - An Apify API token ([Console → Integrations](https://console.apify.com/account/integrations))
 
@@ -29,11 +36,21 @@ in your browser and is sent only to your local server and then to Apify.
 
 ```bash
 npm install
+cp .env.example .env
+```
+
+Fill in `SUPABASE_URL` and `SUPABASE_ANON_KEY` from your Supabase project, then run
+[`supabase/schema.sql`](supabase/schema.sql) once in the Supabase SQL Editor. The full
+walkthrough — project creation, redirect URLs, email confirmation, and verification — is
+in [docs/SUPABASE-SETUP.md](docs/SUPABASE-SETUP.md).
+
+```bash
 npm start
 ```
 
-Open <http://127.0.0.1:4317>, click **Add key**, and paste an Apify token. The app validates
-the token with Apify before saving it to `localStorage`.
+Open <http://127.0.0.1:4317>, create an account, and add an Apify token. The app validates
+the token with Apify, saves it to your Supabase profile, and caches it in `localStorage`
+so the next sign-in on this browser starts instantly.
 
 Then fill in the brief:
 
@@ -53,6 +70,122 @@ dataset, or a generic spreadsheet with headers — and it opens in the normal re
 filters, search, sorting, the lead drawer, outreach tracking, map links, and CSV/JSON
 downloads.
 
+## Deploying to Vercel
+
+The live app is deployed on Vercel as project `lead-atlas` in team `adityatek14-4344`,
+using the zero-config **Express** preset:
+
+- `src/server.js` default-exports a lazy Express request handler. The first request builds
+  the app, so Vercel’s environment variables are present before the CSP and `/api/config`
+  are computed. The named `createApp` export remains for local use and tests.
+- `public/**` is uploaded as static assets and served by Vercel’s CDN. Vercel ignores
+  `express.static()`, so the function only handles `/api/*` and the `/` rewrite.
+- `vercel.json` rewrites `/` to `/index.html` and applies security headers plus the CSP to
+  static HTML and function responses.
+- `SELF_UPDATE=off` is set because a serverless function has no git clone and cannot
+  respawn. Update a Vercel deployment by pushing a commit (Git integration) or by running
+  another deploy; one-click self-update remains a local-clone feature.
+
+Project settings:
+
+| Setting | Value |
+| --- | --- |
+| Framework Preset | Express |
+| Root Directory | `.` |
+| Build Command | None |
+| Output Directory | None |
+| Node.js Version | 26.x |
+| Deployment Protection | Vercel Authentication **disabled** (public site) |
+
+Environment variables are set for **Production**, **Preview**, and **Development**:
+
+| Variable | Value | Purpose |
+| --- | --- | --- |
+| `SUPABASE_URL` | your Supabase project URL | Browser auth/PostgREST and the CSP origin |
+| `SUPABASE_ANON_KEY` | public anon or publishable key | Browser auth/PostgREST; RLS is the boundary |
+| `SELF_UPDATE` | `off` | No git updater or server restart on serverless |
+
+Deploy from this folder with the Vercel CLI:
+
+```bash
+vercel link --project lead-atlas --scope adityatek14-4344
+vercel deploy            # preview URL
+vercel deploy --prod     # production URL
+```
+
+A CLI deploy uploads the **current working tree**. The project is also connected to the
+GitHub repository: a push to `main` builds Production, and other branches build Previews.
+Commit and push before relying on a Git-triggered deploy.
+
+`.env`, `.env.local`, and `.vercel/` are gitignored. `vercel link` may write a short-lived
+OIDC token to `.env.local`; never commit that file.
+
+Finally, allow the deployed origin in Supabase **Authentication → URL Configuration**:
+
+- **Site URL**: `https://lead-atlas-ochre.vercel.app`
+- **Redirect URLs**:
+  - `https://lead-atlas-ochre.vercel.app/auth.html`
+  - `https://lead-atlas-ochre.vercel.app/**`
+
+Password sign-in works without this step. Confirmation, magic-link, and password-recovery
+emails need it, because Supabase only returns to an allowed URL. Add each preview domain
+separately if you test email links from a preview deployment. See
+[docs/SUPABASE-SETUP.md](docs/SUPABASE-SETUP.md#5-configure-auth-redirect-urls).
+
+## Accounts, the workspace, and the lead library
+
+Lead Atlas is a multipage site. The public side has three pages — **Home**
+(`index.html`), **How it works** (`how-it-works.html`), and **Pricing & FAQ**
+(`pricing.html`) — sharing one navigation and footer. **Start free** and **Sign in** open
+the account page (`auth.html`), which creates accounts and signs you in with a password, a
+magic link, or a password-recovery link. It also shows a clear notice when Supabase is not
+configured yet, instead of failing silently.
+
+Signing in opens the account-only workspace at `app.html`. Visiting the workspace signed
+out returns you to `auth.html`, then brings you back to the same view after sign-in. Each
+workspace view is deep-linkable — `#dashboard`, `#library`, `#setup`, `#report`, `#data`,
+and `#progress` — and browser back/forward moves between them. On phones, a five-item
+bottom bar (Overview, Scan, Library, Data, More) keeps the main surfaces in thumb reach:
+
+- **Overview** — saved-report and lead counts, reached-out and do-not-contact totals, this
+  month's additions, recent reports, Apify key status, saved script count, and the outreach
+  ledger.
+
+- **Overview** — saved-report and lead counts, reached-out and do-not-contact totals, this
+  month's additions, recent reports, Apify key status, saved script count, and the outreach
+  ledger.
+- **Lead library** — every saved scan and import, searchable by name, niche, or place and
+  filterable by source. Each card shows lead count, reached count, average rating, progress,
+  and CSV/JSON export buttons.
+- **Save to library** — open any scan or imported report and choose the save button in the
+  report toolbar. Give the report a name and optional private notes. Saving again updates
+  the existing report instead of creating a duplicate.
+- **Open a saved report** — the full report is reconstructed from the stored lead payload,
+  including contacts, socials, map links, outreach marks, dates, and notes. Search, sort,
+  filters, the detail drawer, exports, and call scripts all work as they do on a live scan.
+
+Saved reports live in your own Supabase project:
+
+| Table | Contents |
+| --- | --- |
+| `profiles` | One row per account, created automatically on signup |
+| `lead_reports` | Report name, niche, location, source, lead count, summary, notes |
+| `leads` | One row per lead with the full normalized payload and outreach state |
+| `script_libraries` | One owner-only row per account with the full call-script array and default script |
+
+Row level security limits every row to the signed-in account. The browser uses the public
+anon key; the server exposes it through `/api/config` and adds the project origin to the
+CSP. The `service_role` key is never used by this app. See
+[docs/SUPABASE-SETUP.md](docs/SUPABASE-SETUP.md) for the full setup and troubleshooting
+guide.
+
+Call scripts are saved to your account in `script_libraries` and cached in this browser, so
+they follow you to another browser or device. The local cache keeps the editor instant and
+keeps the library readable while the account copy loads, or if Supabase is briefly
+unreachable. Script text is sent only to your Supabase project, never to Apify. The outreach
+ledger is still mirrored in `localStorage` so unsaved reports keep their trail, while saved
+reports write each mark back to the corresponding `leads` row.
+
 ## Scans survive a closed tab
 
 A scan runs on Apify, not in your browser, so a closed tab, a refresh, or a crash does not
@@ -66,7 +199,7 @@ watching:
   soon as the report opens, the scan fails, or you abort — so it never hijacks a normal
   visit.
 
-Reconnecting needs the same Apify account key saved in this browser, because that key is
+Reconnecting needs the same Apify account key saved to your account, because that key is
 what allows the app to read the run. Only the most recent scan is remembered; starting a
 new scan replaces the pointer.
 
@@ -78,7 +211,7 @@ same way you would: pull the newest commit and restart, in one click.
 - On page load — and every 5 minutes after that — the app asks the local server to compare
   its build with the tip of your repository's branch on GitHub.
 - When a newer commit exists, a **Update available** chip appears in the header. The footer
-  always shows the version and the build you are running (`Version 1.2.0`, then
+  always shows the version and the build you are running (`Version 1.6.1`, then
   `Build <sha> · <branch>` when the folder is a git clone).
 - Click the chip and the server **stashes any uncommitted local edits**, fetches and resets
   to the remote tip, runs `npm install` only if `package.json` or the lockfile changed, and
@@ -94,10 +227,14 @@ Disable the feature with `SELF_UPDATE=off` — the chip disappears and `/api/upd
 with a clear "turned off" message. Requirements: the folder must be a git clone of a
 GitHub repository with `origin` set, and `git` must be on your PATH.
 
+On Vercel, `SELF_UPDATE=off` is set because the app runs as a serverless function with no
+git clone and no process to restart. Ship changes with a commit and push, or with another
+`vercel deploy`; the deployed footer still reports the app version.
+
 ## Versioning
 
 The app version lives in the `version` field of `package.json` and is shown in the footer
-(`Version 1.2.0`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
+(`Version 1.6.1`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
 `GET /api/version`.
 
 The scheme is semver-like with one house rule — the minor part stops at 9:
@@ -142,7 +279,9 @@ Extra columns are preserved in the lead drawer and included in imported CSV/JSON
 Duplicate rows are merged by place ID, name + address, phone, or email. Outreach marks,
 contact dates, and notes are restored from the file, so a Lead Atlas CSV or JSON export is
 a complete backup of your call list. Imported exports are built in the browser, so they
-work without an Apify key. Files are never uploaded or written to the server.
+work without an Apify key. Files are never uploaded to the local server. If you choose
+**Save to library**, the parsed report and its leads are written to your own Supabase
+project.
 
 ## Outreach tracking
 
@@ -160,9 +299,11 @@ drawer also takes a private note of up to 280 characters — who answered, the b
 call, or what you sent. Filter and sort by outreach state, and use the tally chips above
 the table to jump between the next call list and the leads you have already handled.
 
-Marks are stored in `localStorage` under `leadAtlas.outreach.v1`, keyed by place ID, then
-phone, then email, then name + address. A new scan of the same market therefore keeps the
-marks you already made. Nothing is sent to a server or to Apify.
+Marks are mirrored in `localStorage` under `leadAtlas.outreach.v1`, keyed by place ID, then
+phone, then email, then name + address, so unsaved reports keep their trail and a new scan
+of the same market keeps the marks you already made. On a saved report, each mark is also
+written to that lead's row in your Supabase library. If the write fails, the browser copy
+stays and the app shows a warning. Nothing is sent to Apify.
 
 CSV exports include `Outreach status`, `Contacted at`, `Outreach note`, and
 `Outreach updated at`. JSON exports include the same data on each lead plus an
@@ -174,12 +315,18 @@ note from a file wins over the browser ledger.
 
 Keep the words you actually say beside the leads you call. Open the **Scripts** chip in the
 header on any screen to write, edit, search, duplicate, and delete scripts; the report
-toolbar and the lead drawer open the same scripts as a readable **call sheet**.
+toolbar and the lead drawer open the same scripts as a readable **call sheet**. The active
+script also appears as plain text at the bottom of every extracted lead report, and again at
+the bottom of a lead’s detail drawer filled with that lead’s details — no extra click needed.
 
-- **Write once, read beside every lead.** The call sheet opened from a lead drawer fills
-  the business name, category, city, address, phone, email, and website from that lead. The
-  report-level **Call sheet** button previews the same script with the current search niche
-  and location.
+- **Saved to your account.** New scripts, edits, imports, deletions, and the default-script
+  choice write through to your private `script_libraries` row. The editor still caches
+  locally so typing stays instant; signing in on another browser loads the same library.
+- **Write once, read beside every lead.** The report ends with the active script filled from
+  the current search niche and location. The same script sits at the bottom of a lead drawer,
+  filled with the business name, category, city, address, phone, email, and website from that
+  lead. The **Call sheet** buttons still open a focused reading view with copy and outreach
+  actions.
 - **Placeholders keep the script reusable.** Put `{business}`, `{category}`, `{city}`,
   `{address}`, `{phone}`, `{email}`, `{website}`, `{niche}`, or `{location}` anywhere in the
   body. Missing values use plain fallbacks ("there", "your area", "this number"); unknown
@@ -196,11 +343,13 @@ toolbar and the lead drawer open the same scripts as a readable **call sheet**.
   Import merges by id and by identical title + body, so running it twice does not create
   duplicates.
 
-Scripts save automatically as you type. The library is stored in this browser only under
-`leadAtlas.scripts.v1`, beside the outreach ledger; nothing is sent to the local server,
-Apify, or any third party. Limits are 60 scripts, 80-character titles, 12,000-character
-bodies, and 2 MB per import. If the browser cannot save (quota, private mode, or storage
-disabled), the editor says **Not saved** and tells you to export a backup before retrying.
+Scripts save automatically as you type. The editor writes to an account-scoped local cache
+first, then syncs the full library to your Supabase `script_libraries` row (debounced while
+you type and flushed when the library closes). The save badge says **Saved to account** when
+the cloud write succeeds and **Local only** if it could not. Limits are 60 scripts,
+80-character titles, 12,000-character bodies, and 2 MB per import. If the browser cannot
+save (quota, private mode, or storage disabled), the editor says **Not saved** and tells you
+to export a backup before retrying.
 
 ## What you get
 
@@ -214,7 +363,8 @@ Each lead includes, when Apify provides it:
 - Latitude/longitude, place ID, closed status
 - A **Google Maps verification link**
 - Search niche, search location, scrape timestamp, and Apify run ID
-- An outreach state, optional contact date, and private outreach note (browser-local)
+- An outreach state, optional contact date, and private outreach note (saved with the
+  library and included in exports)
 
 ### CSV
 
@@ -265,18 +415,27 @@ sit directly after `Emails`, so they are easy to spot in Excel or Google Sheets.
 
 ```
 Browser (vanilla HTML/CSS/JS)
-  │  x-apify-token header
-  ▼
-Local Express server (127.0.0.1:4317)
-  │  Authorization: Bearer <token>
-  ▼
-Apify API → compass/crawler-google-places → dataset
+  ├── x-apify-token header
+  │     ▼
+  │   Express server (local 127.0.0.1:4317, or one Vercel Function)
+  │     │  Authorization: Bearer <token>
+  │     ▼
+  │   Apify API → compass/crawler-google-places → dataset
+  │     │
+  │     ▼
+  │   Normalization → report, CSV, JSON
   │
-  ▼
-Normalization → report, CSV, JSON
+  └── https://<project>.supabase.co (anon key + RLS)
+        ├── /auth/v1/*   accounts, sessions, recovery
+        └── /rest/v1/*   lead_reports + leads + script_libraries
 ```
 
 - The server proxies every Apify request. The browser never calls Apify directly.
+- On Vercel, that server is one Fluid function and `public/**` is served by the CDN. Run
+  and dataset metadata stay in an in-memory cache per function instance, so a later poll
+  can fetch the same run from Apify again instead of reusing a warm cache.
+- Saved reports and outreach marks go directly from the browser to your Supabase project.
+  RLS limits every row to the signed-in account; the local server never stores lead data.
 - Every run requests `scrapePlaceDetailPage: true` so website, contact, and detail fields
   are available.
 - Dataset rows are normalized, deduplicated by place ID (or name + address), and merged
@@ -317,13 +476,22 @@ the separate employee-level **business leads enrichment** add-on is intentionall
 
 ## Security and privacy
 
-- The Apify token is stored in `localStorage` under `leadAtlas.apifyToken.v1`. It is never
-  written to a database, file, or server log.
+- The Apify token is saved to the signed-in user’s `public.profiles.apify_token` row in
+  your Supabase project. Owner-only RLS means only that account can read or change it.
+  The browser keeps a copy in `localStorage` under `leadAtlas.apifyToken.v1`; signing out
+  clears that copy. The local server never stores the token and never logs it.
+- Anyone who can sign in as your account can read the token from that profile row. Use a
+  strong password, keep email confirmation on, and do not share the account.
 - The token is sent to the local server in the `x-apify-token` header and forwarded to
   Apify as a Bearer token.
-- **Forget key** removes it from the browser.
-- The server binds to `127.0.0.1` by default. Do not expose it to the public internet: it
-  is a local proxy for a personal API token and has no user authentication.
+- **Forget key** clears the browser copy and nulls `profiles.apify_token` for the account.
+  If the Supabase write fails, the dialog keeps the key and tells you to retry rather than
+  claiming it was removed.
+- In the local app the server binds to `127.0.0.1` by default. Do not expose that process
+  directly to the public internet: it is a local proxy for a personal API token. On Vercel
+  the Express app runs as a public serverless function with no server-side secrets, API
+  rate limits, same-origin POST checks, and a caller-supplied Apify token. Treat it as the
+  app backend, not a general-purpose public API.
 - API responses use `Cache-Control: no-store`; security headers include a strict CSP,
   `X-Frame-Options: DENY`, and `nosniff`.
 - Cross-origin POSTs are blocked, and run/key endpoints are rate-limited per IP.
@@ -332,26 +500,50 @@ the separate employee-level **business leads enrichment** add-on is intentionall
   updater talks to GitHub from the server, never from the browser.
 - Scraped text is escaped before rendering and prefixed when it could be interpreted as a
   spreadsheet formula in CSV exports.
-- Imported lead files are read with the browser `File` API and parsed in memory. Their
-  contents are never sent to the local server, Apify, or any third party.
-- Outreach marks and notes are stored only in this browser under
-  `leadAtlas.outreach.v1`. They are included in files you download, but never uploaded.
-- Call scripts are stored only in this browser under `leadAtlas.scripts.v1`. Script text
-  is never sent to the server or Apify. The JSON script backup is a separate download from
-  the lead report, and importing scripts does not touch the outreach ledger or report.
-- There is no telemetry. The only external requests are Google Fonts (page styling) and
-  Apify (your scans). Fonts can be removed in `public/index.html` if you need a fully
-  offline UI.
+- Supabase Auth and PostgREST are the only third-party services the browser calls directly.
+  The CSP `connect-src` is limited to `'self'` plus the configured Supabase project origin.
+- Supabase passwords are sent directly from the browser to Supabase Auth and never reach
+  the local server. Sessions are stored in browser `localStorage`; access tokens refresh
+  automatically.
+- The anon/public key is exposed to the browser by design. RLS on `profiles`,
+  `lead_reports`, `leads`, and `script_libraries` restricts every row to the signed-in
+  account. The `service_role` key must never be used in this app.
+- Imported lead files are read with the browser `File` API and parsed in memory. They are
+  not sent to the local server or Apify. If you choose **Save to library**, the parsed
+  report and leads are written to your own Supabase project.
+- Outreach marks and notes are mirrored in this browser under `leadAtlas.outreach.v1` and,
+  for saved reports, written to the corresponding `leads` rows in your Supabase project.
+  They are included in files you download. Nothing goes to Apify.
+- Call scripts are saved to your Supabase `script_libraries` row and cached under an
+  account-scoped `leadAtlas.scripts.v1.<user-id>` key. Script text is never sent to the
+  local server or Apify. The JSON script backup is a separate download from the lead
+  report, and importing scripts does not touch the outreach ledger or report.
+- There is no telemetry. External requests are Google Fonts (page styling), Apify (your
+  scans), and your Supabase project (auth and library). Fonts can be removed from the
+  `<link>` tags in the five HTML pages if you need a fully offline UI.
 
 ## Configuration
 
+Put local values in `.env` (copy [`.env.example`](.env.example)). The server reads it once
+at startup; restart after changing it.
+
 | Environment variable | Default | Purpose |
 | --- | --- | --- |
+| `SUPABASE_URL` | — | Supabase project URL; also added to the CSP `connect-src` |
+| `SUPABASE_ANON_KEY` | — | Public anon key used by the browser client; RLS is the boundary |
 | `PORT` | `4317` | Local HTTP port |
 | `HOST` | `127.0.0.1` | Bind address |
 | `APIFY_API_BASE` | `https://api.apify.com/v2` | Apify API base URL (used by tests) |
 | `SELF_UPDATE` | on | Set to `off` (or `0`/`false`) to disable the one-click updater |
 | `GITHUB_TOKEN` | — | Optional token sent to the GitHub API for private repos and higher rate limits |
+
+On Vercel, set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SELF_UPDATE=off` in the project’s
+**Settings → Environment Variables** for Production, Preview, and Development. `PORT`,
+`HOST`, and the GitHub updater settings do not apply to the serverless deployment.
+
+Never put `SUPABASE_SERVICE_ROLE_KEY` in `.env`: Lead Atlas does not use it. If you change
+the port or host, add the matching origin to Supabase **Authentication** → **URL
+Configuration** so email links can return to `auth.html`.
 
 ```bash
 PORT=4318 npm start
@@ -374,6 +566,8 @@ network access required. It covers:
 - Outreach normalization, stable lead keys, counts, note limits, and date handling
 - Cold-call script normalization, limits, store operations, placeholder filling,
   import/export merging, and backup round-trips
+- Account-level Apify token precedence, trimming, missing-column detection, and the
+  browser-cache fallback
 - CSV escaping, formula injection protection, JSON export, and filenames
 - Browser-side CSV/TSV/JSON/JSONL import parsing, aliases, deduplication, extras,
   outreach fields, and export round-trips
@@ -381,16 +575,28 @@ network access required. It covers:
   reattaching after a closed tab
 - Self-update helpers (repository URLs, commit/ls-remote parsing, dependency detection),
   update/apply flows with injected git and fetch runners, and the version/update routes
+- Supabase config validation, project-ref extraction, CSP `connect-src` wiring, and the
+  public `/api/config` shape
 - Server routes, token handling, origin checks, live status, abort, and exports
 
 ## Project structure
 
 ```
 lead-atlas/
+├── .env.example          Local environment template (Supabase URL and anon key)
 ├── public/
-│   ├── index.html        Page structure and dialogs
-│   ├── styles.css        Design system and responsive layout
-│   ├── app.js            UI state, polling, report, outreach, import desk, exports
+│   ├── index.html        Public home
+│   ├── how-it-works.html Field-method page
+│   ├── pricing.html      Pricing and FAQ
+│   ├── auth.html         Sign in, create account and recovery page
+│   ├── app.html          Account-only workspace, report and dialogs
+│   ├── site.js           Public nav, reveal motion, active page, sign-out notice
+│   ├── auth-page.js      Auth controller, mode tabs and return-path handoff
+│   ├── styles.css        Design system and report layout
+│   ├── workspace.css     Public page, auth, workspace and bottom-nav styles
+│   ├── app.js            Workspace routing, UI state, library, polling, report, exports
+│   ├── supabase-client.js Dependency-free GoTrue + PostgREST browser client
+│   ├── account-core.js   Account Apify-token precedence and schema-cache rules
 │   ├── active-run-core.js Active-scan pointer parsing and freshness rules
 │   ├── import-core.js    Browser-side CSV/JSON import parser and exports
 │   ├── outreach-core.js  Outreach states, keys, notes, dates and counts
@@ -398,14 +604,23 @@ lead-atlas/
 │   └── favicon.svg
 ├── src/
 │   ├── server.js         Express app and API routes
+│   ├── supabase.js       Supabase env parsing, project ref and CSP sources
+│   ├── env.js            Minimal .env reader
 │   ├── selfupdate.js     One-click git-based self-update (checks, apply, restart)
 │   ├── version.js        App version parsing and bump rules (reads package.json)
 │   ├── apify.js          Apify HTTP client and error mapping
 │   ├── validation.js     Brief validation, Actor input, cost estimate
 │   ├── leads.js          Dataset normalization and summaries
 │   ├── csv.js            CSV/JSON exports and filenames
-│   ├── config.js         Actor, limits, pricing, security headers
+│   ├── config.js         Actor, limits, pricing, security headers, CSP builder
 │   └── errors.js         Typed API errors
+├── supabase/
+│   └── schema.sql        Tables, indexes, triggers and RLS policies
+├── docs/
+│   ├── SUPABASE-SETUP.md Project, schema, redirect URL and verification guide
+│   └── CALL-SCRIPTS.md   Script-library design record
+├── vercel.json           Vercel root rewrite and security/CSP headers
+├── .vercelignore         Keeps env files, tests, docs and deps out of uploads
 ├── scripts/
 │   └── bump-version.js   CLI behind npm run bump:patch / bump:minor / bump:major
 └── test/
@@ -413,10 +628,12 @@ lead-atlas/
     ├── leads.test.js
     ├── csv.test.js
     ├── import-core.test.js
+    ├── account-core.test.js
     ├── outreach-core.test.js
     ├── scripts-core.test.js
     ├── active-run-core.test.js
     ├── selfupdate.test.js
+    ├── supabase.test.js
     ├── version.test.js
     └── server.test.js
 ```
@@ -432,15 +649,21 @@ lead-atlas/
   24 hours and it reconnects (see **Scans survive a closed tab**). Only the most recent
   scan is remembered, and place counts only advance while the tab is open, because the
   polling runs in your browser.
-- The app is designed for local, single-user use. It has no multi-user authentication or
-  persistent job queue.
-- Outreach marks live in one browser profile. They do not sync between devices. Export
-  the report to move the call list elsewhere, and re-import it to restore the marks.
-- Clearing site data resets the outreach ledger. Export before clearing browser storage.
-- Call scripts also live in one browser profile and do not sync between devices. Export the
-  JSON script backup before clearing site data. Scripts are plain text: there is no rich
-  formatting, teleprompter scrolling, recording, per-lead assignment, or campaign
-  automation.
+- The local server is designed for one person at a time. Accounts separate libraries, but
+  there is no team sharing, roles, or persistent job queue; scans run on Apify.
+- On Vercel the backend is a serverless function, so in-memory run and dataset caches are
+  per instance. A poll can repeat an Apify read and a cold start can add latency; the scan
+  itself still runs on Apify. Vercel Authentication must stay off for the site to be public.
+- Saved reports and their outreach marks sync through Supabase, so the same account sees
+  them on another device. Unsaved reports use the browser ledger only. If the Supabase
+  project is paused or unreachable, the library and saved-report sync are unavailable.
+- Clearing site data removes the browser outreach ledger, the call-script cache, and the
+  cached Apify key. Saved-report outreach, call scripts, and the Apify token are restored
+  from Supabase when you sign in again; export scripts first if you also lost access to the
+  account.
+- Call scripts sync through the same Supabase project as your library. They are plain text
+  with no rich formatting, teleprompter scrolling, recording, per-lead assignment, or
+  campaign automation.
 - Placeholders only fill from the open lead and the current report query. Unknown tokens
   stay visible, and an unsupported field falls back to generic wording rather than empty
   text.
@@ -455,6 +678,20 @@ lead-atlas/
 | Problem | Fix |
 | --- | --- |
 | `Port 4317 is already in use` | Run `PORT=4318 npm start` |
+| The auth page says “Supabase is not connected yet” | Add `SUPABASE_URL` and `SUPABASE_ANON_KEY` to `.env`, restart the server, and confirm `/api/config` reports `"configured": true`. |
+| “The Supabase schema is missing” | Run `supabase/schema.sql` in the Supabase SQL Editor. If it just ran, wait for the PostgREST schema cache, then retry. |
+| The key dialog says your profile is missing the Apify-key column | The schema predates account-level keys. Run `supabase/schema.sql` in the SQL Editor, wait for the schema cache, then reload and save the key again. |
+| “The key is valid, but it could not be saved to your account” | Leave the dialog open and retry. If it repeats, confirm the Supabase project is running, the `profiles` RLS policies are intact, and the `apify_token` column exists. |
+| The Apify key is missing on another device | Sign in there with the same account. The key loads from `profiles.apify_token`; if the column is missing, run the schema, then save the key once from any device. |
+| “Supabase blocked that request” | Re-run the RLS policies in `supabase/schema.sql`; `profiles`, `lead_reports`, `leads`, and `script_libraries` must all have RLS enabled. |
+| A confirmation or magic link returns to the wrong page | Add the exact origin (including `/auth.html`, or the local wildcard) to Supabase **Authentication** → **URL Configuration** → **Redirect URLs**, and open the link in the same browser that requested it. For Vercel, add `https://lead-atlas-ochre.vercel.app/auth.html` and `https://lead-atlas-ochre.vercel.app/**`, then request a fresh link. |
+| The deployed site redirects to `vercel.com/sso-api` | Deployment Protection is on. In Vercel, open the project → **Settings** → **Deployment Protection** and disable **Vercel Authentication**, or run `vercel project protection disable lead-atlas --sso`. |
+| Every deployed page and API hangs, but CSS loads | The deployment was built from an old `src/server.js` that default-exported the app factory. Deploy the current tree, where the default export is the lazy Express request handler. |
+| The Vercel deployment shows an old version | A CLI deploy uploads the current working tree; a Git deploy builds the pushed commit. Redeploy the intended source — `/api/version` should report `1.6.1`. |
+| `/api/*` returns 404 on Vercel | Confirm the project uses the Express preset and the current `vercel.json`. API routes are handled by the single function, not by static output. |
+| “Confirm your email first” | Click the confirmation link Supabase sent, or turn off **Confirm email** for local testing. |
+| The library is empty after a scan | Saving is explicit: open the report and choose **Save to library**. A scan that was never saved is not in the library. |
+| The free Supabase project stopped responding | Resume it in the Supabase dashboard; free projects pause after a period of inactivity. |
 | `Apify rejected this API key` | Copy a fresh token from Console → Integrations |
 | `Your Apify account has no available credits` | Add credit to Apify or use another account |
 | A scan returns no places | Broaden the niche/location, raise the result count, or relax filters |
@@ -462,8 +699,10 @@ lead-atlas/
 | A file will not import | Use CSV, TSV, JSON, or JSONL under 8 MB. The file needs a business-name column or at least one phone, email, or website per row. The error message on the Data desk explains what was missing. |
 | Imported report has no niche or location | That metadata was not in the file. The report still works; its heading falls back to the file name. |
 | The scan says “lost contact” | Check Apify Console; the run may still be running there |
-| Outreach marks disappeared | They are stored per browser profile. Export and re-import a CSV/JSON file to restore them, or check that site data was not cleared. |
-| Call scripts disappeared | Scripts are stored per browser profile under `leadAtlas.scripts.v1`. Restore them from a JSON script backup (**Scripts → Import**); lead report exports do not contain scripts. |
+| Outreach marks disappeared | Saved-report marks are restored from Supabase when you reopen the report. Unsaved reports use the per-browser ledger; export and re-import a CSV/JSON file to restore those, or check that site data was not cleared. |
+| Call scripts disappeared | Sign in with the same account and reload: the library loads from `script_libraries`. If the table is missing, run `supabase/schema.sql`. A JSON script backup can also restore them (**Scripts → Import**); lead report exports do not contain scripts. |
+| Scripts say “Local only” | The browser saved them, but the account write failed. Check the Supabase project is running and run `supabase/schema.sql` if the `script_libraries` table is missing, then edit or reopen the library to retry. Export a backup before clearing site data. |
+| Call scripts are missing on another device | Sign in there with the same account. Scripts load from `script_libraries` and are cached per account in that browser. If the table or RLS policy is missing, re-run `supabase/schema.sql`. |
 | A script file will not import | Use a Lead Atlas script JSON backup, a JSON array of scripts, or a plain `.txt`/`.md` file under 2 MB. The import message names the problem; a backup exported from Lead Atlas always round-trips. |
 | The editor says “Not saved” | The browser refused to write `localStorage` (quota, private mode, or site storage disabled). Export a backup, free some site storage or allow storage for the app, then edit again. |
 | A placeholder stayed as text | Only the tokens listed in **Call scripts and the call sheet** are replaced. Check the spelling — unknown tokens stay visible on purpose. |

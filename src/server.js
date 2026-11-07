@@ -5,11 +5,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   ACTOR,
   BROWSER_HEADERS,
-  CONTENT_SECURITY_POLICY,
+  buildContentSecurityPolicy,
   LIMITS,
   MIN_STARS,
   PRICING,
 } from './config.js';
+import { loadEnvFile } from './env.js';
+import { readSupabaseConfig, supabaseConnectSources } from './supabase.js';
 import { ApiError, isApiError } from './errors.js';
 import {
   abortActorRun,
@@ -73,7 +75,7 @@ function readToken(req) {
     throw new ApiError(
       401,
       'APIFY_KEY_REQUIRED',
-      'Add your Apify API key to run a scan. It stays in this browser.',
+      'Add your Apify API key to run a scan. It is saved to your account.',
     );
   }
   const token = raw.trim();
@@ -241,6 +243,8 @@ function sameOriginOnly(req, res, next) {
 export function createApp(options = {}) {
   const selfUpdate =
     options.selfUpdate || createSelfUpdater({ canRestart: options.canRestart === true });
+  const supabase = options.supabase || readSupabaseConfig();
+  const contentSecurityPolicy = buildContentSecurityPolicy(supabaseConnectSources(supabase));
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', false);
@@ -279,7 +283,7 @@ export function createApp(options = {}) {
     for (const [header, value] of Object.entries(BROWSER_HEADERS)) {
       res.setHeader(header, value);
     }
-    res.setHeader('Content-Security-Policy', CONTENT_SECURITY_POLICY);
+    res.setHeader('Content-Security-Policy', contentSecurityPolicy);
     next();
   });
 
@@ -304,6 +308,14 @@ export function createApp(options = {}) {
   app.get('/api/config', (req, res) => {
     res.json({
       appVersion: APP_VERSION,
+      // The anon key is public by design; RLS is the security boundary. The
+      // service-role key must never be put in this project's environment.
+      supabase: {
+        configured: supabase.configured,
+        url: supabase.url,
+        anonKey: supabase.anonKey,
+        projectRef: supabase.projectRef,
+      },
       actor: {
         slug: ACTOR.slug,
         name: ACTOR.name,
@@ -652,13 +664,27 @@ export function createApp(options = {}) {
   return app;
 }
 
-export { createApp as default };
+// Vercel's Express preset imports the default export as the function handler.
+// The app must be built lazily so platform environment variables (and the
+// Supabase CSP origin) are present on the first request. Local use keeps the
+// named createApp export and the explicit listener below.
+let serverlessApp = null;
+
+export default function handleRequest(req, res) {
+  if (!serverlessApp) {
+    serverlessApp = createApp({ canRestart: false });
+  }
+  return serverlessApp(req, res);
+};
 
 const isMain =
   process.argv[1] &&
   pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
 
 if (isMain) {
+  // A local .env keeps Supabase settings out of the repo. Real environment
+  // variables always win, so hosting platforms and one-off shells still work.
+  loadEnvFile(path.join(__dirname, '..', '.env'));
   const port = Number(process.env.PORT) || 4317;
   const host = process.env.HOST || '127.0.0.1';
   // When the self-updater respawns this process, the previous server may still
@@ -670,7 +696,7 @@ if (isMain) {
   const server = app.listen(port, host, () => {
     console.log(`\n  Lead Atlas v${APP_VERSION} is charting at http://${host}:${port}\n`);
     console.log(`  Actor: ${ACTOR.slug}`);
-    console.log('  Your Apify key is entered in the browser and never stored by this server.\n');
+    console.log('  Your Apify key is saved to your Supabase account; this server never stores it.\n');
   });
 
   server.on('error', (error) => {

@@ -196,6 +196,45 @@ export function serializeScriptStore(store) {
   };
 }
 
+/**
+ * Convert a `script_libraries` row from Supabase into the browser store shape.
+ * Returns null for a missing/invalid row; an empty library is still a store.
+ */
+export function scriptStoreFromRow(row) {
+  if (!row || typeof row !== "object") return null;
+  return parseScriptStore({
+    version: SCRIPT_STORAGE_VERSION,
+    activeId: row.active_id ?? row.activeId,
+    scripts: row.scripts ?? row.items ?? [],
+  });
+}
+
+/** Convert the browser store into the snake_case payload used by Supabase. */
+export function scriptLibraryRow(store) {
+  const parsed = serializeScriptStore(store);
+  return {
+    active_id: parsed.activeId,
+    scripts: parsed.scripts,
+  };
+}
+
+/**
+ * Detect the one schema error that means "the script table has not been
+ * created yet". PostgREST reports it as 42P01 or PGRST205; older projects use
+ * a plain "relation ... does not exist" message.
+ */
+export function isMissingScriptTableError(error) {
+  const code = String(error?.code || "").toUpperCase();
+  const message = String(error?.message || "").toLowerCase();
+  if (code === "42P01" || code === "PGRST205") return true;
+  return (
+    message.includes("script_libraries") &&
+    (message.includes("does not exist") ||
+      message.includes("not found") ||
+      message.includes("schema cache"))
+  );
+}
+
 export function findScript(store, id) {
   const wanted = normalizeId(id);
   if (!wanted) return null;

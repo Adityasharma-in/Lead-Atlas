@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en" class="js">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4eee0" />
+    <title>How it works — Lead Atlas</title>
+    <meta name="description" content="See how Lead Atlas turns a niche and a neighbourhood into a verified Google Maps lead report, then keeps the list, notes and outreach trail in your own library." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/workspace.css" />
+  </head>
+  <body class="is-landing">
+    <a class="skip-link" href="#top">Skip to the content</a>
+
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="i-compass" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1 5.1-2.1Z" fill="currentColor" />
+        <circle cx="12" cy="12" r="1.1" fill="var(--paper, #f4eee0)" />
+      </symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24">
+        <path d="M5 19 19 5M8 5h11v11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24">
+        <path d="M4 12h15m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24">
+        <path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11Z" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <circle cx="12" cy="10" r="2.4" fill="currentColor" />
+      </symbol>
+      <symbol id="i-star" viewBox="0 0 24 24">
+        <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6-5.4-2.9-5.4 2.9 1-6-4.4-4.3 6.1-.9L12 3Z" fill="currentColor" />
+      </symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24">
+        <path d="M6.7 3.5 9 3.2l1.8 4-2 1.5a13.4 13.4 0 0 0 6.5 6.5l1.5-2 4 1.8-.3 2.3c-.2 1.5-1.5 2.6-3 2.5C10.8 19.1 4.9 13.2 4.2 6.5c-.1-1.5 1-2.8 2.5-3Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24">
+        <rect x="3" y="5" width="18" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="m4 7 8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="M3 12h18M12 3c2.6 2.5 4 5.5 4 9s-1.4 6.5-4 9c-2.6-2.5-4-5.5-4-9s1.4-6.5 4-9Z" fill="none" stroke="currentColor" stroke-width="1.2" />
+      </symbol>
+      <symbol id="i-map" viewBox="0 0 24 24">
+        <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+        <path d="M9 3v15m6-12v15" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".65" />
+      </symbol>
+      <symbol id="i-download" viewBox="0 0 24 24">
+        <path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 18v2h16v-2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24">
+        <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-search" viewBox="0 0 24 24">
+        <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="m15.5 15.5 5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="m4 12.5 5 5L20 6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-circle" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+      </symbol>
+      <symbol id="i-ban" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="m6.4 6.4 11.2 11.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-x" viewBox="0 0 24 24">
+        <path d="m5 5 14 14M19 5 5 19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-key" viewBox="0 0 24 24">
+        <circle cx="8" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="M12.5 12H21m-3 0v3m-3-3v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-external" viewBox="0 0 24 24">
+        <path d="M13 5h6v6M19 5l-8 8M19 14v5H5V5h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24">
+        <rect x="8" y="8" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="M16 8V4H4v12h4" fill="none" stroke="currentColor" stroke-width="1.4" />
+      </symbol>
+      <symbol id="i-table" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="M3 9h18M9 9v11" fill="none" stroke="currentColor" stroke-width="1.3" />
+      </symbol>
+      <symbol id="i-code" viewBox="0 0 24 24">
+        <path d="m8 7-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24">
+        <path d="m8 10 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24">
+        <path d="M12 2v20M2 12h20M5 5l14 14M19 5 5 19" fill="none" stroke="currentColor" stroke-width="1.1" />
+      </symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24">
+        <rect x="4" y="10" width="16" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.5" />
+      </symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24">
+        <path d="M12 3 2.5 20h19L12 3Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+        <path d="M12 9v5m0 2.5v.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-script" viewBox="0 0 24 24">
+        <path d="M6 3h9l4 4v14H6V3Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+        <path d="M15 3v4h4M9 11h7M9 14.5h7M9 18h4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24">
+        <rect x="3.5" y="3.5" width="7" height="7" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <rect x="13.5" y="3.5" width="7" height="7" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <rect x="3.5" y="13.5" width="7" height="7" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <rect x="13.5" y="13.5" width="7" height="7" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5" />
+      </symbol>
+      <symbol id="i-library" viewBox="0 0 24 24">
+        <path d="M4 5.5h5v14H4zM11 5.5h4v14h-4zM17.5 5.5H20l-1.5 14h-1z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+        <path d="M6.5 9h0M13 9h0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24">
+        <path d="M3.5 7A2 2 0 0 1 5.5 5h3.9l2 2.5h7.1a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V7Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+        <path d="M3.8 10.5h16.4" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".55" />
+      </symbol>
+      <symbol id="i-logout" viewBox="0 0 24 24">
+        <path d="M14 4H5v16h9M10 12h11m0 0-4-4m4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-menu" viewBox="0 0 24 24">
+        <path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-database" viewBox="0 0 24 24">
+        <ellipse cx="12" cy="5.5" rx="7.5" ry="3" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="M4.5 5.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6M4.5 11.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6" fill="none" stroke="currentColor" stroke-width="1.4" />
+      </symbol>
+      <symbol id="i-cloud-check" viewBox="0 0 24 24">
+        <path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A5.5 5.5 0 0 1 17.2 8.6 4 4 0 0 1 18 16.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+        <path d="m9.5 14.5 2 2 3.5-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-user" viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="M4.5 20a7.5 7.5 0 0 1 15 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-arrow-left" viewBox="0 0 24 24">
+        <path d="M20 12H5m0 0 6-6m-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-tag" viewBox="0 0 24 24">
+        <path d="M3.5 12.2V4.5h7.7l9.3 9.3-7.5 7.5-9.5-9.1Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+        <circle cx="8.2" cy="8.2" r="1.4" fill="currentColor" />
+      </symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24">
+        <path d="M12 3 4.5 6v5.4c0 4.4 3 8 7.5 9.6 4.5-1.6 7.5-5.2 7.5-9.6V6L12 3Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+        <path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-save" viewBox="0 0 24 24">
+        <path d="M5 3.5h11l3 3v14H5v-17Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+        <path d="M8.5 3.5v6h7v-6M8.5 20.5v-6h7v6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24">
+        <path d="m13 2-8 12h6l-1 8 8-12h-6l1-8Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-more" viewBox="0 0 24 24">
+        <circle cx="5" cy="12" r="1.5" fill="currentColor" />
+        <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+        <circle cx="19" cy="12" r="1.5" fill="currentColor" />
+      </symbol>
+      <symbol id="i-target" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <circle cx="12" cy="12" r="1.4" fill="currentColor" />
+      </symbol>
+    </svg>
+
+    
+
+    <div class="grain" aria-hidden="true"></div>
+
+    <div class="landing">
+      <header class="landing-nav" id="landingNav">
+        <div class="landing-shell landing-nav-inner">
+          <a class="brand landing-brand" href="/" aria-label="Lead Atlas home">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 40 40" role="presentation">
+                <circle cx="20" cy="20" r="17.5" fill="none" stroke="currentColor" stroke-width="1.3" />
+                <circle cx="20" cy="20" r="12" fill="none" stroke="currentColor" stroke-width=".7" stroke-dasharray="1 3" />
+                <path d="m25.7 14.3-3.4 8-8 3.4 3.4-8 8-3.4Z" fill="currentColor" />
+                <circle cx="20" cy="20" r="1.6" fill="var(--paper)" />
+              </svg>
+            </span>
+            <span class="brand-text">
+              <strong>Lead Atlas</strong>
+              <span>Field intelligence for local growth</span>
+            </span>
+          </a>
+
+          <nav class="landing-links" aria-label="Product">
+            <a href="/#product">Product</a>
+            <a href="/how-it-works.html">How it works</a>
+            <a href="/pricing.html">Pricing</a>
+            <a href="/pricing.html#faq">FAQ</a>
+          </nav>
+
+          <div class="landing-actions">
+            <a class="landing-signin" href="/auth.html?mode=signin">Sign in</a>
+            <a class="btn btn-primary btn-small landing-start" href="/auth.html?mode=signup">
+              Start free
+              <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+            </a>
+          </div>
+
+          <button
+            type="button"
+            class="landing-menu-btn"
+            id="landingMenuBtn"
+            aria-label="Open menu"
+            aria-expanded="false"
+            aria-controls="landingMobileMenu"
+          >
+            <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+          </button>
+        </div>
+
+        <div class="landing-mobile-menu" id="landingMobileMenu" hidden>
+          <a href="/#product">Product</a>
+          <a href="/how-it-works.html">How it works</a>
+          <a href="/pricing.html">Pricing</a>
+          <a href="/pricing.html#faq">FAQ</a>
+          <div class="landing-mobile-actions">
+            <a class="btn btn-outline" href="/auth.html?mode=signin">Sign in</a>
+            <a class="btn btn-primary" href="/auth.html?mode=signup">Start free</a>
+          </div>
+        </div>
+      </header>
+      <main class="landing-main" id="top">
+        <section class="landing-page-hero">
+          <div class="landing-shell">
+            <p class="landing-eyebrow"><span class="eyebrow-rule" aria-hidden="true"></span> Field guide / 02</p>
+            <h1>The field<br /><em>method.</em></h1>
+            <p class="landing-page-lede">
+              Three moves, one workspace. Draw a territory on Google Maps, read the field
+              report, then keep the list and work it at your own pace.
+            </p>
+            <div class="landing-page-actions">
+              <a class="btn btn-primary" href="/auth.html?mode=signup">
+                Start your first scan
+                <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+              </a>
+              <a class="btn btn-outline" href="/pricing.html">See what it costs</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="landing-section landing-how" id="how-it-works">
+          <div class="landing-shell">
+            <div class="section-head landing-section-head is-centered">
+              <div>
+                <p class="landing-eyebrow"><span class="eyebrow-rule" aria-hidden="true"></span> How it works</p>
+                <h2>From a hunch to a<br /><em>call sheet</em> in three moves.</h2>
+              </div>
+            </div>
+
+            <div class="how-grid">
+              <article class="how-step">
+                <span class="how-number">01</span>
+                <div class="how-icon" aria-hidden="true"><svg class="icon"><use href="#i-pin"></use></svg></div>
+                <h3>Draw the territory.</h3>
+                <p>Pick a niche, a city or a postcode, and how many places you want. Set a minimum rating or skip closed listings.</p>
+                <div class="how-mini" aria-hidden="true">
+                  <span class="how-mini-input">dentists</span>
+                  <span class="how-mini-input">Lisbon, Portugal</span>
+                  <span class="how-mini-run">Run the scan <svg class="icon"><use href="#i-arrow-right"></use></svg></span>
+                </div>
+              </article>
+
+              <article class="how-step">
+                <span class="how-number">02</span>
+                <div class="how-icon" aria-hidden="true"><svg class="icon"><use href="#i-compass"></use></svg></div>
+                <h3>Read the field report.</h3>
+                <p>Filter, search and sort the list. Open any lead for phones, emails, socials and the original Google Maps listing.</p>
+                <div class="how-mini how-mini-report" aria-hidden="true">
+                  <span class="how-report-row"><i>01</i><b>Clínica Sorriso</b><em>4.9 ★</em></span>
+                  <span class="how-report-row"><i>02</i><b>Lisbon Dental Lab</b><em>4.7 ★</em></span>
+                  <span class="how-report-row"><i>03</i><b>Alfama Smile</b><em>4.6 ★</em></span>
+                </div>
+              </article>
+
+              <article class="how-step">
+                <span class="how-number">03</span>
+                <div class="how-icon" aria-hidden="true"><svg class="icon"><use href="#i-save"></use></svg></div>
+                <h3>Save it. Work it. Keep it.</h3>
+                <p>One click puts the report in your library. Mark outreach as you call, add notes, and export when you need to share.</p>
+                <div class="how-mini how-mini-save" aria-hidden="true">
+                  <span class="how-save-check"><svg class="icon"><use href="#i-check"></use></svg></span>
+                  <div><strong>Saved to your library</strong><span>92 leads · 14 reached out</span></div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="landing-library-section" id="library">
+          <div class="landing-shell landing-library-grid">
+            <div class="landing-library-copy">
+              <p class="landing-eyebrow light"><span class="eyebrow-rule" aria-hidden="true"></span> The library</p>
+              <h2>Close the tab.<br /><em>Keep the leads.</em></h2>
+              <p>
+                A scan is not a one-afternoon activity. The businesses you found are still
+                there next month, and so is everything you learned about them. Your library
+                holds the report, the contacts, the outreach trail and the notes.
+              </p>
+              <ul class="landing-library-list">
+                <li><span>01</span> Saved to your private Supabase account</li>
+                <li><span>02</span> Outreach marks update the database</li>
+                <li><span>03</span> Reopen, export or delete whenever you like</li>
+              </ul>
+              <button type="button" class="btn btn-light" data-auth="signup">
+                Build your library
+                <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+              </button>
+            </div>
+            <div class="landing-library-visual">
+              <div class="library-stack-card stack-a">
+                <div class="library-stack-head"><span class="library-stack-icon"><svg class="icon"><use href="#i-library"></use></svg></span><span class="library-stack-badge">Saved</span></div>
+                <strong>Specialty coffee shops</strong>
+                <span>East Austin, TX</span>
+                <div class="library-stack-stats"><span>128 leads</span><span>31 reached</span><span>4.8 avg</span></div>
+                <div class="library-stack-bar"><i style="width: 24%"></i></div>
+              </div>
+              <div class="library-stack-card stack-b">
+                <div class="library-stack-head"><span class="library-stack-icon"><svg class="icon"><use href="#i-library"></use></svg></span><span class="library-stack-badge">Saved</span></div>
+                <strong>Emergency plumbers</strong>
+                <span>North London</span>
+                <div class="library-stack-stats"><span>64 leads</span><span>18 reached</span><span>4.6 avg</span></div>
+                <div class="library-stack-bar"><i style="width: 28%"></i></div>
+              </div>
+              <div class="library-stack-card stack-c">
+                <div class="library-stack-head"><span class="library-stack-icon"><svg class="icon"><use href="#i-database"></use></svg></span><span class="library-stack-badge">Synced</span></div>
+                <strong>Dentists — Lisbon</strong>
+                <span>Imported CSV</span>
+                <div class="library-stack-stats"><span>92 leads</span><span>45 reached</span><span>4.7 avg</span></div>
+                <div class="library-stack-bar"><i style="width: 49%"></i></div>
+              </div>
+              <div class="library-sync-chip"><svg class="icon" aria-hidden="true"><use href="#i-cloud-check"></use></svg> Saved to your library</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="landing-final">
+          <div class="landing-shell">
+            <div class="landing-final-card">
+              <div class="landing-final-map" aria-hidden="true">
+                <svg viewBox="0 0 700 420">
+                  <defs>
+                    <pattern id="finalGrid" width="36" height="36" patternUnits="userSpaceOnUse">
+                      <path d="M36 0H0v36" fill="none" stroke="#d7cbb5" stroke-width=".5" />
+                    </pattern>
+                  </defs>
+                  <rect width="700" height="420" fill="url(#finalGrid)" opacity=".55" />
+                  <g fill="none" stroke="#c9bda6" stroke-width="1" opacity=".7">
+                    <path d="M-20 90c90-30 150 20 230 0s120-60 210-30 140 10 280 50" />
+                    <path d="M-20 210c100-20 150 40 250 10s140-60 240-20 140 20 230 30" />
+                    <path d="M-20 330c100-30 170 20 260 0s130-50 230-20 120 10 230 20" />
+                    <path d="M120-20c-10 100 20 180 10 280s-30 120-10 200" />
+                    <path d="M420-20c-20 100 20 180 0 280s-30 120-10 200" />
+                  </g>
+                  <path d="M60 360c100-80 160-120 250-140s130-80 250-90" fill="none" stroke="#cf5521" stroke-width="2" stroke-dasharray="7 9" />
+                  <g fill="#cf5521">
+                    <circle cx="60" cy="360" r="5" />
+                    <circle cx="560" cy="130" r="5" />
+                  </g>
+                  <g transform="translate(220 160)" fill="#1e3a2c">
+                    <path d="M0-16c-7 0-13 6-13 13 0 9 13 21 13 21S13 6 13-3c0-7-6-13-13-13Z" />
+                    <circle cy="-3" r="4.2" fill="#f4eee0" />
+                  </g>
+                  <g transform="translate(480 260)" fill="#1e3a2c">
+                    <path d="M0-16c-7 0-13 6-13 13 0 9 13 21 13 21S13 6 13-3c0-7-6-13-13-13Z" />
+                    <circle cy="-3" r="4.2" fill="#f4eee0" />
+                  </g>
+                </svg>
+              </div>
+              <div class="landing-final-copy">
+                <p class="landing-eyebrow light"><span class="eyebrow-rule" aria-hidden="true"></span> Start here</p>
+                <h2>Your next 100 leads<br />are already <em>on the map.</em></h2>
+                <p>Create your workspace, connect Apify, and turn one search into a library you can work for months.</p>
+                <div class="landing-final-actions">
+                  <button type="button" class="btn btn-light" data-auth="signup">
+                    Create your workspace
+                    <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+                  </button>
+                  <button type="button" class="text-link light" data-auth="signin">I already have an account</button>
+                </div>
+              </div>
+              <div class="landing-final-stamp" aria-hidden="true">
+                <span>FIELD</span>
+                <strong>READY</strong>
+                <span>LA / 04</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="landing-footer">
+        <div class="landing-shell landing-footer-inner">
+          <div class="landing-footer-brand">
+            <a class="brand" href="/" aria-label="Lead Atlas home">
+              <span class="brand-mark small" aria-hidden="true">
+                <svg viewBox="0 0 40 40" role="presentation">
+                  <circle cx="20" cy="20" r="17.5" fill="none" stroke="currentColor" stroke-width="1.3" />
+                  <path d="m25.7 14.3-3.4 8-8 3.4 3.4-8 8-3.4Z" fill="currentColor" />
+                  <circle cx="20" cy="20" r="1.6" fill="var(--paper)" />
+                </svg>
+              </span>
+              <span class="brand-text"><strong>Lead Atlas</strong><span>Field intelligence for local growth</span></span>
+            </a>
+            <p>A local-first Google Maps lead scanner with a library that remembers.</p>
+          </div>
+          <nav class="landing-footer-links" aria-label="Footer">
+            <a href="/#product">Product</a>
+            <a href="/how-it-works.html">How it works</a>
+            <a href="/pricing.html">Pricing</a>
+            <a href="/pricing.html#faq">FAQ</a>
+            <a href="/auth.html?mode=signin">Sign in</a>
+          </nav>
+          <div class="landing-footer-meta">
+            <p>Powered by <a href="https://apify.com/compass/crawler-google-places" target="_blank" rel="noopener noreferrer">Apify’s Google Maps Scraper</a>. Not affiliated with Google or Apify.</p>
+            <p class="footer-coord">30.2672° N / 97.7431° W · Version <span id="landingVersion">1.6.1</span></p>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <script src="/site.js"></script>
+  </body>
+</html>

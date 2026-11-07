@@ -12,6 +12,7 @@ import {
   filterScripts,
   findScript,
   importScriptsContent,
+  isMissingScriptTableError,
   mergeScriptStores,
   newScriptId,
   normalizeScript,
@@ -22,6 +23,8 @@ import {
   scriptContextFor,
   scriptExcerpt,
   scriptFromText,
+  scriptLibraryRow,
+  scriptStoreFromRow,
   serializeScriptStore,
   setActiveScript,
   upsertScript,
@@ -364,4 +367,43 @@ test("titles a text import from its filename and trims separators", () => {
   assert.equal(imported.title, "plumber first call");
   assert.equal(imported.id, "scr_text");
   assert.equal(scriptFromText({ name: "empty.txt", text: "" }), null);
+});
+
+test("round-trips a script library through the Supabase row shape", () => {
+  const store = parseScriptStore({
+    activeId: "scr_two",
+    scripts: [script("scr_one", "First", "One"), script("scr_two", "Second", "Two")],
+  });
+  const row = scriptLibraryRow(store);
+  assert.equal(row.active_id, "scr_two");
+  assert.equal(row.scripts.length, 2);
+  assert.equal(row.scripts[0].createdAt, NOW);
+
+  const restored = scriptStoreFromRow({
+    active_id: row.active_id,
+    scripts: row.scripts,
+    updated_at: LATER,
+  });
+  assert.deepEqual(restored, serializeScriptStore(store));
+  assert.equal(scriptStoreFromRow({ scripts: [null] }).scripts.length, 0);
+  assert.equal(scriptStoreFromRow(null), null);
+});
+
+test("recognizes the missing script-table schema error", () => {
+  assert.equal(isMissingScriptTableError({ code: "42P01" }), true);
+  assert.equal(isMissingScriptTableError({ code: "PGRST205" }), true);
+  assert.equal(
+    isMissingScriptTableError({
+      message: 'relation "public.script_libraries" does not exist',
+    }),
+    true,
+  );
+  assert.equal(
+    isMissingScriptTableError({
+      message: "Could not find the table 'public.script_libraries' in the schema cache",
+    }),
+    true,
+  );
+  assert.equal(isMissingScriptTableError({ code: "42501", message: "permission denied" }), false);
+  assert.equal(isMissingScriptTableError(null), false);
 });

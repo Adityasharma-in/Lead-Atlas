@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en" class="js">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4eee0" />
+    <title>Sign in — Lead Atlas</title>
+    <meta name="description" content="Sign in to Lead Atlas to reopen saved reports, pick up the outreach trail, and keep every call in one place." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/workspace.css" />
+  </head>
+  <body class="is-auth">
+    <a class="skip-link" href="#authForm">Skip to sign in</a>
+
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="i-compass" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1 5.1-2.1Z" fill="currentColor" />
+        <circle cx="12" cy="12" r="1.1" fill="var(--paper, #f4eee0)" />
+      </symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24">
+        <path d="M5 19 19 5M8 5h11v11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24">
+        <path d="M4 12h15m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24">
+        <path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11Z" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <circle cx="12" cy="10" r="2.4" fill="currentColor" />
+      </symbol>
+      <symbol id="i-star" viewBox="0 0 24 24">
+        <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6-5.4-2.9-5.4 2.9 1-6-4.4-4.3 6.1-.9L12 3Z" fill="currentColor" />
+      </symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24">
+        <path d="M6.7 3.5 9 3.2l1.8 4-2 1.5a13.4 13.4 0 0 0 6.5 6.5l1.5-2 4 1.8-.3 2.3c-.2 1.5-1.5 2.6-3 2.5C10.8 19.1 4.9 13.2 4.2 6.5c-.1-1.5 1-2.8 2.5-3Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24">
+        <rect x="3" y="5" width="18" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="m4 7 8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="M3 12h18M12 3c2.6 2.5 4 5.5 4 9s-1.4 6.5-4 9c-2.6-2.5-4-5.5-4-9s1.4-6.5 4-9Z" fill="none" stroke="currentColor" stroke-width="1.2" />
+      </symbol>
+      <symbol id="i-map" viewBox="0 0 24 24">
+        <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+        <path d="M9 3v15m6-12v15" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".65" />
+      </symbol>
+      <symbol id="i-download" viewBox="0 0 24 24">
+        <path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 18v2h16v-2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24">
+        <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-search" viewBox="0 0 24 24">
+        <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="m15.5 15.5 5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="m4 12.5 5 5L20 6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-circle" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+      </symbol>
+      <symbol id="i-ban" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="m6.4 6.4 11.2 11.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-x" viewBox="0 0 24 24">
+        <path d="m5 5 14 14M19 5 5 19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-key" viewBox="0 0 24 24">
+        <circle cx="8" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="M12.5 12H21m-3 0v3m-3-3v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-external" viewBox="0 0 24 24">
+        <path d="M13 5h6v6M19 5l-8 8M19 14v5H5V5h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24">
+        <rect x="8" y="8" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="M16 8V4H4v12h4" fill="none" stroke="currentColor" stroke-width="1.4" />
+      </symbol>
+      <symbol id="i-table" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="M3 9h18M9 9v11" fill="none" stroke="currentColor" stroke-width="1.3" />
+      </symbol>
+      <symbol id="i-code" viewBox="0 0 24 24">
+        <path d="m8 7-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24">
+        <path d="m8 10 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24">
+        <path d="M12 2v20M2 12h20M5 5l14 14M19 5 5 19" fill="none" stroke="currentColor" stroke-width="1.1" />
+      </symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24">
+        <rect x="4" y="10" width="16" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.5" />
+      </symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24">
+        <path d="M12 3 2.5 20h19L12 3Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+        <path d="M12 9v5m0 2.5v.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-script" viewBox="0 0 24 24">
+        <path d="M6 3h9l4 4v14H6V3Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+        <path d="M15 3v4h4M9 11h7M9 14.5h7M9 18h4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24">
+        <rect x="3.5" y="3.5" width="7" height="7" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <rect x="13.5" y="3.5" width="7" height="7" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <rect x="3.5" y="13.5" width="7" height="7" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <rect x="13.5" y="13.5" width="7" height="7" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5" />
+      </symbol>
+      <symbol id="i-library" viewBox="0 0 24 24">
+        <path d="M4 5.5h5v14H4zM11 5.5h4v14h-4zM17.5 5.5H20l-1.5 14h-1z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+        <path d="M6.5 9h0M13 9h0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24">
+        <path d="M3.5 7A2 2 0 0 1 5.5 5h3.9l2 2.5h7.1a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V7Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+        <path d="M3.8 10.5h16.4" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".55" />
+      </symbol>
+      <symbol id="i-logout" viewBox="0 0 24 24">
+        <path d="M14 4H5v16h9M10 12h11m0 0-4-4m4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-menu" viewBox="0 0 24 24">
+        <path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-database" viewBox="0 0 24 24">
+        <ellipse cx="12" cy="5.5" rx="7.5" ry="3" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="M4.5 5.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6M4.5 11.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6" fill="none" stroke="currentColor" stroke-width="1.4" />
+      </symbol>
+      <symbol id="i-cloud-check" viewBox="0 0 24 24">
+        <path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A5.5 5.5 0 0 1 17.2 8.6 4 4 0 0 1 18 16.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+        <path d="m9.5 14.5 2 2 3.5-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-user" viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+        <path d="M4.5 20a7.5 7.5 0 0 1 15 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </symbol>
+      <symbol id="i-arrow-left" viewBox="0 0 24 24">
+        <path d="M20 12H5m0 0 6-6m-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-tag" viewBox="0 0 24 24">
+        <path d="M3.5 12.2V4.5h7.7l9.3 9.3-7.5 7.5-9.5-9.1Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+        <circle cx="8.2" cy="8.2" r="1.4" fill="currentColor" />
+      </symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24">
+        <path d="M12 3 4.5 6v5.4c0 4.4 3 8 7.5 9.6 4.5-1.6 7.5-5.2 7.5-9.6V6L12 3Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+        <path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-save" viewBox="0 0 24 24">
+        <path d="M5 3.5h11l3 3v14H5v-17Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+        <path d="M8.5 3.5v6h7v-6M8.5 20.5v-6h7v6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24">
+        <path d="m13 2-8 12h6l-1 8 8-12h-6l1-8Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+      </symbol>
+      <symbol id="i-more" viewBox="0 0 24 24">
+        <circle cx="5" cy="12" r="1.5" fill="currentColor" />
+        <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+        <circle cx="19" cy="12" r="1.5" fill="currentColor" />
+      </symbol>
+      <symbol id="i-target" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+        <circle cx="12" cy="12" r="1.4" fill="currentColor" />
+      </symbol>
+    </svg>
+
+    <div class="grain" aria-hidden="true"></div>
+
+    <div class="auth-page" id="viewAuth">
+      <div class="auth-shell">
+        <section class="auth-brand-panel">
+          <div class="auth-brand-top">
+            <a class="brand auth-brand" href="/" aria-label="Lead Atlas home">
+              <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 40 40" role="presentation">
+                  <circle cx="20" cy="20" r="17.5" fill="none" stroke="currentColor" stroke-width="1.3" />
+                  <circle cx="20" cy="20" r="12" fill="none" stroke="currentColor" stroke-width=".7" stroke-dasharray="1 3" />
+                  <path d="m25.7 14.3-3.4 8-8 3.4 3.4-8 8-3.4Z" fill="currentColor" />
+                  <circle cx="20" cy="20" r="1.6" fill="var(--paper)" />
+                </svg>
+              </span>
+              <span class="brand-text"><strong>Lead Atlas</strong><span>Field intelligence for local growth</span></span>
+            </a>
+            <a class="auth-back-link" href="/">
+              <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+              Back to home
+            </a>
+          </div>
+
+          <div class="auth-brand-copy">
+            <p class="landing-eyebrow light"><span class="live-dot" aria-hidden="true"></span> Your field desk</p>
+            <h2>The map is open.<br /><em>Your leads are waiting.</em></h2>
+            <p>Sign in to reopen saved reports, pick up the outreach trail, and keep every call in one place.</p>
+          </div>
+
+          <div class="auth-mini-map" aria-hidden="true">
+            <svg viewBox="0 0 480 300">
+              <defs>
+                <pattern id="authGrid" width="32" height="32" patternUnits="userSpaceOnUse">
+                  <path d="M32 0H0v32" fill="none" stroke="#a99c85" stroke-width=".45" opacity=".5" />
+                </pattern>
+              </defs>
+              <rect width="480" height="300" fill="url(#authGrid)" />
+              <g fill="none" stroke="#7e927e" stroke-width="1" opacity=".55">
+                <path d="M-20 70c80-20 120 30 200 10s110-50 190-20 80 10 140 20" />
+                <path d="M-20 170c90-20 130 30 220 10s120-40 200-10 80 10 120 10" />
+                <path d="M100-20c-10 80 20 140 10 220s-20 80-10 120" />
+                <path d="M340-20c-10 80 20 140 10 220s-20 80-10 120" />
+              </g>
+              <path d="M40 250c70-60 120-90 180-100s100-50 190-60" fill="none" stroke="#cf5521" stroke-width="1.6" stroke-dasharray="5 7" opacity=".8" />
+              <g fill="#cf5521">
+                <circle cx="40" cy="250" r="4" />
+                <circle cx="410" cy="90" r="4" />
+              </g>
+              <g transform="translate(200 130)" fill="#f4eee0">
+                <path d="M0-14c-6 0-11 5-11 11 0 8 11 18 11 18S11 5 11-3c0-6-5-11-11-11Z" />
+                <circle cy="-3" r="3.5" fill="#1e3a2c" />
+              </g>
+              <g transform="translate(360 200)" fill="#f4eee0">
+                <path d="M0-14c-6 0-11 5-11 11 0 8 11 18 11 18S11 5 11-3c0-6-5-11-11-11Z" />
+                <circle cy="-3" r="3.5" fill="#1e3a2c" />
+              </g>
+            </svg>
+            <div class="auth-mini-card">
+              <span class="auth-mini-avatar">CS</span>
+              <div><strong>Cedar &amp; Steam</strong><span>Saved · 4.8 ★</span></div>
+              <svg class="icon" aria-hidden="true"><use href="#i-cloud-check"></use></svg>
+            </div>
+          </div>
+
+          <div class="auth-brand-foot">
+            <div><strong>486</strong><span>leads in your library</span></div>
+            <div><strong>94</strong><span>reached out</span></div>
+            <div><strong>12</strong><span>saved reports</span></div>
+          </div>
+        </section>
+
+        <section class="auth-form-panel">
+          <div class="auth-card">
+            <div class="auth-card-head">
+              <p class="mono-label" id="authKicker">Account / Sign in</p>
+              <h1 id="authTitle">Welcome back.</h1>
+              <p id="authSub">Sign in to open your lead library.</p>
+            </div>
+
+            <div class="auth-tabs" id="authTabs" role="tablist" aria-label="Authentication">
+              <button type="button" class="auth-tab is-active" data-auth-tab="signin" role="tab" aria-selected="true">Sign in</button>
+              <button type="button" class="auth-tab" data-auth-tab="signup" role="tab" aria-selected="false">Create account</button>
+            </div>
+
+            <div class="auth-config-notice" id="authConfigNotice" hidden>
+              <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
+              <div>
+                <strong>Supabase is not connected yet.</strong>
+                <p>Add <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> to <code>.env</code>, run <code>supabase/schema.sql</code> in your project, then restart the app.</p>
+              </div>
+            </div>
+
+            <form class="auth-form" id="authForm" novalidate>
+              <div class="auth-field" id="authNameField" hidden>
+                <label for="authName">Your name</label>
+                <input id="authName" name="name" type="text" autocomplete="name" placeholder="Aditya Sharma" maxlength="80" />
+              </div>
+
+              <div class="auth-field" id="authEmailField">
+                <label for="authEmail">Email address</label>
+                <input id="authEmail" name="email" type="email" autocomplete="email" placeholder="you@studio.co" maxlength="160" required />
+              </div>
+
+              <div class="auth-field" id="authPasswordField">
+                <label for="authPassword">
+                  <span id="authPasswordLabel">Password</span>
+                  <button type="button" class="auth-show-password" id="authShowPassword">Show</button>
+                </label>
+                <input id="authPassword" name="password" type="password" autocomplete="current-password" placeholder="At least 6 characters" minlength="6" maxlength="72" required />
+              </div>
+
+              <div class="auth-field" id="authConfirmField" hidden>
+                <label for="authConfirm">Confirm new password</label>
+                <input id="authConfirm" name="confirm" type="password" autocomplete="new-password" placeholder="Repeat the password" minlength="6" maxlength="72" />
+              </div>
+
+              <p class="auth-error" id="authError" role="alert" hidden></p>
+              <p class="auth-notice" id="authNotice" role="status" hidden></p>
+
+              <button type="submit" class="btn btn-primary auth-submit" id="authSubmit">
+                <span id="authSubmitLabel">Sign in</span>
+                <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+              </button>
+            </form>
+
+            <div class="auth-links" id="authLinks">
+              <button type="button" id="authForgotBtn">Forgot password?</button>
+              <span aria-hidden="true">·</span>
+              <button type="button" id="authMagicBtn">Email me a sign-in link</button>
+            </div>
+
+            <div class="auth-secure">
+              <svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>
+              <p>Protected by Supabase Auth. Your password never reaches the Lead Atlas server.</p>
+            </div>
+
+            <a class="auth-back" href="/">
+              <svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>
+              Back to Lead Atlas
+            </a>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script src="/supabase-client.js"></script>
+    <script type="module" src="/auth-page.js"></script>
+  </body>
+</html>

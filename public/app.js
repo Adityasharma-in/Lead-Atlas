@@ -33,15 +33,19 @@ import {
   filterScripts,
   findScript,
   importScriptsContent,
+  isMissingScriptTableError,
   mergeScriptStores,
   parseScriptStore,
   removeScript,
   scriptContextFor,
   scriptExcerpt,
+  scriptLibraryRow,
+  scriptStoreFromRow,
   serializeScriptStore,
   setActiveScript,
   upsertScript,
 } from "./scripts-core.js";
+import { isMissingTokenColumnError, resolveAccountToken } from "./account-core.js";
 
 (() => {
   "use strict";
@@ -81,7 +85,32 @@ import {
     token: "",
     account: null,
     keyStatus: "empty",
-    view: "setup",
+    view: "dashboard",
+    auth: {
+      configured: false,
+      session: null,
+      user: null,
+      profile: null,
+      mode: "signin",
+      busy: false,
+      entering: false,
+      signingOut: false,
+      recovery: false,
+      redirectType: null,
+    },
+    library: {
+      reports: [],
+      stats: null,
+      loading: false,
+      loaded: false,
+      error: null,
+      search: "",
+      source: "all",
+      busyReportId: null,
+    },
+    savedReport: null,
+    saveDialog: { open: false },
+    dashboard: { loading: false, loaded: false },
     results: null,
     importDesk: null,
     resultsToken: null,
@@ -105,6 +134,11 @@ import {
       savedAt: null,
       saveTimer: null,
       storageErrorShown: false,
+      cloudTimer: null,
+      cloudState: "idle",
+      cloudSavedAt: null,
+      cloudErrorShown: false,
+      cloudLoaded: false,
     },
     callSheet: {
       lead: null,
@@ -217,6 +251,368 @@ import {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => fn(...args), delay);
     };
+  }
+
+  function formatRelative(value) {
+    if (!value) return "just now";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "just now";
+    const seconds = Math.round((Date.now() - date.getTime()) / 1000);
+    if (seconds < 60) return "just now";
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return `${minutes} min ago`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return `${hours} hr${hours === 1 ? "" : "s"} ago`;
+    const days = Math.round(hours / 24);
+    if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
+    if (days < 30) return `${Math.round(days / 7)} week${Math.round(days / 7) === 1 ? "" : "s"} ago`;
+    return formatDate(value);
+  }
+
+  function slugify(value, fallback = "export") {
+    const slug = String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 70);
+    return slug || fallback;
+  }
+
+  function supabaseClient() {
+    return window.LeadAtlasSupabase || null;
+  }
+
+  function isAuthed() {
+    return Boolean(state.auth.session?.access_token);
+  }
+
+  function accountDisplayName(user = state.auth.user) {
+    const profile = state.auth.profile || {};
+    const metadata = user?.user_metadata || {};
+    const name = profile.full_name || metadata.full_name || metadata.name || "";
+    if (name.trim()) return name.trim();
+    const email = user?.email || profile.email || "";
+    if (email) {
+      const local = email.split("@")[0].replace(/[._-]+/g, " ");
+      return local.replace(/\b\w/g, (letter) => letter.toUpperCase());
+    }
+    return "Your account";
+  }
+
+  function accountInitials(name = accountDisplayName()) {
+    const parts = String(name || "")
+      .replace(/[^\w\s]/g, "")
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!parts.length) return "LA";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+
+  function greetingForNow() {
+    const hour = new Date().getHours();
+    if (hour < 12) return "morning";
+    if (hour < 18) return "afternoon";
+    return "evening";
+  }
+
+  /* ---------------- routes + auth handoff ---------------- */
+
+  const WORKSPACE_ROUTES = new Set([
+    "dashboard",
+    "library",
+    "setup",
+    "data",
+    "report",
+    "progress",
+  ]);
+
+  function closeSidebar() {
+    els.appShell?.classList.remove("is-sidebar-open");
+    if (els.sidebarScrim) els.sidebarScrim.hidden = true;
+    els.sidebarOpenBtn?.setAttribute("aria-expanded", "false");
+  }
+
+  function viewFromHash() {
+    const raw = String(window.location.hash || "")
+      .replace(/^#\/?/, "")
+      .split(/[?&]/)[0];
+    return WORKSPACE_ROUTES.has(raw) ? raw : "";
+  }
+
+  // The workspace is a separate document now. Anything that needs the account
+  // form travels to /auth.html, carrying a return path and a short note.
+  function goToSignIn({ notice = "", next = "" } = {}) {
+    try {
+      if (notice) window.sessionStorage.setItem("leadAtlas.authNotice", notice);
+      if (next) window.sessionStorage.setItem("leadAtlas.authNext", next);
+    } catch {
+      /* the redirect still works when storage is unavailable */
+    }
+    window.location.replace("/auth.html?mode=signin");
+  }
+
+  function leaveWorkspace({ signedOut = false } = {}) {
+    try {
+      if (signedOut) {
+        window.sessionStorage.setItem(
+          "leadAtlas.siteNotice",
+          "Signed out. Your library is waiting when you return.",
+        );
+      }
+    } catch {
+      /* the landing page simply skips the notice */
+    }
+    window.location.assign("/");
+  }
+
+  function syncViewRoute(view, { replace = false } = {}) {
+    if (!isAuthed()) return;
+    if (window.location.hash === `#${view}`) return;
+    try {
+      const method = replace ? "replaceState" : "pushState";
+      window.history[method](
+        { view },
+        "",
+        `${window.location.pathname}${window.location.search}#${view}`,
+      );
+    } catch {
+      /* history is unavailable in some locked-down browsers */
+    }
+  }
+
+  async function loadAccountProfile() {
+    const sb = supabaseClient();
+    const user = state.auth.user;
+    if (!sb || !user?.id) return;
+
+    let profile = null;
+    let profileAvailable = true;
+    let columnMissing = false;
+
+    try {
+      profile = await sb.select(
+        "profiles",
+        {
+          id: `eq.${user.id}`,
+          select: "full_name,email,company,apify_token",
+          limit: 1,
+        },
+        { single: true },
+      );
+    } catch (error) {
+      if (isMissingTokenColumnError(error)) {
+        columnMissing = true;
+        try {
+          profile = await sb.select(
+            "profiles",
+            { id: `eq.${user.id}`, select: "full_name,email,company", limit: 1 },
+            { single: true },
+          );
+        } catch (fallbackError) {
+          profileAvailable = false;
+          console.warn(
+            "[lead-atlas] Profile could not be read.",
+            fallbackError?.message || fallbackError,
+          );
+        }
+        showToast(
+          "Your Supabase profile is missing the Apify-key column. Run supabase/schema.sql in the SQL Editor, then reload.",
+          "error",
+          { duration: 9000 },
+        );
+      } else {
+        // A paused project or a network blip must not block a scan that could
+        // still run with the key cached in this browser.
+        profileAvailable = false;
+        console.warn("[lead-atlas] Profile could not be read.", error?.message || error);
+      }
+    }
+
+    if (profile) {
+      state.auth.profile = profile;
+      renderAccount();
+    }
+
+    const resolved = resolveAccountToken({
+      profileToken: profile?.apify_token,
+      cachedToken: readStoredToken(),
+      profileAvailable,
+      columnMissing,
+    });
+
+    if (resolved.source === "account" || resolved.source === "cached") {
+      applyAccountToken(resolved.token);
+      return;
+    }
+    if (resolved.source === "none") {
+      applyAccountToken("");
+      setKeyStatus("empty");
+      return;
+    }
+
+    // First run after this feature: claim the key this browser already has and
+    // write it to the signed-in account so other devices can use it too.
+    try {
+      await saveTokenToAccount(resolved.token);
+      applyAccountToken(resolved.token);
+      showToast("Your saved Apify key is now linked to this account.", "success");
+    } catch (error) {
+      console.warn("[lead-atlas] Apify key could not be saved to the account.", error);
+      applyAccountToken(resolved.token);
+      showToast(
+        `Your Apify key still works here, but could not be saved to your account. ${friendlySupabaseError(error)}`,
+        "error",
+        { duration: 8000 },
+      );
+    }
+  }
+
+  function renderAccount() {
+    const user = state.auth.user;
+    const name = accountDisplayName(user);
+    const email = user?.email || state.auth.profile?.email || "—";
+    const initials = accountInitials(name);
+    const firstName = name.split(/\s+/)[0] || "there";
+    const version = state.config?.appVersion || "1.6.1";
+
+    if (els.accountAvatar) els.accountAvatar.textContent = initials;
+    if (els.topbarAvatar) els.topbarAvatar.textContent = initials;
+    if (els.accountName) els.accountName.textContent = name;
+    if (els.accountEmail) els.accountEmail.textContent = email;
+    if (els.dashFirstName) els.dashFirstName.textContent = firstName;
+    if (els.dashGreetingTime) els.dashGreetingTime.textContent = greetingForNow();
+    if (els.sidebarVersion) els.sidebarVersion.textContent = `Version ${version}`;
+  }
+
+  async function enterApp({ view = "", historyMode = "replace" } = {}) {
+    const sb = supabaseClient();
+    if (!sb || state.auth.entering) return;
+    state.auth.entering = true;
+    try {
+      const session = await sb.getSession();
+      if (!session?.access_token) {
+        state.auth.session = null;
+        state.auth.user = null;
+        const here = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        goToSignIn({ notice: "Sign in to open your workspace.", next: here });
+        return;
+      }
+      state.auth.session = session;
+      state.auth.user = session.user || state.auth.user;
+      state.auth.recovery = false;
+      if (els.appShell) els.appShell.hidden = false;
+      if (els.appBoot) els.appBoot.hidden = true;
+      document.body.classList.add("is-app");
+      document.body.classList.remove("is-landing", "is-auth");
+      renderAccount();
+      // The account copy of the Apify key and the call-script library must be in
+      // state before the key is validated, a saved scan is resumed or the
+      // dashboard counts are drawn.
+      await loadAccountProfile();
+      await loadAccountScripts();
+      await loadLibrary({ force: true });
+      if (state.token) {
+        setKeyStatus("checking");
+        validateStoredKey({ silent: true });
+        await resumeActiveRun();
+      }
+
+      const target = view || viewFromHash() || "dashboard";
+      const viewOptions = { scroll: false, focus: false, historyMode };
+      if (target === "data") {
+        openDataDesk(viewOptions);
+      } else if (target === "report" && !state.results) {
+        showView("library", viewOptions);
+      } else if (target === "progress" && !state.running) {
+        showView("setup", viewOptions);
+      } else {
+        showView(target, viewOptions);
+      }
+      checkForUpdates();
+    } finally {
+      state.auth.entering = false;
+    }
+  }
+
+  async function signOutUser() {
+    if (state.running) {
+      const confirmed = window.confirm(
+        "A scan is still running. Sign out anyway? It will keep running on Apify and you can reconnect after signing in.",
+      );
+      if (!confirmed) return;
+    }
+    state.auth.signingOut = true;
+    const sb = supabaseClient();
+    if (state.scriptUi.saveTimer) saveScriptStore();
+    if (state.auth.user?.id && (state.scriptUi.cloudTimer || hasPendingScripts())) {
+      await saveScriptsToAccount({ announceError: false });
+    }
+    try {
+      await sb?.signOut();
+    } catch (error) {
+      console.warn("[lead-atlas] Sign out failed.", error);
+    }
+    state.auth.session = null;
+    state.auth.user = null;
+    state.auth.profile = null;
+    state.auth.recovery = false;
+    clearLocalTokenState();
+    setKeyStatus("empty");
+    resetScriptState();
+    state.library = {
+      ...state.library,
+      reports: [],
+      stats: null,
+      loading: false,
+      loaded: false,
+      error: null,
+      search: "",
+      source: "all",
+      busyReportId: null,
+    };
+    state.dashboard = { loading: false, loaded: false };
+    state.savedReport = null;
+    state.results = null;
+    state.importDesk = null;
+    state.resultsToken = null;
+    resetFilters({ render: false });
+    renderSaveState();
+    leaveWorkspace({ signedOut: true });
+  }
+
+  function initAuthListener() {
+    const sb = supabaseClient();
+    if (!sb) return;
+    sb.onAuthStateChange((event, session, user) => {
+      if (event === "SIGNED_OUT") {
+        state.auth.session = null;
+        state.auth.user = null;
+        state.auth.profile = null;
+        clearLocalTokenState();
+        setKeyStatus("empty");
+        resetScriptState();
+        if (!state.auth.signingOut) {
+          goToSignIn({ notice: "Your session ended. Sign in again to open your workspace." });
+        }
+        return;
+      }
+      if (event === "TOKEN_REFRESHED" && session) {
+        state.auth.session = session;
+        state.auth.user = session.user || state.auth.user;
+        renderAccount();
+        return;
+      }
+      if (event === "USER_UPDATED" && session) {
+        state.auth.session = session;
+        state.auth.user = session.user || user || state.auth.user;
+        renderAccount();
+        return;
+      }
+      if (event === "SIGNED_IN" && session && !isAuthed()) {
+        window.location.reload();
+      }
+    });
   }
 
   function scrollToTarget(target) {
@@ -473,6 +869,7 @@ import {
     writeOutreachLedger();
     state.drawerNoteDirty = false;
     refreshOutreachViews({ drawer: true });
+    syncSavedLead(lead);
 
     if (announce) {
       const undo = () => {
@@ -482,6 +879,7 @@ import {
         applyOutreachEntry(lead, previousLedger || previousEntry);
         lead.outreachSource = previousSource;
         refreshOutreachViews({ drawer: true });
+        syncSavedLead(lead);
         showToast("Outreach mark undone.", "info", { duration: 2200 });
       };
 
@@ -552,6 +950,7 @@ import {
     state.drawerNoteDirty = false;
     refreshOutreachViews({ drawer: false });
     updateDrawerNoteCount();
+    syncSavedLead(lead);
     if (els.drawerOutreachStamp) {
       els.drawerOutreachStamp.textContent = `Updated ${formatDate(now, true)}`;
     }
@@ -569,26 +968,294 @@ I was looking at {business} in {city} and noticed [what you noticed — no websi
 
 Would it be worth two minutes this week to see whether [the problem you solve] is on your radar? If not, I’ll leave you to it — thanks for picking up.`;
 
-  function readScriptStore() {
+  function scriptCacheKey(userId = state.auth.user?.id) {
+    return userId ? `${STORAGE.scripts}.${userId}` : STORAGE.scripts;
+  }
+
+  function scriptDirtyKey(userId = state.auth.user?.id) {
+    return userId ? `${scriptCacheKey(userId)}.dirty` : "";
+  }
+
+  function readScriptCache(key) {
     try {
-      const raw = window.localStorage.getItem(STORAGE.scripts);
-      if (!raw) return emptyScriptStore();
-      return parseScriptStore(raw);
+      const raw = window.localStorage.getItem(key);
+      if (raw === null) return { present: false, store: emptyScriptStore() };
+      return { present: true, store: parseScriptStore(raw) };
     } catch {
-      return emptyScriptStore();
+      return { present: false, store: emptyScriptStore() };
+    }
+  }
+
+  function readScriptStore(key = scriptCacheKey()) {
+    return readScriptCache(key).store;
+  }
+
+  function writeScriptCache(key, store) {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(serializeScriptStore(store)));
+      return true;
+    } catch (error) {
+      console.warn("[lead-atlas] Could not save call scripts in this browser.", error);
+      return false;
+    }
+  }
+
+  function markScriptsDirty(userId = state.auth.user?.id) {
+    const key = scriptDirtyKey(userId);
+    if (!key) return;
+    try {
+      window.localStorage.setItem(key, "1");
+    } catch {
+      /* the cloud write can still succeed */
+    }
+  }
+
+  function clearScriptsDirty(userId = state.auth.user?.id) {
+    const key = scriptDirtyKey(userId);
+    if (!key) return;
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      /* nothing to clear */
+    }
+  }
+
+  function hasPendingScripts(userId = state.auth.user?.id) {
+    const key = scriptDirtyKey(userId);
+    if (!key) return false;
+    try {
+      return window.localStorage.getItem(key) === "1";
+    } catch {
+      return false;
     }
   }
 
   function writeScriptStore() {
+    const saved = writeScriptCache(scriptCacheKey(), state.scripts);
+    if (state.auth.user?.id) markScriptsDirty(state.auth.user.id);
+    return saved;
+  }
+
+  function adoptScriptStore(store) {
+    state.scripts = serializeScriptStore(store);
+    state.scriptUi.selectedId = activeScript(state.scripts)?.id || null;
+    renderScriptChip();
+    if (els.scriptDialog?.open) renderScriptLibrary({ syncFields: true });
+  }
+
+  function resetScriptState() {
+    window.clearTimeout(state.scriptUi.saveTimer);
+    window.clearTimeout(state.scriptUi.cloudTimer);
+    state.scriptUi.saveTimer = null;
+    state.scriptUi.cloudTimer = null;
+    state.scripts = emptyScriptStore();
+    state.scriptUi.selectedId = null;
+    state.scriptUi.search = "";
+    state.scriptUi.saveState = "saved";
+    state.scriptUi.savedAt = null;
+    state.scriptUi.storageErrorShown = false;
+    state.scriptUi.cloudState = "idle";
+    state.scriptUi.cloudSavedAt = null;
+    state.scriptUi.cloudErrorShown = false;
+    state.scriptUi.cloudLoaded = false;
     try {
-      window.localStorage.setItem(
-        STORAGE.scripts,
-        JSON.stringify(serializeScriptStore(state.scripts)),
+      window.localStorage.removeItem(STORAGE.scripts);
+    } catch {
+      /* storage may be unavailable */
+    }
+    renderScriptChip();
+    if (els.scriptDialog?.open) renderScriptLibrary({ syncFields: true });
+  }
+
+  async function saveScriptsToAccount({ announceError = true } = {}) {
+    const sb = supabaseClient();
+    const user = state.auth.user;
+    if (!sb || !user?.id || !isAuthed()) return false;
+
+    window.clearTimeout(state.scriptUi.cloudTimer);
+    state.scriptUi.cloudTimer = null;
+    state.scriptUi.cloudState = "saving";
+    updateScriptSaveState();
+
+    const payload = scriptLibraryRow(state.scripts);
+    const payloadSignature = JSON.stringify(payload);
+    try {
+      const updated = await sb.update(
+        "script_libraries",
+        { user_id: `eq.${user.id}` },
+        { active_id: payload.active_id, scripts: payload.scripts },
+        { returning: true },
       );
+
+      if (!Array.isArray(updated) || updated.length === 0) {
+        try {
+          await sb.insert(
+            "script_libraries",
+            {
+              user_id: user.id,
+              active_id: payload.active_id,
+              scripts: payload.scripts,
+            },
+            { returning: false },
+          );
+        } catch (insertError) {
+          const duplicate =
+            String(insertError?.code || "") === "23505" ||
+            /duplicate key|already exists/i.test(String(insertError?.message || ""));
+          if (!duplicate) throw insertError;
+          await sb.update(
+            "script_libraries",
+            { user_id: `eq.${user.id}` },
+            { active_id: payload.active_id, scripts: payload.scripts },
+            { returning: false },
+          );
+        }
+      }
+
+      // If the library changed while this request was in flight, keep the dirty
+      // marker and queue one more write. Otherwise an older response could
+      // clear the marker for a newer local edit and a reload would prefer a
+      // stale cloud row.
+      const currentSignature = JSON.stringify(scriptLibraryRow(state.scripts));
+      if (currentSignature !== payloadSignature) {
+        state.scriptUi.cloudState = "saving";
+        state.scriptUi.cloudSavedAt = new Date().toISOString();
+        state.scriptUi.cloudErrorShown = false;
+        updateScriptSaveState();
+        if (!state.scriptUi.cloudTimer) scheduleScriptsCloudSave();
+        return true;
+      }
+
+      clearScriptsDirty(user.id);
+      state.scriptUi.cloudState = "saved";
+      state.scriptUi.cloudSavedAt = new Date().toISOString();
+      state.scriptUi.cloudErrorShown = false;
+      updateScriptSaveState();
       return true;
     } catch (error) {
-      console.warn("[lead-atlas] Could not save call scripts.", error);
+      state.scriptUi.cloudState = "error";
+      updateScriptSaveState();
+      console.warn("[lead-atlas] Call scripts could not be saved to the account.", error);
+      if (announceError && !state.scriptUi.cloudErrorShown) {
+        state.scriptUi.cloudErrorShown = true;
+        showToast(
+          `Scripts are saved in this browser but not synced to your account. ${friendlySupabaseError(
+            error,
+          )}`,
+          "error",
+          { duration: 9000 },
+        );
+      }
       return false;
+    }
+  }
+
+  function scheduleScriptsCloudSave() {
+    if (!isAuthed() || !state.auth.user?.id) return;
+    window.clearTimeout(state.scriptUi.cloudTimer);
+    state.scriptUi.cloudState = "saving";
+    updateScriptSaveState();
+    state.scriptUi.cloudTimer = window.setTimeout(() => {
+      state.scriptUi.cloudTimer = null;
+      saveScriptsToAccount();
+    }, 900);
+  }
+
+  async function loadAccountScripts() {
+    const sb = supabaseClient();
+    const user = state.auth.user;
+    if (!sb || !user?.id) return;
+
+    const cacheKey = scriptCacheKey(user.id);
+    const cache = readScriptCache(cacheKey);
+    const legacy = readScriptCache(STORAGE.scripts);
+    const dirty = hasPendingScripts(user.id);
+    state.scriptUi.cloudLoaded = false;
+
+    let row = null;
+    let schemaMissing = false;
+    try {
+      row = await sb.select(
+        "script_libraries",
+        {
+          user_id: `eq.${user.id}`,
+          select: "active_id,scripts,updated_at",
+          limit: 1,
+        },
+        { single: true },
+      );
+    } catch (error) {
+      schemaMissing = isMissingScriptTableError(error);
+      state.scriptUi.cloudState = schemaMissing ? "missing" : "error";
+      const fallback = cache.present ? cache.store : legacy.store;
+      adoptScriptStore(fallback);
+      writeScriptCache(cacheKey, fallback);
+      try {
+        window.localStorage.removeItem(STORAGE.scripts);
+      } catch {
+        /* storage may be unavailable */
+      }
+      if (schemaMissing) {
+        showToast(
+          "Call-script sync needs the Supabase schema. Run supabase/schema.sql in the SQL Editor, then reload. Scripts still work in this browser.",
+          "error",
+          { duration: 9000 },
+        );
+      } else {
+        console.warn("[lead-atlas] Call scripts could not be loaded from the account.", error);
+      }
+      updateScriptSaveState();
+      return;
+    }
+
+    let store;
+    let needsUpload = false;
+    let migratedLegacy = false;
+
+    if (row) {
+      const cloudStore = scriptStoreFromRow(row) || emptyScriptStore();
+      if (dirty && cache.present) {
+        // The local cache is a complete snapshot whose last cloud write failed.
+        store = cache.store;
+        needsUpload = true;
+      } else {
+        store = cloudStore;
+        clearScriptsDirty(user.id);
+      }
+      state.scriptUi.cloudState = "saved";
+    } else if (cache.present) {
+      store = cache.store;
+      needsUpload = true;
+      state.scriptUi.cloudState = "saving";
+    } else if (legacy.present && legacy.store.scripts.length) {
+      store = legacy.store;
+      needsUpload = true;
+      migratedLegacy = true;
+      state.scriptUi.cloudState = "saving";
+    } else {
+      store = emptyScriptStore();
+      state.scriptUi.cloudState = "idle";
+    }
+
+    adoptScriptStore(store);
+    writeScriptCache(cacheKey, store);
+    if (legacy.present) {
+      try {
+        window.localStorage.removeItem(STORAGE.scripts);
+      } catch {
+        /* storage may be unavailable */
+      }
+    }
+    state.scriptUi.cloudLoaded = true;
+    updateScriptSaveState();
+
+    if (needsUpload) {
+      const saved = await saveScriptsToAccount({ announceError: true });
+      if (saved && migratedLegacy) {
+        showToast("Your call scripts are now saved to this account.", "success", {
+          duration: 5000,
+        });
+      }
     }
   }
 
@@ -604,6 +1271,14 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     return state.results?.query || {};
   }
 
+  function activeScriptCopy(lead = null) {
+    const script = activeScript(state.scripts);
+    const body = script
+      ? fillScriptTemplate(script.body, scriptContextFor({ lead, query: currentReportQuery() }))
+      : "";
+    return { script, body, empty: !body.trim() };
+  }
+
   function renderScriptChip() {
     const count = state.scripts.scripts.length;
     if (els.scriptChipCount) {
@@ -613,10 +1288,14 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     els.scriptChip?.classList.toggle("has-scripts", count > 0);
     if (els.scriptChip) {
       els.scriptChip.title = count
-        ? `${scriptCountLabel(count)} saved — open the call library`
+        ? `${scriptCountLabel(count)} saved - open the call library`
         : "Save a cold-call script for your next call";
     }
+    if (els.dashScriptCount) els.dashScriptCount.textContent = `${formatNumber(count)} saved`;
+    if (els.sidebarScriptCount) els.sidebarScriptCount.textContent = formatNumber(count);
     renderDrawerScriptAction();
+    renderReportScript();
+    renderDrawerScript();
   }
 
   function renderDrawerScriptAction() {
@@ -633,17 +1312,38 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       : "Write a cold-call script once and read it beside every lead";
   }
 
+  function renderDrawerScript(lead = state.drawerLead) {
+    if (!els.drawerScriptBody) return;
+    const { script, body, empty } = activeScriptCopy(lead);
+
+    if (els.drawerScriptTitle) {
+      els.drawerScriptTitle.textContent = script ? script.title : "No script saved";
+    }
+    els.drawerScriptBody.textContent = !script
+      ? "No call script saved yet. Add one from Scripts in the top bar."
+      : empty
+        ? "This script has no words yet. Open the library and write your opening line."
+        : body;
+    els.drawerScriptBody.classList.toggle("is-empty", !script || empty);
+  }
+
   function updateScriptSaveState() {
     if (!els.scriptSaveState) return;
     const ui = state.scriptUi;
-    const saving = ui.saveState === "saving";
+    const cloudSaving = ui.cloudState === "saving";
+    const cloudError = ui.cloudState === "error" || ui.cloudState === "missing";
+    const saving = ui.saveState === "saving" || cloudSaving;
     const error = ui.saveState === "error";
     els.scriptSaveState.classList.toggle("is-saving", saving);
-    els.scriptSaveState.classList.toggle("is-error", error);
+    els.scriptSaveState.classList.toggle("is-error", error || cloudError);
     if (error) {
       els.scriptSaveState.textContent = "Not saved";
     } else if (saving) {
       els.scriptSaveState.textContent = "Saving…";
+    } else if (cloudError) {
+      els.scriptSaveState.textContent = "Local only";
+    } else if (ui.cloudState === "saved") {
+      els.scriptSaveState.textContent = "Saved to account";
     } else if (ui.savedAt) {
       const saved = new Date(ui.savedAt);
       els.scriptSaveState.textContent = Number.isNaN(saved.getTime())
@@ -673,6 +1373,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     }
     if (saved) state.scriptUi.storageErrorShown = false;
     updateScriptSaveState();
+    scheduleScriptsCloudSave();
     return saved;
   }
 
@@ -951,6 +1652,11 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
   function closeScriptLibrary() {
     if (state.scriptUi.saveTimer) saveScriptStore();
+    if (state.scriptUi.cloudTimer) {
+      window.clearTimeout(state.scriptUi.cloudTimer);
+      state.scriptUi.cloudTimer = null;
+      saveScriptsToAccount();
+    }
     if (els.scriptDialog?.open) els.scriptDialog.close();
     syncDialogState();
   }
@@ -1161,7 +1867,75 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
   function cacheElements() {
     const ids = [
-      "siteHeader",
+      "appShell",
+      "appBoot",
+      "appBottomNav",
+      "bottomMoreBtn",
+      "bottomLibraryCount",
+      "appSidebar",
+      "sidebarScrim",
+      "sidebarOpenBtn",
+      "sidebarClose",
+      "sidebarLibraryCount",
+      "sidebarScriptCount",
+      "sidebarScriptsBtn",
+      "sidebarKeyBtn",
+      "sidebarKeyDot",
+      "sidebarVersion",
+      "signOutBtn",
+      "accountAvatar",
+      "accountName",
+      "accountEmail",
+      "topbarAvatar",
+      "topbarAccountBtn",
+      "topbarKicker",
+      "topbarTitle",
+      "dashGreetingTime",
+      "dashFirstName",
+      "dashStats",
+      "dashReportCount",
+      "dashMonthCount",
+      "dashLeadCount",
+      "dashContactedCount",
+      "dashContactedRate",
+      "dashDncCount",
+      "dashRecentReports",
+      "dashEmpty",
+      "dashKeyStatus",
+      "dashKeyCopy",
+      "dashKeyAction",
+      "dashScriptCount",
+      "dashOpenScriptsBtn",
+      "dashOutreachCopy",
+      "dashOutreachRate",
+      "dashOutreachTrack",
+      "dashOutreachFill",
+      "dashOutreachContacted",
+      "dashOutreachToContact",
+      "librarySearch",
+      "libraryCount",
+      "libraryGrid",
+      "libraryEmpty",
+      "libraryEmptyTitle",
+      "libraryEmptyText",
+      "reportSavedBadge",
+      "reportSavedBadgeText",
+      "saveReportBtn",
+      "saveReportLabel",
+      "saveReportDialog",
+      "closeSaveReportDialog",
+      "saveReportForm",
+      "saveReportName",
+      "saveReportNameError",
+      "saveReportNotes",
+      "saveReportSummary",
+      "saveReportSummaryTitle",
+      "saveReportSummaryMeta",
+      "saveReportError",
+      "saveReportNotice",
+      "cancelSaveReport",
+      "confirmSaveReport",
+      "confirmSaveReportLabel",
       "updateChip",
       "updateChipText",
       "updateChipVer",
@@ -1172,6 +1946,8 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "keyChipText",
       "formKeyDot",
       "formKeyText",
+      "viewDashboard",
+      "viewLibrary",
       "viewSetup",
       "viewProgress",
       "viewReport",
@@ -1228,7 +2004,6 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "progressErrorTitle",
       "progressErrorText",
       "progressRetryBtn",
-      "navDataBtn",
       "backToSetup",
       "reportTimestamp",
       "reportRunLabel",
@@ -1266,6 +2041,10 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "emptyResetBtn",
       "reportFootnote",
       "pagination",
+      "reportScriptSection",
+      "reportScriptTitle",
+      "reportScriptNote",
+      "reportScriptBody",
       "dataBackToReport",
       "dataNewScan",
       "dataTimestamp",
@@ -1305,6 +2084,9 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "drawerScriptBtn",
       "drawerScriptLabel",
       "drawerScriptDefault",
+      "drawerScriptSection",
+      "drawerScriptTitle",
+      "drawerScriptBody",
       "drawerContactCount",
       "drawerContacts",
       "drawerWebStatus",
@@ -1532,8 +2314,28 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
   /* ---------------- view ---------------- */
 
-  function showView(name, { scroll = true, focus = true } = {}) {
+  const VIEW_META = {
+    dashboard: { kicker: "Workspace", title: "Overview" },
+    library: { kicker: "Workspace", title: "Lead library" },
+    setup: { kicker: "Scanner", title: "New scan" },
+    progress: { kicker: "Scanner", title: "Scan in progress" },
+    report: { kicker: "Report", title: "Field report" },
+    data: { kicker: "Data desk", title: "Import leads" },
+  };
+
+  function documentTitleForView(name) {
+    if (name === "report" || name === "data") {
+      // renderReport() and renderImportDesk() know the specific territory.
+      return document.title;
+    }
+    const meta = VIEW_META[name] || VIEW_META.dashboard;
+    return `${meta.title} — Lead Atlas`;
+  }
+
+  function showView(name, { scroll = true, focus = true, historyMode = "push" } = {}) {
     const views = {
+      dashboard: els.viewDashboard,
+      library: els.viewLibrary,
       setup: els.viewSetup,
       progress: els.viewProgress,
       report: els.viewReport,
@@ -1550,6 +2352,21 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     }
     state.view = name;
 
+    const meta = VIEW_META[name] || VIEW_META.dashboard;
+    if (els.topbarKicker) els.topbarKicker.textContent = meta.kicker;
+    if (els.topbarTitle) els.topbarTitle.textContent = meta.title;
+    document.title = documentTitleForView(name);
+    if (historyMode !== "none") {
+      syncViewRoute(name, { replace: historyMode === "replace" });
+    }
+    $$("[data-app-view]").forEach((button) => {
+      const active = button.dataset.appView === name;
+      button.classList.toggle("is-active", active);
+      if (active) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
+    });
+    closeSidebar();
+
     if (scroll) {
       window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
     }
@@ -1562,6 +2379,30 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
         window.setTimeout(() => heading.focus({ preventScroll: true }), reduceMotion ? 0 : 280);
       }
     }
+  }
+
+  // Back/forward and hand-edited hashes reopen the matching workspace section.
+  function handleRouteChange() {
+    if (!isAuthed() || state.auth.entering) return;
+    const view = viewFromHash();
+    if (!view || view === state.view) return;
+    const options = { scroll: true, focus: true, historyMode: "none" };
+    if (view === "data") {
+      renderImportDesk();
+      showView("data", options);
+      return;
+    }
+    if (view === "report") {
+      showView(state.results ? "report" : "library", options);
+      return;
+    }
+    if (view === "progress" && !state.running) {
+      showView("setup", options);
+      return;
+    }
+    if (view === "library" && !state.library.loaded) loadLibrary();
+    if (view === "dashboard") renderDashboard();
+    showView(view, options);
   }
 
   /* ---------------- key state ---------------- */
@@ -1608,7 +2449,9 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
     const addKeyText = connected ? "Change" : status === "invalid" ? "Replace" : "Add key";
     $$("[data-open-key]").forEach((button) => {
-      button.textContent = addKeyText;
+      const label = button.querySelector("#dashKeyAction");
+      if (label) label.textContent = addKeyText;
+      else button.textContent = addKeyText;
     });
 
     const statusClasses = ["key-status"];
@@ -1632,6 +2475,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
         ? "Saved — paste a new token to replace"
         : "apify_api_…";
     }
+    renderDashboardKey();
   }
 
   function setKeyStatus(status) {
@@ -1646,6 +2490,65 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     } catch {
       return "";
     }
+  }
+
+  function writeStoredToken(token) {
+    try {
+      if (token) window.localStorage.setItem(STORAGE.token, token);
+      else window.localStorage.removeItem(STORAGE.token);
+    } catch {
+      /* the account copy is authoritative; a blocked cache is survivable */
+    }
+  }
+
+  function applyAccountToken(token) {
+    const next = String(token || "").trim();
+    if (state.token !== next) {
+      state.resultsToken = null;
+      state.account = null;
+    }
+    state.token = next;
+    writeStoredToken(next);
+  }
+
+  function clearLocalTokenState() {
+    state.token = "";
+    state.resultsToken = null;
+    state.account = null;
+    state.pendingRunBrief = null;
+    writeStoredToken("");
+  }
+
+  async function saveTokenToAccount(token) {
+    const sb = supabaseClient();
+    const user = state.auth.user;
+    if (!sb || !user?.id) {
+      throw new Error("Sign in before saving an Apify key to your account.");
+    }
+    const updated = await sb.update(
+      "profiles",
+      { id: `eq.${user.id}` },
+      { apify_token: token },
+    );
+    if (Array.isArray(updated) && updated.length) return updated[0];
+    const inserted = await sb.insert("profiles", {
+      id: user.id,
+      email: user.email || null,
+      apify_token: token,
+    });
+    return Array.isArray(inserted) ? inserted[0] : inserted;
+  }
+
+  async function clearTokenFromAccount() {
+    const sb = supabaseClient();
+    const user = state.auth.user;
+    if (!sb || !user?.id) return;
+    await sb.update(
+      "profiles",
+      { id: `eq.${user.id}` },
+      { apify_token: null },
+      { returning: false },
+    );
   }
 
   async function validateStoredKey({ silent = true } = {}) {
@@ -1710,6 +2613,12 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       els.apiKeyInput.focus();
       return;
     }
+    if (!isAuthed()) {
+      els.keyError.textContent = "Sign in before saving an Apify key to your account.";
+      els.keyError.hidden = false;
+      els.apiKeyInput.focus();
+      return;
+    }
 
     const previousStatus = state.keyStatus;
     const previousAccount = state.account;
@@ -1725,14 +2634,17 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
         tokenOverride: token,
         body: {},
       });
+      try {
+        await saveTokenToAccount(token);
+      } catch (saveError) {
+        throw new Error(
+          `The key is valid, but it could not be saved to your account. ${friendlySupabaseError(saveError)}`,
+        );
+      }
       state.token = token;
       state.resultsToken = null;
       state.account = account;
-      try {
-        window.localStorage.setItem(STORAGE.token, token);
-      } catch {
-        showToast("Key connected for this session, but the browser blocked saving it.", "error");
-      }
+      writeStoredToken(token);
       setKeyStatus("connected");
       els.apiKeyInput.value = "";
 
@@ -1755,20 +2667,40 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     }
   }
 
-  function forgetKey() {
+  async function forgetKey() {
+    if (els.forgetKeyBtn) els.forgetKeyBtn.disabled = true;
+    let accountCopyCleared = false;
     try {
-      window.localStorage.removeItem(STORAGE.token);
-    } catch {
-      /* storage can be unavailable in private mode */
+      if (isAuthed() && supabaseClient()) {
+        try {
+          await clearTokenFromAccount();
+          accountCopyCleared = true;
+        } catch (error) {
+          if (!isMissingTokenColumnError(error)) {
+            showToast(
+              `The key could not be removed from your account. ${friendlySupabaseError(error)}`,
+              "error",
+              { duration: 8000 },
+            );
+            return;
+          }
+          // No apify_token column means there is no account copy to remove;
+          // clearing the browser cache is still the right action.
+        }
+      }
+      clearLocalTokenState();
+      setKeyStatus("empty");
+      els.apiKeyInput.value = "";
+      els.keyError.hidden = true;
+      showToast(
+        accountCopyCleared
+          ? "Apify key removed from this browser and your account."
+          : "Apify key removed from this browser.",
+        "success",
+      );
+    } finally {
+      if (els.forgetKeyBtn) els.forgetKeyBtn.disabled = false;
     }
-    state.token = "";
-    state.resultsToken = null;
-    state.account = null;
-    state.pendingRunBrief = null;
-    setKeyStatus("empty");
-    els.apiKeyInput.value = "";
-    els.keyError.hidden = true;
-    showToast("Apify key removed from this browser.", "success");
   }
 
   /* ---------------- brief ---------------- */
@@ -2063,6 +2995,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
     state.running = run;
     state.results = null;
+    state.savedReport = null;
     state.importDesk = null;
     state.resultsToken = null;
     resetProgressUI(run);
@@ -2492,6 +3425,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     }
 
     state.importDesk = null;
+    state.savedReport = null;
     state.resultsToken = run.token;
     state.results = {
       ...data,
@@ -2812,17 +3746,46 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     }
   }
 
+  function renderReportScript() {
+    if (!els.reportScriptBody) return;
+    const { script, body, empty } = activeScriptCopy();
+    const hasReport = Boolean(state.results);
+
+    if (els.reportScriptTitle) {
+      els.reportScriptTitle.textContent = script ? script.title : "No script saved yet";
+    }
+    if (els.reportScriptNote) {
+      els.reportScriptNote.textContent = !script
+        ? "Add one from Scripts in the top bar and it will appear here."
+        : hasReport
+          ? "Filled from this report’s search. Open a lead for its details."
+          : "Your default script. It will appear here after a scan.";
+    }
+    els.reportScriptBody.textContent = !script
+      ? "Nothing saved yet. Write your opening line once, then every report will end with it."
+      : empty
+        ? "This script has no words yet. Open the library and write your opening line."
+        : body;
+    els.reportScriptBody.classList.toggle("is-empty", !script || empty);
+    els.reportScriptSection?.classList.toggle("is-empty", !script || empty);
+  }
+
   function renderReport() {
     const results = state.results;
     if (!results) return;
     const imported = results.mode === "import";
+    const saved = results.mode === "saved";
     const query = results.query || {};
     const niche = imported
       ? query.niche || "Your lead file"
-      : query.niche || results.niche || "Your scan";
+      : saved
+        ? query.niche || results.sourceName || "Saved report"
+        : query.niche || results.niche || "Your scan";
     const location = imported
       ? query.location || results.sourceName || "your device"
-      : query.location || results.location || "the selected area";
+      : saved
+        ? query.location || "your library"
+        : query.location || results.location || "the selected area";
     const leads = results.leads || [];
     const summary = results.summary || summarize(leads);
     summary.outreach = outreachCounts(leads);
@@ -2833,12 +3796,16 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     if (els.reportInWord) els.reportInWord.textContent = imported ? "from" : "in";
     els.reportRunLabel.textContent = imported
       ? `IMPORT · ${String(results.format || "file").toUpperCase()}`
-      : results.runId
-        ? `RUN ${shortRunId(results.runId)}`
-        : "FIELD REPORT";
+      : saved
+        ? `LIBRARY · ${formatDate(results.fetchedAt)}`
+        : results.runId
+          ? `RUN ${shortRunId(results.runId)}`
+          : "FIELD REPORT";
     els.reportTimestamp.textContent = imported
       ? `Imported ${formatDate(results.importedAt, true)}`
-      : `Scanned ${formatDate(results.fetchedAt, true)}`;
+      : saved
+        ? `Saved ${formatDate(results.fetchedAt, true)}`
+        : `Scanned ${formatDate(results.fetchedAt, true)}`;
 
     let sub;
     if (imported) {
@@ -2846,6 +3813,8 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       if (results.duplicateCount) sub += ` · ${pluralize(results.duplicateCount, "duplicate")} merged`;
       if (results.skippedRows) sub += ` · ${pluralize(results.skippedRows, "row")} skipped`;
       sub += ". Nothing left your browser.";
+    } else if (saved) {
+      sub = `${pluralize(leads.length, "lead")} restored from your library · saved ${formatDate(results.fetchedAt, true)}`;
     } else {
       const requested = Number(results.requested) || null;
       sub = `${pluralize(leads.length, "place")} returned`;
@@ -2858,12 +3827,15 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
     els.reportFootnote.textContent = imported
       ? "Imported from your own file. Detail comes from that file — verify before outreach. Nothing was uploaded."
-      : "Every lead links back to Google Maps. Contact details can be incomplete or outdated — verify before outreach.";
+      : saved
+        ? "Saved in your Supabase library. Outreach marks and notes update the saved copy — export any time."
+        : "Every lead links back to Google Maps. Contact details can be incomplete or outdated — verify before outreach.";
 
     updateReportImportLabels(imported);
     renderStats(summary);
     renderOutreachSummary();
     setExportState(leads.length === 0);
+    renderSaveState();
 
     els.filterWebsite.value = state.filters.website;
     els.filterContact.value = state.filters.contact;
@@ -2876,7 +3848,11 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
     document.title = imported
       ? `${niche} from ${location} · Lead Atlas`
-      : `${niche} in ${location} · Lead Atlas`;
+      : saved
+        ? `${niche} — saved report · Lead Atlas`
+        : `${niche} in ${location} · Lead Atlas`;
+
+    renderReportScript();
   }
 
   function setExportState(disabled) {
@@ -3266,9 +4242,9 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       : "Import leads · Data desk · Lead Atlas";
   }
 
-  function openDataDesk() {
+  function openDataDesk({ scroll = true, focus = true, historyMode = "push" } = {}) {
     renderImportDesk();
-    showView("data", { scroll: true, focus: true });
+    showView("data", { scroll, focus, historyMode });
   }
 
   function applyImportedReport(parsed, fileName) {
@@ -3277,6 +4253,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     const sourceName = parsed.sourceName || fileName || "Imported leads";
 
     hydrateOutreach(leads);
+    state.savedReport = null;
     state.results = {
       mode: "import",
       leads,
@@ -3413,6 +4390,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     if (!lead || !els.leadDialog) return;
     state.drawerLead = lead;
     renderDrawerScriptAction();
+    renderDrawerScript(lead);
 
     els.drawerCategory.textContent = [lead.category || "Business", lead.priceLevel]
       .filter(Boolean)
@@ -3641,7 +4619,6 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
   /* ---------------- report actions ---------------- */
 
   function returnToBrief() {
-    document.title = "Lead Atlas — Google Maps field scanner";
     showView("setup", { scroll: false, focus: false });
     window.setTimeout(() => {
       scrollToTarget(byId("scanner"));
@@ -3653,6 +4630,119 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
   function bindEvents() {
     const saveBriefDebounced = debounce(saveBrief, 250);
+
+    els.sidebarOpenBtn?.addEventListener("click", () => {
+      els.appShell?.classList.add("is-sidebar-open");
+      if (els.sidebarScrim) els.sidebarScrim.hidden = false;
+      els.sidebarOpenBtn.setAttribute("aria-expanded", "true");
+    });
+    els.sidebarClose?.addEventListener("click", closeSidebar);
+    els.sidebarScrim?.addEventListener("click", closeSidebar);
+
+    $$("[data-app-view]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        const view = button.dataset.appView || "dashboard";
+        if (view === "data") {
+          openDataDesk();
+          return;
+        }
+        if (view === "library") {
+          showView("library", { scroll: true, focus: true });
+          if (!state.library.loaded) loadLibrary();
+          else renderLibrary();
+          return;
+        }
+        showView(view, { scroll: true, focus: true });
+        if (view === "dashboard") renderDashboard();
+      });
+    });
+
+    els.bottomMoreBtn?.addEventListener("click", () => {
+      els.appShell?.classList.add("is-sidebar-open");
+      if (els.sidebarScrim) els.sidebarScrim.hidden = false;
+      els.sidebarOpenBtn?.setAttribute("aria-expanded", "true");
+      window.setTimeout(() => els.sidebarClose?.focus({ preventScroll: true }), 60);
+    });
+    window.addEventListener("popstate", handleRouteChange);
+    window.addEventListener("hashchange", handleRouteChange);
+
+    els.signOutBtn?.addEventListener("click", signOutUser);
+    els.topbarAccountBtn?.addEventListener("click", () => {
+      els.appShell?.classList.add("is-sidebar-open");
+      if (els.sidebarScrim) els.sidebarScrim.hidden = false;
+      els.sidebarOpenBtn?.setAttribute("aria-expanded", "true");
+      window.setTimeout(() => els.signOutBtn?.focus({ preventScroll: true }), 60);
+    });
+    els.sidebarScriptsBtn?.addEventListener("click", () => openScriptLibrary());
+    els.sidebarKeyBtn?.addEventListener("click", openKeyDialog);
+    els.dashOpenScriptsBtn?.addEventListener("click", () => openScriptLibrary());
+
+    els.dashRecentReports?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-open-report]");
+      if (button) openSavedReport(button.dataset.openReport);
+    });
+    els.librarySearch?.addEventListener(
+      "input",
+      debounce(() => {
+        state.library.search = els.librarySearch.value || "";
+        renderLibrary();
+      }, 140),
+    );
+    $$("[data-library-source]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.library.source = button.dataset.librarySource || "all";
+        $$("[data-library-source]").forEach((chip) => {
+          chip.classList.toggle("is-active", chip === button);
+        });
+        renderLibrary();
+      });
+    });
+    els.libraryGrid?.addEventListener("click", (event) => {
+      const retry = event.target.closest("[data-retry-library]");
+      if (retry) {
+        loadLibrary({ force: true });
+        return;
+      }
+      const open = event.target.closest("[data-open-report]");
+      if (open) {
+        openSavedReport(open.dataset.openReport);
+        return;
+      }
+      const exportButton = event.target.closest("[data-export-report]");
+      if (exportButton) {
+        exportSavedReport(
+          exportButton.dataset.exportReport,
+          exportButton.dataset.exportFormat || "csv",
+        );
+        return;
+      }
+      const removeButton = event.target.closest("[data-delete-report]");
+      if (removeButton) deleteSavedReport(removeButton.dataset.deleteReport);
+    });
+
+    els.saveReportBtn?.addEventListener("click", openSaveReportDialog);
+    els.closeSaveReportDialog?.addEventListener("click", closeSaveReportDialog);
+    els.cancelSaveReport?.addEventListener("click", closeSaveReportDialog);
+    els.saveReportDialog?.addEventListener("click", (event) => {
+      if (event.target === els.saveReportDialog) closeSaveReportDialog();
+    });
+    els.saveReportDialog?.addEventListener("close", () => {
+      state.saveDialog.open = false;
+      syncDialogState();
+    });
+    els.saveReportForm?.addEventListener("submit", handleSaveReportSubmit);
+    els.saveReportName?.addEventListener("input", () => {
+      if (els.saveReportNameError) els.saveReportNameError.hidden = true;
+      if (els.saveReportError) els.saveReportError.hidden = true;
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "n" && isAuthed()) {
+        event.preventDefault();
+        showView("setup", { scroll: true, focus: true });
+      }
+    });
 
     els.updateChip?.addEventListener("click", runUpdate);
     els.keyChip?.addEventListener("click", openKeyDialog);
@@ -4029,15 +5119,6 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       }
     });
 
-    window.addEventListener(
-      "scroll",
-      () => {
-        if (window.scrollY > 8) els.siteHeader?.classList.add("is-scrolled");
-        else els.siteHeader?.classList.remove("is-scrolled");
-      },
-      { passive: true },
-    );
-
     window.addEventListener("beforeunload", (event) => {
       if (!state.running) return;
       event.preventDefault();
@@ -4058,6 +5139,791 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     }
   }
 
+  /* ---------------- library, dashboard & saved reports ---------------- */
+
+  function friendlySupabaseError(error) {
+    const code = String(error?.code || "").toUpperCase();
+    const message = String(error?.message || "").trim();
+    if (code === "AUTH_REQUIRED" || error?.status === 401) {
+      return "Your session expired. Sign in again to open your library.";
+    }
+    if (code === "NOT_CONFIGURED") {
+      return "Supabase is not connected. Add SUPABASE_URL and SUPABASE_ANON_KEY to .env, then restart.";
+    }
+    if (error?.status === 404 || /does not exist|schema cache|relation .* not found/i.test(message)) {
+      return "The Supabase schema is missing. Run supabase/schema.sql in the Supabase SQL editor, then try again.";
+    }
+    if (/row-level security|permission denied/i.test(message)) {
+      return "Supabase blocked that request. Check the RLS policies in supabase/schema.sql.";
+    }
+    return message || "The library request failed. Check your connection and try again.";
+  }
+
+  function reportOutreach(report) {
+    const summary = report?.summary || {};
+    const outreach = summary.outreach || {};
+    return {
+      contacted: Number(outreach.contacted) || 0,
+      doNotContact: Number(outreach.doNotContact) || 0,
+      marked: Number(outreach.marked) || 0,
+    };
+  }
+
+  function reportLeadCount(report) {
+    return Number(report?.lead_count) || Number(report?.summary?.total) || 0;
+  }
+
+  function reportSourceLabel(source) {
+    return source === "import" ? "Import" : "Scan";
+  }
+
+  function monthReportCount(reports) {
+    const now = new Date();
+    return reports.filter((report) => {
+      const date = new Date(report.created_at);
+      return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+    }).length;
+  }
+
+  function setLibraryStat(id, value) {
+    if (els[id]) els[id].textContent = formatNumber(value);
+  }
+
+  async function loadLibrary({ force = false } = {}) {
+    const sb = supabaseClient();
+    if (!isAuthed() || !state.auth.configured || !sb) {
+      state.library.loaded = true;
+      state.library.reports = [];
+      state.library.stats = null;
+      renderLibrary();
+      renderDashboard();
+      return;
+    }
+    if (state.library.loading && !force) return;
+    state.library.loading = true;
+    state.library.error = null;
+    renderDashboard();
+    renderLibrary();
+
+    try {
+      const reports = await sb.select("lead_reports", {
+        select: "id,name,niche,location,source,run_id,lead_count,summary,created_at,updated_at",
+        order: "created_at.desc",
+        limit: 200,
+      });
+      state.library.reports = Array.isArray(reports) ? reports : [];
+      state.library.loaded = true;
+
+      const totalFromReports = state.library.reports.reduce(
+        (total, report) => total + reportLeadCount(report),
+        0,
+      );
+      const [leadsResult, contactedResult, dncResult] = await Promise.allSettled([
+        sb.count("leads"),
+        sb.count("leads", { outreach_status: "eq.contacted" }),
+        sb.count("leads", { outreach_status: "eq.do-not-contact" }),
+      ]);
+      state.library.stats = {
+        reports: state.library.reports.length,
+        leads:
+          leadsResult.status === "fulfilled" ? leadsResult.value : totalFromReports,
+        contacted: contactedResult.status === "fulfilled" ? contactedResult.value : 0,
+        doNotContact: dncResult.status === "fulfilled" ? dncResult.value : 0,
+      };
+    } catch (error) {
+      state.library.error = friendlySupabaseError(error);
+      console.warn("[lead-atlas] Library could not load.", error);
+    } finally {
+      state.library.loading = false;
+      renderDashboard();
+      renderLibrary();
+    }
+  }
+
+  function renderDashboard() {
+    const library = state.library;
+    const stats = library.stats || {};
+    const reports = library.reports || [];
+    const totalLeads = Number(stats.leads) || reports.reduce((total, report) => total + reportLeadCount(report), 0);
+    const contacted = Number(stats.contacted) || 0;
+    const doNotContact = Number(stats.doNotContact) || 0;
+    const rate = totalLeads ? Math.round((contacted / totalLeads) * 100) : 0;
+
+    if (els.dashStats) els.dashStats.setAttribute("aria-busy", library.loading ? "true" : "false");
+    setLibraryStat("dashReportCount", stats.reports ?? reports.length);
+    setLibraryStat("dashLeadCount", totalLeads);
+    setLibraryStat("dashContactedCount", contacted);
+    setLibraryStat("dashDncCount", doNotContact);
+    setLibraryStat("dashMonthCount", monthReportCount(reports));
+    if (els.dashContactedRate) els.dashContactedRate.textContent = `${rate}%`;
+    const reportTotal = Number(stats.reports ?? reports.length) || 0;
+    if (els.sidebarLibraryCount) {
+      els.sidebarLibraryCount.textContent = formatNumber(reportTotal);
+    }
+    if (els.bottomLibraryCount) {
+      els.bottomLibraryCount.textContent = formatNumber(reportTotal);
+      els.bottomLibraryCount.hidden = reportTotal === 0;
+    }
+
+    if (els.dashRecentReports) {
+      if (library.loading && !library.loaded) {
+        els.dashRecentReports.innerHTML =
+          '<div class="dash-skeleton"><span></span><span></span><span></span></div>';
+      } else if (library.error) {
+        els.dashRecentReports.innerHTML = `<div class="dash-inline-error">${icon("i-alert")}<span>${escapeHtml(library.error)}</span></div>`;
+      } else if (!reports.length) {
+        els.dashRecentReports.innerHTML = "";
+      } else {
+        els.dashRecentReports.innerHTML = reports
+          .slice(0, 4)
+          .map((report) => {
+            const outreach = reportOutreach(report);
+            const leads = reportLeadCount(report);
+            const sourceIcon = report.source === "import" ? "i-table" : "i-library";
+            const place = [report.niche, report.location].filter(Boolean).join(" · ") || "Saved field report";
+            return `<button type="button" class="dash-report-row" data-open-report="${escapeHtml(report.id)}">
+              <span class="dash-report-icon is-${report.source === "import" ? "import" : "scan"}">${icon(sourceIcon)}</span>
+              <span class="dash-report-copy">
+                <strong>${escapeHtml(report.name)}</strong>
+                <span>${escapeHtml(place)} · ${pluralize(leads, "lead")}</span>
+              </span>
+              <span class="dash-report-side">
+                <em>${escapeHtml(formatRelative(report.created_at))}</em>
+                <span class="dash-report-pill">${outreach.contacted ? `${formatNumber(outreach.contacted)} reached` : reportSourceLabel(report.source)}</span>
+              </span>
+            </button>`;
+          })
+          .join("");
+      }
+    }
+    if (els.dashEmpty) {
+      els.dashEmpty.hidden = library.loading || Boolean(library.error) || reports.length > 0;
+    }
+
+    if (els.dashOutreachRate) els.dashOutreachRate.textContent = `${rate}%`;
+    if (els.dashOutreachContacted) els.dashOutreachContacted.textContent = formatNumber(contacted);
+    if (els.dashOutreachToContact) {
+      els.dashOutreachToContact.textContent = formatNumber(Math.max(0, totalLeads - contacted - doNotContact));
+    }
+    if (els.dashOutreachFill) els.dashOutreachFill.style.width = `${Math.min(100, rate)}%`;
+    if (els.dashOutreachTrack) els.dashOutreachTrack.setAttribute("aria-valuenow", String(rate));
+    if (els.dashOutreachCopy) {
+      els.dashOutreachCopy.textContent = totalLeads
+        ? `${formatNumber(contacted)} of ${formatNumber(totalLeads)} saved leads have been reached. ${formatNumber(doNotContact)} are kept off the call list.`
+        : "Save a report and start marking calls. Your progress will show here.";
+    }
+
+    if (els.dashScriptCount) {
+      const count = state.scripts.scripts.length;
+      els.dashScriptCount.textContent = `${formatNumber(count)} saved`;
+    }
+    if (els.sidebarScriptCount) {
+      els.sidebarScriptCount.textContent = formatNumber(state.scripts.scripts.length);
+    }
+    renderDashboardKey();
+    state.dashboard.loaded = true;
+  }
+
+  function renderDashboardKey() {
+    const status = state.keyStatus;
+    const connected = status === "connected";
+    const checking = status === "checking";
+    if (els.dashKeyStatus) {
+      els.dashKeyStatus.textContent = connected
+        ? "Connected"
+        : checking
+          ? "Checking…"
+          : status === "invalid"
+            ? "Needs attention"
+            : "Not connected";
+      els.dashKeyStatus.classList.toggle("is-ok", connected);
+      els.dashKeyStatus.classList.toggle("is-warn", status === "invalid");
+    }
+    if (els.dashKeyCopy) {
+      els.dashKeyCopy.textContent = connected
+        ? `Connected to Apify${state.account?.username ? ` as @${state.account.username}` : ""}. Your token is saved to your account.`
+        : checking
+          ? "Checking your saved Apify token with Apify…"
+          : status === "invalid"
+            ? "Your saved key was rejected. Paste a working token to run scans again."
+            : "Connect your own Apify token to run Google Maps scans. It is saved to your account.";
+    }
+    if (els.dashKeyAction) {
+      els.dashKeyAction.textContent = connected ? "Manage connection" : "Connect key";
+    }
+    if (els.sidebarKeyDot) {
+      els.sidebarKeyDot.classList.toggle("is-connected", connected);
+      els.sidebarKeyDot.classList.toggle("is-invalid", status === "invalid");
+    }
+  }
+
+  function filteredLibraryReports() {
+    const query = state.library.search.trim().toLowerCase();
+    return state.library.reports.filter((report) => {
+      if (state.library.source !== "all" && report.source !== state.library.source) return false;
+      if (!query) return true;
+      return [report.name, report.niche, report.location, report.source]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+    });
+  }
+
+  function renderLibrary() {
+    if (!els.libraryGrid) return;
+    const reports = filteredLibraryReports();
+    const total = state.library.reports.length;
+    if (els.libraryGrid) {
+      els.libraryGrid.setAttribute("aria-busy", state.library.loading ? "true" : "false");
+    }
+    if (els.libraryCount) {
+      els.libraryCount.textContent = state.library.loading
+        ? "Loading…"
+        : `${formatNumber(reports.length)} of ${formatNumber(total)} report${total === 1 ? "" : "s"}`;
+    }
+
+    if (state.library.loading && !state.library.loaded) {
+      els.libraryGrid.innerHTML =
+        '<div class="library-skeleton"><span></span><span></span><span></span><span></span></div>';
+      if (els.libraryEmpty) els.libraryEmpty.hidden = true;
+      return;
+    }
+
+    if (state.library.error) {
+      els.libraryGrid.innerHTML = `<div class="library-error">${icon("i-alert")}<h2>Library could not load.</h2><p>${escapeHtml(state.library.error)}</p><button type="button" class="btn btn-outline" data-retry-library>Try again</button></div>`;
+      if (els.libraryEmpty) els.libraryEmpty.hidden = true;
+      return;
+    }
+
+    if (!reports.length) {
+      els.libraryGrid.innerHTML = "";
+      if (els.libraryEmpty) {
+        els.libraryEmpty.hidden = false;
+        const searching = Boolean(state.library.search.trim()) || state.library.source !== "all";
+        if (els.libraryEmptyTitle) {
+          els.libraryEmptyTitle.textContent = searching
+            ? "No reports match that search."
+            : "Your library is empty.";
+        }
+        if (els.libraryEmptyText) {
+          els.libraryEmptyText.innerHTML = searching
+            ? "Try a different name, niche or place — or clear the filter to see everything."
+            : "Run a scan or import a lead file, then choose <strong>Save to library</strong> in the report. Everything you save lands here.";
+        }
+      }
+      return;
+    }
+
+    if (els.libraryEmpty) els.libraryEmpty.hidden = true;
+    els.libraryGrid.innerHTML = reports.map((report) => renderLibraryCard(report)).join("");
+  }
+
+  function renderLibraryCard(report) {
+    const outreach = reportOutreach(report);
+    const leads = reportLeadCount(report);
+    const rate = leads ? Math.min(100, Math.round((outreach.contacted / leads) * 100)) : 0;
+    const place = [report.niche, report.location].filter(Boolean).join(" · ") || "Saved field report";
+    const avg = Number(report.summary?.avgRating);
+    const busy = state.library.busyReportId === report.id;
+    return `<article class="library-card" data-report-card="${escapeHtml(report.id)}">
+      <div class="library-card-top">
+        <span class="library-card-icon is-${report.source === "import" ? "import" : "scan"}">${icon(report.source === "import" ? "i-table" : "i-library")}</span>
+        <span class="library-card-source">${reportSourceLabel(report.source)}</span>
+        <button type="button" class="library-card-delete" data-delete-report="${escapeHtml(report.id)}" aria-label="Delete ${escapeHtml(report.name)}" title="Delete report">${icon("i-trash")}</button>
+      </div>
+      <h2>${escapeHtml(report.name)}</h2>
+      <p class="library-card-place">${escapeHtml(place)}</p>
+      <div class="library-card-stats">
+        <span><strong>${formatNumber(leads)}</strong> leads</span>
+        <span><strong>${formatNumber(outreach.contacted)}</strong> reached</span>
+        <span><strong>${avg ? avg.toFixed(1) : "—"}</strong> avg ★</span>
+      </div>
+      <div class="library-card-progress"><span style="width: ${rate}%"></span></div>
+      <div class="library-card-foot">
+        <span>${escapeHtml(formatRelative(report.updated_at || report.created_at))}</span>
+        <div class="library-card-actions">
+          <button type="button" class="library-open-btn" data-open-report="${escapeHtml(report.id)}" ${busy ? "disabled" : ""}>
+            ${busy ? "Opening…" : "Open report"}
+            ${icon("i-arrow-right")}
+          </button>
+          <button type="button" class="library-export-btn" data-export-report="${escapeHtml(report.id)}" data-export-format="csv" title="Export CSV">CSV</button>
+          <button type="button" class="library-export-btn" data-export-report="${escapeHtml(report.id)}" data-export-format="json" title="Export JSON">JSON</button>
+        </div>
+      </div>
+    </article>`;
+  }
+
+  function mapSavedLeadRow(row) {
+    const payload = row?.payload && typeof row.payload === "object" ? row.payload : {};
+    const lead = {
+      ...payload,
+      id: payload.id || row.lead_key || row.id,
+      name: payload.name || row.business_name || "Unnamed business",
+      category: payload.category || row.category || "",
+      address: payload.address || row.address || "",
+      city: payload.city || row.city || "",
+      phone: payload.phone || row.phone || "",
+      website: payload.website || row.website || "",
+      outreachStatus: row.outreach_status,
+      outreachNote: row.outreach_note,
+      contactedAt: row.contacted_at,
+      outreachSource: "file",
+      outreachKey: row.lead_key,
+    };
+    if (!lead.emails?.length && row.email) lead.emails = [row.email];
+    if (!lead.phones?.length && row.phone) lead.phones = [row.phone];
+    return lead;
+  }
+
+  async function fetchSavedReportLeads(reportId) {
+    const sb = supabaseClient();
+    const rows = await sb.select("leads", {
+      report_id: `eq.${reportId}`,
+      select: "*",
+      order: "created_at.asc",
+      limit: 5000,
+    });
+    return (Array.isArray(rows) ? rows : []).map(mapSavedLeadRow);
+  }
+
+  async function openSavedReport(reportId, { scroll = true } = {}) {
+    const sb = supabaseClient();
+    if (!sb || !reportId) return;
+    if (state.library.busyReportId) return;
+    state.library.busyReportId = reportId;
+    renderLibrary();
+    try {
+      const [report, leads] = await Promise.all([
+        sb.select(
+          "lead_reports",
+          { id: `eq.${reportId}`, select: "*", limit: 1 },
+          { single: true },
+        ),
+        fetchSavedReportLeads(reportId),
+      ]);
+      if (!report) throw new Error("That saved report no longer exists.");
+
+      hydrateOutreach(leads);
+      const summary = {
+        ...(report.summary || summarize(leads)),
+        outreach: outreachCounts(leads),
+      };
+      state.results = {
+        mode: "saved",
+        savedReportId: report.id,
+        leads,
+        summary,
+        query: { niche: report.niche, location: report.location },
+        sourceName: report.name,
+        format: "saved",
+        importedAt: report.created_at,
+        fetchedAt: report.updated_at || report.created_at,
+        rowsRead: leads.length,
+        skippedRows: 0,
+        duplicateCount: 0,
+        unnamedCount: 0,
+        warnings: [],
+        mappedFields: [],
+        extraFieldNames: [],
+        runId: report.run_id || null,
+        datasetId: null,
+        requested: null,
+        runStatus: null,
+      };
+      state.savedReport = {
+        id: report.id,
+        name: report.name,
+        notes: summary.notes || "",
+        createdAt: report.created_at,
+        updatedAt: report.updated_at || report.created_at,
+      };
+      state.resultsToken = null;
+      state.importDesk = null;
+      resetFilters({ render: false });
+      renderReport();
+      renderSaveState();
+      showView("report", { scroll, focus: true });
+    } catch (error) {
+      showToast(friendlySupabaseError(error), "error");
+    } finally {
+      state.library.busyReportId = null;
+      renderLibrary();
+    }
+  }
+
+  async function deleteSavedReport(reportId) {
+    const report = state.library.reports.find((entry) => entry.id === reportId);
+    if (!report) return;
+    const confirmed = window.confirm(
+      `Delete “${report.name}” and every lead inside it? This cannot be undone.`,
+    );
+    if (!confirmed) return;
+    const sb = supabaseClient();
+    try {
+      await sb.remove("lead_reports", { id: `eq.${reportId}` });
+      if (state.results?.savedReportId === reportId) {
+        state.results = null;
+        state.savedReport = null;
+        renderSaveState();
+      }
+      state.library.reports = state.library.reports.filter((entry) => entry.id !== reportId);
+      renderLibrary();
+      renderDashboard();
+      showToast(`Deleted “${report.name}”.`, "success");
+      loadLibrary({ force: true });
+    } catch (error) {
+      showToast(friendlySupabaseError(error), "error");
+    }
+  }
+
+  async function exportSavedReport(reportId, format) {
+    const report = state.library.reports.find((entry) => entry.id === reportId);
+    if (!report) return;
+    try {
+      let leads;
+      if (state.results?.savedReportId === reportId && state.results.leads?.length) {
+        leads = state.results.leads;
+      } else {
+        leads = await fetchSavedReportLeads(reportId);
+      }
+      if (!leads.length) {
+        showToast("That report has no leads to export.", "error");
+        return;
+      }
+      const text =
+        format === "csv"
+          ? leadsToCsv(leads)
+          : JSON.stringify(
+              buildClientJsonExport(leads, {
+                fileName: report.name,
+                query: { niche: report.niche, location: report.location },
+                summary: report.summary || summarize(leads),
+                runId: report.run_id,
+                reportName: report.name,
+              }),
+              null,
+              2,
+            );
+      downloadBlobFile(
+        text,
+        format === "csv" ? "text/csv;charset=utf-8" : "application/json;charset=utf-8",
+        `${slugify(report.name, "lead-atlas-report")}-${new Date().toISOString().slice(0, 10)}.${format}`,
+      );
+      showToast(`${format.toUpperCase()} exported from “${report.name}”.`, "success");
+    } catch (error) {
+      showToast(friendlySupabaseError(error), "error");
+    }
+  }
+
+  function suggestedReportName() {
+    const results = state.results;
+    if (!results) return "Untitled field report";
+    if (results.mode === "import") {
+      return String(results.sourceName || "Imported leads").replace(/\.[a-z0-9]+$/i, "").slice(0, 120);
+    }
+    const niche = results.query?.niche || results.niche || "Field report";
+    const location = results.query?.location || results.location || "";
+    const name = location ? `${niche} — ${location}` : niche;
+    return name.slice(0, 120);
+  }
+
+  function renderSaveState() {
+    const leads = state.results?.leads || [];
+    const savedId = state.results?.savedReportId;
+    const saved = Boolean(savedId);
+    if (els.saveReportBtn) {
+      els.saveReportBtn.disabled = leads.length === 0;
+      els.saveReportBtn.classList.toggle("is-saved", saved);
+      els.saveReportBtn.title = leads.length
+        ? saved
+          ? "Update this saved report"
+          : "Save this report to your private library"
+        : "This report has no leads to save.";
+    }
+    if (els.saveReportLabel) {
+      els.saveReportLabel.textContent = saved ? "Update saved report" : "Save to library";
+    }
+    if (els.reportSavedBadge) {
+      els.reportSavedBadge.hidden = !saved;
+      if (saved) {
+        els.reportSavedBadgeText.textContent = `Saved ${formatRelative(state.savedReport?.updatedAt || new Date())}`;
+      }
+    }
+  }
+
+  function renderSaveDialogSummary() {
+    const leads = state.results?.leads || [];
+    const summary = state.results?.summary || summarize(leads);
+    const reachable = Number(summary.withContact) || 0;
+    if (els.saveReportSummaryTitle) {
+      els.saveReportSummaryTitle.textContent = state.results?.savedReportId
+        ? "Updating a saved report"
+        : "Ready for your library";
+    }
+    if (els.saveReportSummaryMeta) {
+      els.saveReportSummaryMeta.textContent = `${pluralize(leads.length, "lead")} · ${formatNumber(reachable)} reachable · ${pluralize(outreachCounts(leads).marked, "outreach mark")}`;
+    }
+    if (els.confirmSaveReportLabel) {
+      els.confirmSaveReportLabel.textContent = state.results?.savedReportId
+        ? "Update saved report"
+        : "Save to library";
+    }
+  }
+
+  function openSaveReportDialog() {
+    if (!state.results?.leads?.length) {
+      showToast("This report has no leads to save.", "error");
+      return;
+    }
+    if (!isAuthed()) {
+      goToSignIn({ notice: "Sign in to save this report to your library." });
+      return;
+    }
+    state.saveDialog.open = true;
+    if (els.saveReportName) {
+      els.saveReportName.value = state.savedReport?.name || suggestedReportName();
+    }
+    if (els.saveReportNotes) {
+      els.saveReportNotes.value =
+        state.savedReport?.notes || state.results.summary?.notes || "";
+    }
+    if (els.saveReportError) els.saveReportError.hidden = true;
+    if (els.saveReportNotice) els.saveReportNotice.hidden = true;
+    if (els.saveReportNameError) els.saveReportNameError.hidden = true;
+    renderSaveDialogSummary();
+    if (!els.saveReportDialog.open) els.saveReportDialog.showModal();
+    document.body.classList.add("has-dialog");
+    syncDialogState();
+    window.setTimeout(() => {
+      els.saveReportName?.focus();
+      els.saveReportName?.select();
+    }, 50);
+  }
+
+  function closeSaveReportDialog() {
+    if (els.saveReportDialog?.open) els.saveReportDialog.close();
+    state.saveDialog.open = false;
+    syncDialogState();
+  }
+
+  function leadRowsForReport(reportId, userId, leads) {
+    const seen = new Set();
+    return leads.map((lead, index) => {
+      let key = lead.outreachKey || outreachKeyForLead(lead);
+      if (!key) key = `lead-${index + 1}`;
+      if (seen.has(key)) key = `${key}-${index + 1}`;
+      seen.add(key);
+      const phone = lead.phone || lead.phones?.[0] || null;
+      const email = lead.email || lead.emails?.[0] || null;
+      const rating = Number(lead.rating);
+      const reviews = Number(lead.reviewCount);
+      return {
+        report_id: reportId,
+        user_id: userId,
+        lead_key: key,
+        business_name: lead.name || null,
+        category: lead.category || null,
+        address: lead.address || null,
+        city: lead.city || null,
+        phone: phone ? String(phone) : null,
+        email: email ? String(email) : null,
+        website: lead.website || null,
+        rating: Number.isFinite(rating) ? Math.max(0, Math.min(5, rating)) : null,
+        review_count: Number.isFinite(reviews) ? Math.round(reviews) : null,
+        outreach_status: normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO,
+        outreach_note: normalizeOutreachNote(lead.outreachNote) || null,
+        contacted_at: lead.contactedAt || null,
+        payload: lead,
+      };
+    });
+  }
+
+  async function handleSaveReportSubmit(event) {
+    event.preventDefault();
+    const sb = supabaseClient();
+    const user = state.auth.user;
+    const leads = state.results?.leads || [];
+    if (!sb || !user?.id || !leads.length) {
+      if (els.saveReportError) {
+        els.saveReportError.textContent = "Sign in again, then reopen this report to save it.";
+        els.saveReportError.hidden = false;
+      }
+      return;
+    }
+
+    const name = String(els.saveReportName?.value || "").trim();
+    if (!name) {
+      if (els.saveReportNameError) {
+        els.saveReportNameError.textContent = "Give this report a name first.";
+        els.saveReportNameError.hidden = false;
+      }
+      els.saveReportName?.focus();
+      return;
+    }
+    if (name.length > 120) {
+      if (els.saveReportNameError) {
+        els.saveReportNameError.textContent = "Keep the report name under 120 characters.";
+        els.saveReportNameError.hidden = false;
+      }
+      return;
+    }
+
+    if (els.saveReportNameError) els.saveReportNameError.hidden = true;
+    if (els.saveReportError) els.saveReportError.hidden = true;
+    if (els.saveReportNotice) els.saveReportNotice.hidden = true;
+    if (els.confirmSaveReport) els.confirmSaveReport.disabled = true;
+    if (els.confirmSaveReportLabel) {
+      els.confirmSaveReportLabel.textContent = state.results.savedReportId ? "Updating…" : "Saving…";
+    }
+
+    const results = state.results;
+    const notes = String(els.saveReportNotes?.value || "").trim();
+    const summary = {
+      ...(results.summary || summarize(leads)),
+      outreach: outreachCounts(leads),
+      notes: notes || null,
+    };
+    const savedId = results.savedReportId;
+    const niche = results.query?.niche || results.niche || null;
+    const location = results.query?.location || results.location || null;
+
+    try {
+      if (savedId) {
+        const updated = await sb.update(
+          "lead_reports",
+          { id: `eq.${savedId}` },
+          {
+            name,
+            niche,
+            location,
+            lead_count: leads.length,
+            summary,
+          },
+        );
+        const row = Array.isArray(updated) ? updated[0] : updated;
+        state.savedReport = {
+          id: savedId,
+          name,
+          notes,
+          createdAt: state.savedReport?.createdAt || row?.created_at || new Date().toISOString(),
+          updatedAt: row?.updated_at || new Date().toISOString(),
+        };
+        state.results.summary = summary;
+        showToast(`Updated “${name}”.`, "success");
+      } else {
+        const source = results.mode === "import" ? "import" : "scan";
+        const inserted = await sb.insert("lead_reports", {
+          user_id: user.id,
+          name,
+          niche,
+          location,
+          source,
+          run_id: results.runId || null,
+          lead_count: leads.length,
+          summary,
+        });
+        const report = Array.isArray(inserted) ? inserted[0] : inserted;
+        if (!report?.id) throw new Error("Supabase did not return the saved report.");
+
+        const rows = leadRowsForReport(report.id, user.id, leads);
+        for (let index = 0; index < rows.length; index += 250) {
+          await sb.insert("leads", rows.slice(index, index + 250), { returning: false });
+        }
+        state.results.savedReportId = report.id;
+        state.savedReport = {
+          id: report.id,
+          name,
+          notes,
+          createdAt: report.created_at,
+          updatedAt: report.updated_at || report.created_at,
+        };
+        state.results.summary = summary;
+        showToast(
+          `Saved “${name}” — ${pluralize(leads.length, "lead")} in your library.`,
+          "success",
+        );
+      }
+
+      renderSaveState();
+      closeSaveReportDialog();
+      await loadLibrary({ force: true });
+    } catch (error) {
+      if (els.saveReportError) {
+        els.saveReportError.textContent = friendlySupabaseError(error);
+        els.saveReportError.hidden = false;
+      }
+    } finally {
+      if (els.confirmSaveReport) els.confirmSaveReport.disabled = false;
+      renderSaveDialogSummary();
+    }
+  }
+
+  let savedSummaryTimer = null;
+
+  function scheduleSavedReportSummary() {
+    const reportId = state.results?.savedReportId;
+    if (!reportId || !isAuthed()) return;
+    window.clearTimeout(savedSummaryTimer);
+    savedSummaryTimer = window.setTimeout(async () => {
+      const sb = supabaseClient();
+      if (!sb || state.results?.savedReportId !== reportId) return;
+      const summary = {
+        ...(state.results.summary || {}),
+        outreach: outreachCounts(state.results.leads || []),
+      };
+      try {
+        const updated = await sb.update(
+          "lead_reports",
+          { id: `eq.${reportId}` },
+          { summary },
+        );
+        const row = Array.isArray(updated) ? updated[0] : updated;
+        const local = state.library.reports.find((report) => report.id === reportId);
+        if (local) {
+          local.summary = summary;
+          local.updated_at = row?.updated_at || new Date().toISOString();
+        }
+        if (state.savedReport?.id === reportId) {
+          state.savedReport.updatedAt = row?.updated_at || new Date().toISOString();
+          renderSaveState();
+        }
+        renderLibrary();
+        renderDashboard();
+      } catch (error) {
+        console.warn("[lead-atlas] Saved report summary could not sync.", error);
+      }
+    }, 900);
+  }
+
+  function syncSavedLead(lead) {
+    const reportId = state.results?.savedReportId;
+    const sb = supabaseClient();
+    if (!reportId || !lead || !isAuthed() || !sb) return;
+    const key = lead.outreachKey || outreachKeyForLead(lead);
+    if (!key) return;
+    const patch = {
+      outreach_status: normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO,
+      outreach_note: normalizeOutreachNote(lead.outreachNote) || null,
+      contacted_at: lead.contactedAt || null,
+      payload: lead,
+    };
+    sb.update(
+      "leads",
+      { report_id: `eq.${reportId}`, lead_key: `eq.${key}` },
+      patch,
+      { returning: false },
+    ).catch((error) => {
+      console.warn("[lead-atlas] Outreach mark could not sync.", error);
+      showToast(
+        "That outreach mark saved in this browser but could not sync to your library.",
+        "error",
+        { duration: 7000 },
+      );
+    });
+    scheduleSavedReportSummary();
+  }
+
   /* ---------------- init ---------------- */
 
   async function loadConfig() {
@@ -4073,34 +5939,29 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
             ? config.minStars
             : FALLBACK_CONFIG.minStars,
       };
+      const supabase = config.supabase || {};
+      state.config.supabase = supabase;
+      const sb = supabaseClient();
+      if (sb) {
+        sb.configure(supabase);
+        state.auth.configured = Boolean(
+          supabase.configured && supabase.url && supabase.anonKey && sb.isConfigured(),
+        );
+      } else {
+        state.auth.configured = false;
+      }
       renderFooterVersion(config.appVersion);
+      if (els.sidebarVersion) {
+        els.sidebarVersion.textContent = `Version ${config.appVersion || "1.6.1"}`;
+      }
       populateMinStars();
       setRangeBounds();
       syncRangeVisual();
       updateEstimate();
     } catch (error) {
       console.warn("[lead-atlas] Could not load server config; using fallback pricing.", error);
+      state.auth.configured = false;
     }
-  }
-
-  function initReveal() {
-    const revealElements = $$(".reveal");
-    if (reduceMotion || !("IntersectionObserver" in window)) {
-      revealElements.forEach((element) => element.classList.add("is-visible"));
-      return;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
-            observer.unobserve(entry.target);
-          }
-        }
-      },
-      { threshold: 0.08, rootMargin: "0px 0px -6% 0px" },
-    );
-    revealElements.forEach((element) => observer.observe(element));
   }
 
   async function init() {
@@ -4110,7 +5971,9 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       announceUpdatedBuild();
       populateMinStars();
       setRangeBounds();
-      state.token = readStoredToken();
+      // The account copy loads after sign-in; localStorage is only a cache and
+      // migration source, never the token's home.
+      state.token = "";
       state.outreach = readOutreachLedger();
       state.scripts = readScriptStore();
       state.scriptUi.selectedId = activeScript(state.scripts)?.id || null;
@@ -4122,30 +5985,34 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       syncWebsiteState();
       updateEstimate();
       updateKeyUI();
-      updateHeaderVisibility();
-      initReveal();
-      startUpdatePolling();
 
       await loadConfig();
-      if (state.token) {
-        setKeyStatus("checking");
-        validateStoredKey({ silent: true });
-        await resumeActiveRun();
+      startUpdatePolling();
+
+      const sb = supabaseClient();
+      if (!state.auth.configured || !sb) {
+        if (els.appBoot) els.appBoot.hidden = true;
+        if (els.bootError) {
+          els.bootErrorText.textContent =
+            "Supabase is not connected. Add SUPABASE_URL and SUPABASE_ANON_KEY to .env, run supabase/schema.sql, then restart.";
+          els.bootError.hidden = false;
+        }
+        return;
       }
-      checkForUpdates();
+
+      initAuthListener();
+      // The workspace is account-only. A signed-out visit goes straight to the
+      // sign-in page with a note and a path back to this section.
+      await enterApp();
     } catch (error) {
       console.error("[lead-atlas] Boot error:", error);
+      if (els.appBoot) els.appBoot.hidden = true;
       if (els.bootError) {
         els.bootErrorText.textContent =
           error?.message || "Reload the page, or check the server terminal.";
         els.bootError.hidden = false;
       }
-      $$(".reveal").forEach((element) => element.classList.add("is-visible"));
     }
-  }
-
-  function updateHeaderVisibility() {
-    els.siteHeader?.classList.toggle("is-scrolled", window.scrollY > 8);
   }
 
   // A safety net for the reveal animation if the observer never fires.

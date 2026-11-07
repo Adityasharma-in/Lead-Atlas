@@ -230,6 +230,12 @@ describe('Lead Atlas server', () => {
     assert.equal(config.json.limits.maxResults, 500);
     assert.equal(config.json.tokenHeader, 'x-apify-token');
     assert.equal(config.json.appVersion, APP_VERSION);
+    assert.deepEqual(Object.keys(config.json.supabase).sort(), [
+      'anonKey',
+      'configured',
+      'projectRef',
+      'url',
+    ]);
     assert.ok(config.json.minStars.some((option) => option.value === 'fourAndHalf'));
 
     const home = await request('/');
@@ -449,6 +455,55 @@ describe('Lead Atlas server', () => {
     const unknown = await request('/api/does-not-exist');
     assert.equal(unknown.status, 404);
     assert.equal(unknown.json.error.code, 'NOT_FOUND');
+  });
+});
+
+describe('Lead Atlas Supabase config', () => {
+  const SUPABASE_URL = 'https://demo-project.supabase.co';
+  const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.public-anon-key';
+  let appServer;
+  let baseUrl;
+
+  before(async () => {
+    const { createApp } = await import('../src/server.js');
+    const app = createApp({
+      supabase: {
+        configured: true,
+        url: SUPABASE_URL,
+        anonKey: ANON_KEY,
+        projectRef: 'demo-project',
+      },
+    });
+    appServer = await new Promise((resolve) => {
+      const server = app.listen(0, '127.0.0.1', () => resolve(server));
+    });
+    baseUrl = `http://127.0.0.1:${appServer.address().port}`;
+  });
+
+  after(async () => {
+    if (appServer) await new Promise((resolve) => appServer.close(resolve));
+  });
+
+  it('publishes the project URL and anon key for the browser client', async () => {
+    const response = await fetch(`${baseUrl}/api/config`);
+    const config = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(config.supabase, {
+      configured: true,
+      url: SUPABASE_URL,
+      anonKey: ANON_KEY,
+      projectRef: 'demo-project',
+    });
+  });
+
+  it('allows the Supabase origin in connect-src and nowhere else', async () => {
+    const response = await fetch(`${baseUrl}/`);
+    const policy = response.headers.get('content-security-policy');
+
+    assert.match(policy, /(?:^|; )connect-src 'self' https:\/\/demo-project\.supabase\.co(?:;|$)/);
+    assert.match(policy, /(?:^|; )script-src 'self'(?:;|$)/);
+    assert.doesNotMatch(policy, /connect-src[^;]*\*/);
   });
 });
 

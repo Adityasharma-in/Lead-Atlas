@@ -1,12 +1,246 @@
 # MEMORY.md — Session state
 
-## Last Updated: 2026-11-03
+## Last Updated: 2026-11-05
 
-## Current Phase: SHIP — complete
+## Current Phase: SHIP — live on Vercel at https://lead-atlas-ochre.vercel.app; Supabase email redirect allowlist pending
 
-## Last Completed Task: Cold-call script library + call sheet (2026-11-03)
+## Last Completed Task: Vercel deployment (2026-11-05)
 
-## Next Task: none (features shipped)
+## Next Task: In Supabase **Authentication → URL Configuration**, set the Site URL to
+`https://lead-atlas-ochre.vercel.app` and add
+`https://lead-atlas-ochre.vercel.app/auth.html` plus
+`https://lead-atlas-ochre.vercel.app/**` to Redirect URLs. Then test confirmation,
+magic-link, and password-recovery emails on the live domain. After that, commit and push
+the working tree so the GitHub-connected project can build future deploys from source.
+
+## Vercel deployment (2026-11-05)
+- Goal: deploy the working app — multipage public site, account-only workspace, Supabase
+  library, account-bound Apify token, and call scripts — to a public URL without exposing
+  secrets.
+- Project: `lead-atlas` in `adityatek14-4344` (`prj_uqn2DQRBOEvxbNo0p5BHqA5X60IR`), Express
+  preset, root `.`, no Build Command or Output Directory, Node.js 26.x. Production alias
+  `https://lead-atlas-ochre.vercel.app`; tested preview
+  `https://lead-atlas-grauitu43-adityatek14-4344.vercel.app`; promoted production
+  deployment `https://lead-atlas-2atudagdj-adityatek14-4344.vercel.app`.
+- Serverless adapter: `src/server.js` default-exports a lazy `handleRequest` that builds one
+  Express app on the first request with `canRestart: false`; the named `createApp` export
+  remains for local use and tests. The previous default export was the factory itself,
+  which made every function request time out after 300s.
+- Static/CDN: `public/**` is served by Vercel; `express.static()` is ignored. `vercel.json`
+  rewrites `/` to `/index.html` and sets security headers plus CSP; function responses use
+  the exact configured Supabase origin, while static HTML uses a Supabase wildcard CSP.
+- Environment variables for Production, Preview, and Development: `SUPABASE_URL`,
+  `SUPABASE_ANON_KEY` (non-sensitive because the anon key is public by design), and
+  `SELF_UPDATE=off` (serverless has no git clone or restartable process). No service-role
+  key is present anywhere.
+- `.vercelignore` excludes `.env*`, `.vercel`, tests, docs, and node_modules. `.gitignore`
+  ignores `.env.*` but explicitly keeps `.env.example`; `.vercel/` and `.env.local` are
+  ignored. `vercel link` created `.env.local` with a short-lived OIDC token; it is
+  gitignored and must never be committed.
+- Deployment protection disabled with
+  `vercel project protection disable lead-atlas --sso`; without it every route redirected
+  to `vercel.com/sso-api`.
+- Verification: preview and production passed `/`, `/index.html`, `/app.html`, `/auth.html`,
+  `/pricing.html`, `/how-it-works.html`, CSS/JS assets, `/api/health`, `/api/config`,
+  `/api/version`, and `/api/runs` (401 `APIFY_KEY_REQUIRED` without a token), plus CSP and
+  security headers. A Playwright pass covered a real password sign-in, workspace version
+  1.6.0, the **Saved to account** badge, a 390 px workspace and script dialog with no
+  overflow, the phone landing page, and zero console errors. `/api/health` had one
+  transient connection reset on the first preview cold start, then answered 3/3 times.
+- Live Supabase: `script_libraries` now exists; the test account has one empty library row
+  with 0 scripts and no `active_id`. A cross-device check created a temporary script in
+  session A, saw it in an independent session B, deleted it in A, and saw the deletion in
+  B. The temporary script was removed. No paid Apify scan was started.
+- Git state: all source changes remain uncommitted. The live deployment was built from the
+  local working tree with `vercel deploy`; the GitHub-connected project still points at
+  commit `df898b2`, which contains the old server default export. Commit and push before
+  relying on a Git-triggered deployment.
+
+## Account-backed call scripts (2026-11-05)
+- Goal: scripts previously lived only in `localStorage`, so they did not follow the
+  account. They now persist in Supabase while keeping instant local editing.
+- Schema: idempotent `public.script_libraries` with `user_id uuid primary key`, `active_id
+  text`, `scripts jsonb not null default '[]'`, timestamps, array and active-id length
+  checks, the shared `touch_updated_at()` trigger, and owner-only select/insert/update/
+  delete RLS policies.
+- Model: one row per account holding the whole normalized script array plus the default
+  script, so a create/edit/delete/default change is one atomic full-library write. The
+  newest full-library write wins; there is no per-script merge.
+- Pure helpers in `public/scripts-core.js` (+ `test/scripts-core.test.js`, now 17 tests):
+  `scriptStoreFromRow`, `scriptLibraryRow`, `isMissingScriptTableError`. Script text goes
+  only to the account's Supabase project, never to Apify or the local server.
+- Browser flow: `enterApp()` awaits `loadAccountProfile()` then `loadAccountScripts()`.
+  The cache key is account-scoped (`leadAtlas.scripts.v1.<user-id>`) with a `.dirty`
+  marker. Edits write the local cache first, then debounce a cloud upsert (update, insert
+  when absent, retry update on duplicate key) and flush when the library closes or the
+  user signs out. A missing table or failed write keeps the local library usable, shows
+  **Local only**, and offers an actionable schema message.
+- Legacy `leadAtlas.scripts.v1` is migrated once when the account has no row, then removed;
+  a dirty cache wins over the cloud copy so a previously failed upload is retried.
+- Sign-out flushes pending work, then resets scripts in memory and removes the old
+  unscoped key; the account row remains for the next sign-in.
+- Verification: `node --check` on all nine `public/*.js` files; full suite 198/198 green.
+  A Playwright harness with a fake Supabase API exercised the real `app.js` and client:
+  legacy migration, create/edit/default sync, close and sign-out flushes, reload, a fresh
+  browser context loading the account row, the **Saved to account** badge at 390 px with no
+  dialog overflow, and the missing-table fallback to **Local only**. Live Supabase still
+  needs the schema run before the real cross-device check.
+- Version: 1.5.0 → 1.6.0 (new feature).
+
+## Inline call scripts at the bottom of leads (2026-11-07)
+- Goal: the saved call script should be readable at the bottom of the extracted leads
+  without opening a dialog or clicking a button.
+- Report: `#reportScriptSection` sits after the pager in `report-body`. It shows the
+  active/default script filled with the report’s niche and location, in a two-column
+  editorial panel (label/title/note on the left, paper reading surface on the right).
+  Below 820 px it stacks. An empty library shows guidance text, not a button.
+- Lead drawer: `#drawerScriptSection` sits after **At a glance** and shows the same script
+  filled with the open lead’s name, category, city, address, phone, email, website, niche,
+  and location. Copy/outreach still live in the call-sheet dialog opened from the existing
+  top action.
+- Rendering: `renderReportScript()` and `renderDrawerScript(lead)` live in `app.js` and are
+  called from `renderScriptChip()` (so live edits and default changes update the panels),
+  `renderReport()` (report query changes), and `openLead()` (per-lead details). Both set
+  text with `textContent`, never HTML.
+- Verification: visual browser pass at desktop widths with real report/table styling and a
+  548 px drawer preview; `node --check` on `public/app.js`; `npm test` 198/198 green.
+- Version: 1.6.0 → 1.6.1 (refinement).
+
+## Multipage site + account-only workspace (2026-11-05)
+- Goal: turn the one long document into a real multipage site, gate the workspace behind
+  auth, add visual/interaction polish, and keep every surface usable at phone widths.
+- Pages: `index.html` (home), `how-it-works.html` (field method), `pricing.html` (pricing
+  + FAQ), `auth.html` (sign in/create/recovery), `app.html` (account-only workspace with
+  report and dialogs). The public pages share the marketing nav/footer via `site.js`.
+- Auth handoff: signed-out `app.html` visits redirect to `auth.html?mode=signin` and store
+  the intended workspace URL in `leadAtlas.authNext`; `auth-page.js` reads it once after
+  sign-in, clears it, and returns to that view. Sign-out returns to the public home and
+  leaves `leadAtlas.siteNotice` for `site.js` to show as a dismissible notice.
+- Workspace routing: `app.js` owns `#dashboard`, `#library`, `#setup`, `#report`, `#data`
+  and `#progress`, syncs `document.title`, and handles both `hashchange` and `popstate` so
+  browser back/forward works. Existing setup/report/data IDs were preserved.
+- Phone nav: a five-item bottom bar (Overview, Scan, Library, Data, More) appears at phone
+  widths; More opens the account/tools sidebar over a scrim. Desktop keeps the sidebar.
+- Fixes: removed the stale `#viewAuth hidden` wrapper that blanked `auth.html`, restored
+  accidentally dropped `viewDashboard`/`viewLibrary` element-cache entries, made
+  `#bottomLibraryCount` hide at zero, and moved body classes to static
+  `is-landing`/`is-auth`/`is-app` so backgrounds paint before JS.
+- Verification: desktop plus 390/360/320 px across home, how-it-works, pricing, auth and
+  workspace views; no horizontal overflow, deep links and back/forward work, bottom nav and
+  key dialogs fit. Signed-out `app.html#library` returns to the auth page with the right
+  notice. `node --check` passes; `npm test` 196 green. Version bumped 1.4.0 → 1.5.0.
+- Pending manual: run `supabase/schema.sql`; add `/auth.html` or `/**` to Supabase redirect
+  URLs; test a real confirmation/magic/recovery email and a live cross-device key load.
+
+## Account-bound Apify key (2026-11-05)
+- Goal: the Apify token a user saves must live in Supabase with that account, not only in
+  one browser's `localStorage`.
+- Schema: idempotent `alter table public.profiles add column if not exists apify_token
+  text` plus a column comment. The existing owner-only `profiles` RLS select/insert/update
+  policies already restrict the column; no new policies or public exposure.
+- Pure rules in `public/account-core.js` (+ 7 tests in `test/account-core.test.js`):
+  `normalizeApifyToken`, `isMissingTokenColumnError`, `resolveAccountToken`. Precedence:
+  account profile token wins; a legacy browser token is migrated once when the account has
+  none; a missing column or unreachable profile falls back to the browser copy without
+  blocking scans.
+- Browser flow: `enterApp()` awaits `loadAccountProfile()` before validating the key.
+  `profiles.select` now asks for `full_name,email,company,apify_token`; a missing-column
+  response triggers an actionable toast and a fallback profile read. Saving a key validates
+  it with Apify first, then `saveTokenToAccount()` updates the profile row (inserts one if
+  the account predates the signup trigger), then caches in `localStorage` and marks the key
+  connected. If the Supabase write fails, the dialog stays open with a clear message — the
+  key is not presented as saved.
+- **Forget key** now nulls `profiles.apify_token` first, then clears the browser cache; if
+  the account write fails, the key is kept and the toast says so. Sign-out clears the
+  browser cache only, so the account copy is waiting on the next sign-in.
+- Copy: key dialog/privacy note, dashboard card, FAQ, landing key note, README,
+  `docs/SUPABASE-SETUP.md` and AGENTS now describe account storage. Version 1.3.0 → 1.4.0.
+- Verification: `npm test` 196 green; `node --check` passes for `app.js`,
+  `account-core.js` and `supabase-client.js`. Live Supabase project check returned
+  `42703 column profiles.apify_token does not exist` on 2026-11-05, confirming K7 (schema
+  rerun) is still required before end-to-end use.
+
+## Phone responsiveness + touch polish (2026-11-04)
+- Goal: make every surface usable at phone widths without touching desktop behavior,
+  starting from a clipped call-sheet screenshot.
+- Overflow root causes: long unbreakable lead names expanded flex/grid children. Fixed
+  with `min-width: 0` on `.drawer-head > div` / `.call-sheet-head > div`, `flex: none` on
+  the close buttons, and `overflow-wrap: anywhere` on names, addresses and call-sheet copy.
+  The script workspace used a bare `1fr` column, which let the sidebar force 407 px of
+  width; it is now `minmax(0, 1fr)` with `min-width: 0` on the sidebar and editor.
+- Mobile layout: report filters lay out 2+2+1 at ≤430 px instead of five stacked rows;
+  dashboard stats are 2×2 at ≤560 px; the landing mobile menu and auth view were checked
+  unchanged.
+- Touch targets: script tools 32 px, drawer Save note 40 px, library CSV/JSON and Open
+  report ≥32 px, library filters ≥34 px, script footer copy 8 px. Dashboard greeting gains
+  `word-spacing: 0.06em` so the negative display tracking stops collapsing its spaces.
+- Toasts inside a modal are moved into the topmost `<dialog>` by `syncDialogState()`.
+  On phones they now sit above the full-screen action bars: script dialog `+104px`,
+  call sheet `+140px` (safe-area aware), clearing the buttons by 10–24 px.
+- Verification: Playwright at 390, 360 and 320 px over landing, auth, dashboard, library,
+  report, lead drawer, call sheet, script library, save-report and key dialogs plus the
+  landing menu. `scrollWidth === clientWidth` everywhere, close buttons inside the
+  viewport, no clipped dialogs, no console errors. `node --check public/app.js` and
+  `public/supabase-client.js` pass; `npm test` 189 green.
+- Cleanup: temporary Supabase fixture report `25f6c682…` (three `mobile-audit-*` leads)
+  deleted; repo-root Playwright screenshots/`.playwright-cli` removed. Temporary test
+  account `leadatlase1p0wekp@fldubai.com` still exists for later dashboard cleanup.
+- Not covered: fresh signup retest is still blocked by Supabase email rate limiting
+  (`429 Too many emails sent`); first real account creation remains manual.
+
+## Premium landing, Supabase auth, workspace + saved lead library (2026-11-04)
+- Goal: turn the local scanner into a usable product surface — public landing page,
+  account sign-in, workspace dashboard, and a lead library that survives a browser reset
+  and can be reopened later.
+- Server: `src/env.js` reads `.env` once at startup; `src/supabase.js` validates the
+  project URL/key, extracts the project ref, and supplies CSP connect sources. `createApp`
+  accepts an injected `supabase` config for tests. `/api/config` now returns
+  `supabase: {configured, url, anonKey, projectRef}`. The anon key is public by design;
+  the service_role key is never used.
+- CSP: `buildContentSecurityPolicy(extraConnectSources)` adds only the configured Supabase
+  origin to `connect-src`; `script-src` stays `'self'`.
+- Schema: `supabase/schema.sql` creates `profiles`, `lead_reports`, `leads`, indexes,
+  `updated_at` triggers, the `handle_new_user()` profile bootstrap, and owner-only RLS
+  policies. `leads.payload` keeps the full normalized lead; `lead_key` is unique per report.
+- Browser client: `public/supabase-client.js` is dependency-free. It implements GoTrue
+  signup/signin/OTP/recovery/refresh/logout, PKCE with localStorage verifier, session
+  persistence under `leadAtlas.supabaseSession.v1`, redirect handling for hash tokens and
+  `?code=`, and PostgREST select/insert/update/delete/count helpers. Session expiry is
+  stored once in milliseconds; fresh responses use the relative `expires_in` lifetime so a
+  skewed system clock cannot cause an immediate refresh loop. Refresh is single-flight per
+  tab and serialized across tabs with the Web Locks API; a losing tab adopts the newer
+  stored session instead of signing out, and transient network/5xx failures keep the local
+  session for a later retry.
+- UI (original single-document layout; split into five pages on 2026-11-05): a landing
+  view, auth view, `#appShell`, `#viewDashboard`, `#viewLibrary`, and
+  `#saveReportDialog`. `public/workspace.css` (linked after `styles.css`) owns the
+  workspace surfaces; existing report/setup/data views and IDs are intact.
+- App: the original boot picked landing, auth, or app from the Supabase session. The
+  current `app.html` boot is account-only and redirects signed-out visitors to `auth.html`.
+  `enterApp()` loads the profile/library, validates the stored Apify key, resumes an active
+  run, and checks updates. Dashboard shows report/lead/contacted/DNC/month counts, recent
+  reports, key status, scripts, and outreach progress. Library supports search, source
+  filters, open, delete (with undo), and CSV/JSON export.
+- Save flow: any scan or imported report can be saved with a name and notes. Re-saving
+  updates the same `lead_reports` row. Leads are inserted in 250-row batches with a stable
+  `lead_key`; reopening reconstructs the report from `payload` and DB outreach fields.
+- Outreach: `setOutreachStatus` still mirrors the local ledger, then `syncSavedLead()` writes
+  `outreach_status`, `outreach_note`, `contacted_at`, and the updated payload to Supabase
+  for saved reports. Failures keep the local mark and show a toast. Report summaries are
+  debounced back to `lead_reports.summary`.
+- Verification: `npm test` 189 green (new `test/supabase.test.js`, server CSP/config
+  assertions, and session persistence/refresh regression tests). Syntax checks pass for
+  `app.js` and `supabase-client.js`. Headless Chrome checks at 1440 px and 390 px covered
+  landing, auth, dashboard, library, and save dialog; no horizontal overflow, no landing
+  console errors. Live auth checks covered confirmation, password sign-in, reload, two-tab
+  sign-out, and simultaneous token refresh. Test data cleared.
+- Docs: `docs/SUPABASE-SETUP.md` covers project creation, schema, credentials, redirect
+  URLs, email confirmation, verification queries, and troubleshooting. README, AGENTS,
+  TASKS and MEMORY updated. App version 1.2.0 → 1.3.0.
+- Remaining manual: create the user's own account (email confirmation is on), then save one
+  report end to end. The project, schema, `.env`, redirect URLs, and server are configured;
+  `/api/config` reports `configured: true`. A temporary test account was used for live auth
+  checks and can be removed from the Supabase dashboard.
 
 ## Cold-call script library + call sheet (2026-11-03)
 - Goal: keep the words for a cold call inside Lead Atlas so the user never leaves the
@@ -90,15 +324,20 @@
   (scratch edit was disposable; recovery path itself covered by unit tests).
 
 ## Active Context
-- Current app version: `1.2.0` (cold-call scripts feature).
+- Current app version: `1.6.1` (account-backed call scripts, multipage public site,
+  account-only workspace/library, deep-linkable workspace routes and the account-bound
+  Apify key).
+- Live deployment: `https://lead-atlas-ochre.vercel.app` (Vercel project `lead-atlas`,
+  Express preset, one serverless function, `SELF_UPDATE=off`).
 - Repo: git clone of https://github.com/Adityasharma-in/Lead-Atlas.git (branch `main`),
   identity `Adityasharma-in` / `Adityasharma-in@users.noreply.github.com`.
 - Node ≥ 20 (global fetch), Express 4, zero new dependencies.
 - Test harness: `node --test` (`npm test`), mock Apify HTTP server; routes tested via
   real app instances on ephemeral ports. Rate limiters are scoped per `createApp`.
 - Server binds 127.0.0.1:PORT (default 4317). Tests must not bind port 4317.
-- Frontend: single IIFE in public/app.js, element-cache ids list, `showToast`,
-  `api(path, {method, body, tokenOverride})`; update polling + reload flow self-contained
+- Frontend: `app.js` is one IIFE for the workspace; `site.js` handles the public pages and
+  `auth-page.js` handles auth. Shared patterns: element cache, `showToast`,
+  `api(path, {method, body, tokenOverride})`; update polling + reload flow is self-contained
   in the "self-update" section.
 
 ## Self-update feature map (where things live)
@@ -122,24 +361,101 @@
 - `public/scripts-core.js` — pure engine: `SCRIPT_LIMITS`, `SCRIPT_PLACEHOLDERS`,
   `SCRIPT_STORAGE_KEY`, `activeScript`, `createScript`, `emptyScriptStore`,
   `exportScriptsPayload`, `fillScriptTemplate`, `filterScripts`, `findScript`,
-  `importScriptsContent`, `mergeScriptStores`, `parseScriptStore`, `removeScript`,
-  `scriptContextFor`, `scriptExcerpt`, `serializeScriptStore`, `setActiveScript`,
+  `importScriptsContent`, `isMissingScriptTableError`, `mergeScriptStores`,
+  `parseScriptStore`, `removeScript`, `scriptContextFor`, `scriptExcerpt`,
+  `scriptLibraryRow`, `scriptStoreFromRow`, `serializeScriptStore`, `setActiveScript`,
   `upsertScript`.
 - `public/app.js` — `state.scripts`, `state.scriptUi`, `state.callSheet`;
-  `loadScriptStore`/`writeScriptStore`, autosave, `renderScriptLibrary`,
-  `renderScriptList`, `renderScriptEditor`, `createNewScript`, `selectScript`,
-  `makeSelectedScriptDefault`, `duplicateSelectedScript`, `deleteSelectedScript`,
-  `handleScriptImportFile`, `downloadScriptsBackup`, `openCallSheet`, `renderCallSheet`,
-  `markCallSheetContacted`, `syncDialogState`.
-- `public/index.html` — `#scriptChip`, `#reportScriptBtn`, `#drawerScriptBtn`,
-  `#scriptDialog`, `#callSheetDialog`, toast region moved between them.
-- Storage: `leadAtlas.scripts.v1`; export filename `lead-atlas-scripts-YYYY-MM-DD.json`.
+  `scriptCacheKey`/`readScriptCache`/`writeScriptCache`, `saveScriptsToAccount`,
+  `scheduleScriptsCloudSave`, `loadAccountScripts`, `resetScriptState`, autosave,
+  `renderScriptLibrary`, `renderScriptList`, `renderScriptEditor`, `createNewScript`,
+  `selectScript`, `makeSelectedScriptDefault`, `duplicateSelectedScript`,
+  `deleteSelectedScript`, `handleScriptImportFile`, `downloadScriptsBackup`,
+  `activeScriptCopy`, `renderReportScript`, `renderDrawerScript`, `openCallSheet`,
+  `renderCallSheet`, `markCallSheetContacted`, `syncDialogState`.
+- `public/app.html` — `#scriptChip`, `#reportScriptBtn`, `#drawerScriptBtn`,
+  `#reportScriptSection`, `#drawerScriptSection`, `#scriptDialog`, `#callSheetDialog`,
+  toast region moved between them.
+- Storage: account row `public.script_libraries`; browser cache
+  `leadAtlas.scripts.v1.<user-id>` plus a `.dirty` marker; legacy `leadAtlas.scripts.v1`
+  is migrated once. Export filename `lead-atlas-scripts-YYYY-MM-DD.json`.
+- Save badge: **Saved to account** (cloud write succeeded), **Local only** (browser saved,
+  cloud failed or table missing), **Saving…**, **Not saved** (browser storage failed).
 - Design record: `docs/CALL-SCRIPTS.md`.
 
+## Supabase map
+- `supabase/schema.sql` — tables, indexes, triggers, profile bootstrap, owner-only RLS,
+  the idempotent `profiles.apify_token` column, and `public.script_libraries`.
+- `src/env.js` — minimal `.env` parser/loader (existing env wins, file is optional).
+- `src/supabase.js` — `readSupabaseConfig`, `projectRefFromUrl`, `supabaseConnectSources`.
+- `src/server.js` — loads `.env` in the main block, builds the per-app CSP, serves
+  `/api/config` with `supabase: {configured, url, anonKey, projectRef}`.
+- `public/supabase-client.js` — `createClient`, auth API, session refresh, PKCE redirect
+  handling, PostgREST CRUD/count. Session key `leadAtlas.supabaseSession.v1`.
+- `public/account-core.js` — pure account-token precedence and missing-column rules.
+- `public/site.js` — public nav, mobile menu, reveal motion, active link, version label,
+  sign-out notice.
+- `public/auth-page.js` — standalone auth controller; owns all auth UI/logic, mode tabs,
+  magic link, recovery, `leadAtlas.authNext` handoff.
+- `public/app.js` — `state.auth`, `state.library`; workspace hash routing/back-forward,
+  `enterApp`, `signOutUser`, `loadAccountProfile`, `applyAccountToken`,
+  `saveTokenToAccount`, `clearTokenFromAccount`, `loadLibrary`, `renderDashboard`,
+  `renderLibrary`, `openSavedReport`, `deleteSavedReport`, `handleSaveReportSubmit`,
+  `syncSavedLead`, `scheduleSavedReportSummary`.
+- `public/app.html` — `#appShell`, `#viewDashboard`, `#viewLibrary`, `#saveReportDialog`,
+  account menu, sidebar, saved badge, boot screen and phone bottom nav.
+- `public/index.html` / `how-it-works.html` / `pricing.html` — public pages; shared nav and
+  footer, `#landingMobileMenu` on each.
+- `public/auth.html` — full-page `#viewAuth` sign-in/create/recovery shell.
+- `public/workspace.css` — public page heroes, auth, workspace, phone bottom nav and
+  save-dialog styles; linked after `styles.css`.
+- `docs/SUPABASE-SETUP.md` — operator setup and troubleshooting.
+- Env: local `.env` (gitignored) with `SUPABASE_URL` and `SUPABASE_ANON_KEY`; restart after
+  changes. Vercel has the same two values plus `SELF_UPDATE=off` for Production, Preview,
+  and Development.
+- Auth redirect URLs: local Site URL `http://127.0.0.1:4317`; allow
+  `http://127.0.0.1:4317/auth.html` and `http://127.0.0.1:4317/**` (plus the equivalent
+  `localhost` entries, or the matching port). Production Site URL
+  `https://lead-atlas-ochre.vercel.app`; allow `https://lead-atlas-ochre.vercel.app/auth.html`
+  and `https://lead-atlas-ochre.vercel.app/**`. The production entries are still pending in
+  Supabase as of this deployment.
+
+## Vercel map
+- `src/server.js` — default `handleRequest` builds one Express app lazily; named
+  `createApp` stays for local/test callers.
+- `vercel.json` — `/` → `/index.html` rewrite and security/CSP headers for `/`, `*.html`,
+  and all responses.
+- `.vercelignore` — excludes `.env*`, `.vercel`, tests, docs, and node_modules from uploads.
+- Vercel project `lead-atlas` (`prj_uqn2DQRBOEvxbNo0p5BHqA5X60IR`), team
+  `adityatek14-4344` (`team_IFoPVyk1VrRHvWFbDoS6a4hr`), Express preset, Node 26.x.
+- Env: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SELF_UPDATE=off` in Production, Preview, and
+  Development. No `service_role` key.
+- Production alias `https://lead-atlas-ochre.vercel.app`; tested preview
+  `https://lead-atlas-grauitu43-adityatek14-4344.vercel.app`; promoted production
+  deployment `https://lead-atlas-2atudagdj-adityatek14-4344.vercel.app`.
+- Deployment Protection: Vercel Authentication disabled.
+
 ## Blockers
-- none
+- Supabase Auth → URL Configuration still needs the Vercel production origin:
+  `https://lead-atlas-ochre.vercel.app/auth.html` and
+  `https://lead-atlas-ochre.vercel.app/**`. Without it, confirmation, magic-link, and
+  recovery emails fail on the live domain. Password sign-in works.
+- The working tree is uncommitted. Git-triggered Vercel builds still use `df898b2`, whose
+  server default export hangs; only CLI deployments from this working tree contain the
+  serverless fix.
 
 ## Decisions Made This Session
+- Vercel uses the zero-config Express preset: `src/server.js` default-exports one lazy
+  Express handler, `public/**` is static CDN output, and `/` is rewritten to
+  `/index.html`. `SELF_UPDATE=off` because serverless has no git clone or restartable
+  process.
+- The deployed function is public but stateless: it holds no server-side secrets, API
+  routes are rate-limited and same-origin checked, and every scan needs the caller’s
+  account-scoped Apify token.
+- The Apify token is account data on `profiles.apify_token`, not server config and not
+  browser-only. Account row is the source of truth; localStorage is a cache/migration
+  source. The key is written only after Apify validation succeeds, and a failed account
+  write leaves the dialog open instead of claiming success.
 - Detect via GitHub API with `git ls-remote` fallback; apply via stash + fetch + hard
   reset; npm install only when root package files changed.
 - Inject the updater into `createApp` so tests stub it (no real git/network in tests).
@@ -147,9 +463,25 @@
   old process exits ~1.2 s after the POST response flushes.
 - Flag on success only: `sessionStorage.leadAtlas.updatedTo.v1` is written only after
   the restart is confirmed by a changed sha, then shown once as a toast and cleared.
-- Scripts are browser-local `localStorage`, not server data: no API, CSP, or dependency
-  change, mirroring the outreach ledger pattern.
+- Scripts are account data in `public.script_libraries`, not browser-only: one row per
+  user holds the whole normalized library plus the default script so each change is one
+  atomic write. An account-scoped local cache keeps typing instant and covers a failed or
+  missing cloud write; the newest full-library write wins.
 - The call sheet's script switcher is scoped to the open call sheet; only **Use by
   default** (or creating a new script) changes the saved default.
 - Toasts are moved into the topmost open `<dialog>` because a body-level live region
   renders behind `::backdrop`; close events restore the body parent.
+- Supabase uses a dependency-free browser client rather than `@supabase/supabase-js`, to
+  preserve the zero-new-dependency rule. It talks to GoTrue/PostgREST directly with PKCE.
+- Only the public anon key is exposed. RLS is the security boundary; service_role is never
+  used. CSP `connect-src` is generated from the configured project origin.
+- The local server still proxies all Apify traffic and stores no lead data. Supabase
+  Auth/PostgREST is the one deliberate direct-browser third-party path.
+- The library is explicit: a scan/import is not persisted until the user chooses **Save to
+  library**. This keeps the Data desk privacy promise and avoids surprise uploads.
+- Saved-report outreach writes through to Supabase, with the existing localStorage ledger
+  retained as a fallback and for unsaved reports. Call scripts write through to
+  `script_libraries` with an account-scoped local cache.
+- The site is multipage, not one document: public pages are separate files; `auth.html`
+  is the only auth surface; `app.html` is the account-only workspace. Workspace views are
+  hash routes so they remain deep-linkable without a router dependency.

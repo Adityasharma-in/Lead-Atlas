@@ -46,14 +46,19 @@ export const BROWSER_HEADERS = {
   'Cross-Origin-Opener-Policy': 'same-origin',
 };
 
-export const CONTENT_SECURITY_POLICY = [
-  "default-src 'self'",
-  "script-src 'self'",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: https:",
-  "connect-src 'self'",
-  "base-uri 'none'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-].join('; ');
+export function buildContentSecurityPolicy(extraConnectSources = []) {
+  const connectSources = ["'self'", ...extraConnectSources.filter(Boolean)];
+  return [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: https:",
+    `connect-src ${[...new Set(connectSources)].join(' ')}`,
+    "base-uri 'none'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join('; ');
+}
+
+export const CONTENT_SECURITY_POLICY = buildContentSecurityPolicy();
