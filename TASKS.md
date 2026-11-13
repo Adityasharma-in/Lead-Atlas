@@ -269,3 +269,63 @@
       tree; the GitHub-connected project still points at `df898b2`, which has the old server
       default export.
 
+## Feature: call-status marker on phone numbers (2026-11-13)
+- [x] C1: `public/outreach-core.js` - pure `CALL_MARK` (`open` / `called` / `blocked`) and
+      `callMarkForStatus()` mapping, with unit coverage in `test/outreach-core.test.js`.
+- [x] C2: `public/app.js` - green dot on an uncalled phone number and a green tick after the
+      phone link is tapped. `markLeadCalled()` upgrades only `To contact` leads, writes the
+      outreach ledger synchronously, and defers the visual swap so the `tel:` handoff is not
+      interrupted. A DNC lead keeps its stop marker and an existing call date is never
+      replaced.
+- [x] C3: Report table/cards and the lead drawer contact book both render the marker;
+      `renderDrawerContacts()` and the drawer/table phone click handlers keep them in sync.
+      `visibilitychange` / `pageshow` refresh covers returning from the dialer.
+- [x] C4: `public/styles.css` - compact dot/tick/stop markers, a 32 px phone tap target at
+      phone widths, truncating contact text, and a 20 px marker in the drawer.
+- [x] C5: `public/app.html` - the report footnote tells the operator that tapping a phone
+      number ticks the lead as reached out.
+- [x] C6: Verified with Playwright at 390 px and 1280 px against a fake Supabase API:
+      dot -> tick on a table tap, drawer tap marks both surfaces, tick survives reload and
+      re-import, a second tap keeps the original timestamp, DNC stays blocked, no overflow,
+      and no console/page errors. `npm test` 199/199 and `node --check` green.
+- [x] C7: Version bumped 1.6.1 -> 1.7.0; README, TASKS and MEMORY updated.
+
+## Feature: outreach dashboard, accurate leads, stable indexes, quality gate and filter repair (2026-11-13)
+
+### Completed work
+- [x] A1: `public/lead-identity-core.js` — canonical contact identity shared by the server
+      and browser: normalized place ID, phone, email and name+address keys; deterministic
+      stable IDs; union-find duplicate grouping with fixed-point passes; stable `index`
+      assignment that never depends on table position. Unit tests cover every key, merge
+      bridge, ID fallback, index repair and immutability.
+- [x] A2: `src/leads.js` — uses A1 for scrape dedupe and merges; fills missing fields
+      without mixing two places; recomputes derived fields (id, phone, domain,
+      hasWebsite, maps URL) after every merge; preserves a stable lead index; drops leads
+      below the requested minimum stars/reviews after normalization and reports why.
+- [x] A3: `public/import-core.js` — uses A1 for import dedupe and stable IDs; merges field
+      gaps without duplicate contacts; assigns stable indexes. Round-trip, reorder and
+      repeat-import tests keep every contact's ID and number.
+- [x] A4: `public/report-core.js` — pure report filter/sort/pagination engine. Filters:
+      website, contact reachability, outreach mark, minimum rating, minimum reviews,
+      search. Sorts: best rated, lowest rated, most reviewed, name, last contacted.
+      Deterministic tie-breaks; the lead's own index survives filter/sort/page. Tests
+      cover every option, malformed input and page boundary.
+- [x] A5: Setup quality gate — Minimum reviews (default 10) sits beside Minimum rating,
+      validated on the server, surfaced in the brief, and enforced after the scan because
+      Apify has no review-count filter. Validation and lead tests cover 0, empty, `all`,
+      `any`, invalid values, the 40-vs-50 example, and merged rows.
+- [x] A6: `public/analytics-core.js` — local-day outreach aggregation from saved leads:
+      reached today, yesterday comparison, 14-day day-wise series, current-month totals,
+      source split (scan/import/unfiled) and reached/to-call counts, account label.
+      Fixed-clock tests cover local midnight, invalid dates and status-only rows.
+- [x] A7: Dashboard — fetches lead activity in pages, renders today/month cards, a 14-day
+      bar chart and a scan/import/contacted breakdown; updates instantly when a saved lead
+      is marked or a report is saved/deleted.
+- [x] A8: Report UI — wired the pruned filters/sorts, Reviews filter, stable lead numbers,
+      removed the duplicate outreach select, resets page on every change, keeps counts and
+      header sort in sync, and keeps every control keyboard/phone usable.
+- [x] A9: Docs + verification — README/TASKS/MEMORY updated, version 1.7.0 → 1.8.0,
+      `npm test` 290/290, `node --check` green on all touched modules, and a static
+      iframe smoke at 390 px and 1280 px found no horizontal overflow, the analytics
+      section visible, review controls present, and `#filterOutreach` gone.
+

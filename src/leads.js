@@ -3,6 +3,13 @@ import {
   outreachCounts,
   outreachStatusLabel,
 } from '../public/outreach-core.js';
+import {
+  assignLeadIndexes,
+  dedupeLeads,
+  emailIdentity,
+  phoneIdentity,
+  stableLeadId,
+} from '../public/lead-identity-core.js';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const URL_PROTOCOLS = new Set(['http:', 'https:']);
@@ -372,8 +379,8 @@ function createLead(item, context) {
   const lat = numberOrNull(item.location?.lat ?? item.lat ?? item.latitude);
   const lng = numberOrNull(item.location?.lng ?? item.lng ?? item.longitude);
 
-  return {
-    id: placeId ? `place-${placeId}` : `lead-${context.index}`,
+  const lead = {
+    id: '',
     placeId,
     name,
     category,
@@ -409,64 +416,130 @@ function createLead(item, context) {
     searchLocation: context.query?.location || null,
     runId: context.runId || null,
   };
+  // Position-based IDs used to move whenever the dataset order changed. The
+  // stable ID is derived from the contact itself and survives sorts, filters,
+  // pagination and re-imports.
+  lead.id = stableLeadId(lead);
+  return lead;
 }
 
-function dedupeKey(lead) {
-  if (lead.placeId) return `place:${lead.placeId}`;
-  return `name:${lead.name.toLowerCase()}|${(lead.address || '').toLowerCase()}`;
+function mergeUnique(existing, incoming, keyFor) {
+  const values = Array.isArray(existing) ? [...existing] : [];
+  const seen = new Set(values.map(keyFor).filter(Boolean));
+  for (const value of Array.isArray(incoming) ? incoming : []) {
+    const key = keyFor(value);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    values.push(value);
+  }
+  return values;
+}
+
+function blank(value) {
+  return value === null || value === undefined || value === '';
 }
 
 function mergeLead(existing, incoming) {
   const merged = { ...existing };
+
+  // A real name/category beats a placeholder without overwriting a good value.
+  if ((!merged.name || merged.name === 'Unnamed place') && incoming.name && incoming.name !== 'Unnamed place') {
+    merged.name = incoming.name;
+  }
+  if (
+    (!merged.category || merged.category === 'Business') &&
+    incoming.category &&
+    incoming.category !== 'Business'
+  ) {
+    merged.category = incoming.category;
+  }
+  if (!merged.placeId && incoming.placeId) merged.placeId = incoming.placeId;
+
   for (const field of [
     'website',
-    'domain',
-    'hasWebsite',
-    'phone',
     'address',
     'city',
     'state',
     'postalCode',
     'countryCode',
-    'rating',
-    'reviewsCount',
     'priceLevel',
     'lat',
     'lng',
     'claimed',
     'scrapedAt',
   ]) {
-    if (
-      (merged[field] === null || merged[field] === undefined || merged[field] === '') &&
-      incoming[field] !== null &&
-      incoming[field] !== undefined &&
-      incoming[field] !== ''
-    ) {
-      merged[field] = incoming[field];
+    if (blank(merged[field]) && !blank(incoming[field])) merged[field] = incoming[field];
+  }
+
+  // Keep the rating and review count in sync. A row with more reviews is the
+  // fresher snapshot, so its rating wins; otherwise only fill a missing value.
+  const existingReviews = Number.isFinite(merged.reviewsCount) ? merged.reviewsCount : -1;
+  const incomingReviews = Number.isFinite(incoming.reviewsCount) ? incoming.reviewsCount : -1;
+  if (blank(merged.rating) || incomingReviews > existingReviews) {
+    if (!blank(incoming.rating)) {
+      merged.rating = incoming.rating;
+      if (!blank(incoming.reviewsCount)) merged.reviewsCount = incoming.reviewsCount;
     }
   }
-  merged.emails = [...new Set([...existing.emails, ...incoming.emails])];
-  const phoneKeys = new Set(existing.phones.map(phoneDigits));
-  merged.phones = [...existing.phones];
-  for (const phone of incoming.phones) {
-    const digits = phoneDigits(phone);
-    if (digits && !phoneKeys.has(digits)) {
-      phoneKeys.add(digits);
-      merged.phones.push(phone);
-    }
+  if (blank(merged.reviewsCount) && !blank(incoming.reviewsCount)) {
+    merged.reviewsCount = incoming.reviewsCount;
   }
+
+  merged.emails = mergeUnique(existing.emails, incoming.emails, emailIdentity);
+  merged.phones = mergeUnique(existing.phones, incoming.phones, phoneIdentity);
+  merged.socials = mergeUnique(
+    existing.socials,
+    incoming.socials,
+    (social) => String(social?.url || '').replace(/\/+$/, '').toLowerCase(),
+  );
+  merged.categories = mergeUnique(
+    existing.categories,
+    incoming.categories,
+    (category) => String(category || '').trim().toLowerCase(),
+  ).slice(0, 12);
+
+  merged.permanentlyClosed = Boolean(existing.permanentlyClosed || incoming.permanentlyClosed);
+  merged.temporarilyClosed = Boolean(existing.temporarilyClosed || incoming.temporarilyClosed);
+
+  // Recompute every derived field so the merged row can never claim "no
+  // website" while carrying a website, or keep a stale ID/phone.
   merged.phone = merged.phones[0] || null;
-  const socialKeys = new Set(existing.socials.map((social) => social.url));
-  merged.socials = [...existing.socials];
-  for (const social of incoming.socials) {
-    if (!socialKeys.has(social.url)) {
-      socialKeys.add(social.url);
-      merged.socials.push(social);
-    }
+  merged.website = merged.website || null;
+  merged.domain = merged.website ? domainOf(merged.website) : null;
+  merged.hasWebsite = Boolean(merged.website);
+  if (!merged.mapsUrl) {
+    merged.mapsUrl = mapsUrlFor(merged, merged.name, merged.address, merged.placeId);
   }
-  merged.permanentlyClosed = existing.permanentlyClosed || incoming.permanentlyClosed;
-  merged.temporarilyClosed = existing.temporarilyClosed || incoming.temporarilyClosed;
+  merged.id = stableLeadId(merged);
   return merged;
+}
+
+const STAR_FLOORS = {
+  two: 2,
+  twoAndHalf: 2.5,
+  three: 3,
+  threeAndHalf: 3.5,
+  four: 4,
+  fourAndHalf: 4.5,
+};
+
+function qualityRejection(lead, query) {
+  if (!query) return null;
+  if (query.skipClosed && (lead.permanentlyClosed || lead.temporarilyClosed)) {
+    return 'closed';
+  }
+  const minStars = STAR_FLOORS[query.minStars] ?? 0;
+  if (minStars > 0 && (typeof lead.rating !== 'number' || lead.rating < minStars)) {
+    return 'rating';
+  }
+  const minReviews = Number(query.minReviews) || 0;
+  if (
+    minReviews > 0 &&
+    (typeof lead.reviewsCount !== 'number' || lead.reviewsCount < minReviews)
+  ) {
+    return 'reviews';
+  }
+  return null;
 }
 
 export function normalizeLeads(items, { query = null, runId = null, fetchedAt = new Date() } = {}) {
@@ -476,33 +549,46 @@ export function normalizeLeads(items, { query = null, runId = null, fetchedAt = 
       summary: summarizeLeads([]),
       total: 0,
       duplicateCount: 0,
+      filteredCount: 0,
+      filteredReasons: {},
       query,
       runId,
     };
   }
 
   const fetchedAtIso = fetchedAt instanceof Date ? fetchedAt.toISOString() : String(fetchedAt);
-  const byKey = new Map();
-  let duplicateCount = 0;
+  const created = [];
 
   items.forEach((item, index) => {
     if (!item || typeof item !== 'object') return;
-    const lead = createLead(item, { index: index + 1, query, runId, fetchedAt: fetchedAtIso });
-    const key = dedupeKey(lead);
-    if (byKey.has(key)) {
-      duplicateCount += 1;
-      byKey.set(key, mergeLead(byKey.get(key), lead));
-    } else {
-      byKey.set(key, lead);
-    }
+    created.push(createLead(item, { index: index + 1, query, runId, fetchedAt: fetchedAtIso }));
   });
 
-  const leads = [...byKey.values()];
+  const deduped = dedupeLeads(created, mergeLead);
+  const filteredReasons = {};
+  const kept = [];
+
+  for (const lead of deduped.leads) {
+    const reason = qualityRejection(lead, query);
+    if (reason) {
+      filteredReasons[reason] = (filteredReasons[reason] || 0) + 1;
+      continue;
+    }
+    kept.push(lead);
+  }
+
+  // Number after de-duplication and quality filtering. The number is stored on
+  // the lead, so the report can sort/filter/page without renumbering rows.
+  const leads = assignLeadIndexes(kept);
+  const filteredCount = Object.values(filteredReasons).reduce((sum, count) => sum + count, 0);
+
   return {
     leads,
     summary: summarizeLeads(leads),
     total: leads.length,
-    duplicateCount,
+    duplicateCount: deduped.duplicateCount,
+    filteredCount,
+    filteredReasons,
     query,
     runId,
   };

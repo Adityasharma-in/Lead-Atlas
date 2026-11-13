@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  CALL_MARK,
   OUTREACH,
   OUTREACH_NOTE_LIMIT,
   applyOutreachEntry,
+  callMarkForStatus,
   normalizeOutreachDate,
   normalizeOutreachEntry,
   normalizeOutreachNote,
@@ -29,6 +31,16 @@ test("normalizes human and machine outreach values onto three states", () => {
   assert.equal(normalizeOutreachStatus("maybe later"), null);
   assert.equal(outreachStatusLabel("reached out"), "Reached out");
   assert.equal(outreachStatusLabel("unknown"), "To contact");
+});
+
+test("maps outreach status onto the call marker", () => {
+  assert.equal(callMarkForStatus("reached out"), CALL_MARK.CALLED);
+  assert.equal(callMarkForStatus("contacted"), CALL_MARK.CALLED);
+  assert.equal(callMarkForStatus("do not contact"), CALL_MARK.BLOCKED);
+  assert.equal(callMarkForStatus("DNC"), CALL_MARK.BLOCKED);
+  assert.equal(callMarkForStatus("to contact"), CALL_MARK.OPEN);
+  assert.equal(callMarkForStatus(""), CALL_MARK.OPEN);
+  assert.equal(callMarkForStatus("maybe later"), CALL_MARK.OPEN);
 });
 
 test("normalizes dates and caps notes", () => {
