@@ -51,6 +51,14 @@ import { isMissingTokenColumnError, resolveAccountToken } from "./account-core.j
 import { assignLeadIndexes, formatLeadIndex } from "./lead-identity-core.js";
 import { buildOutreachAnalytics } from "./analytics-core.js";
 import {
+  CONFIG_CACHE_KEY,
+  dashboardCacheKey,
+  parseConfigCache,
+  parseDashboardCache,
+  serializeConfigCache,
+  serializeDashboardCache,
+} from "./boot-cache-core.js";
+import {
   REPORT_CONTACT_FILTERS,
   REPORT_REVIEW_FILTERS,
   REPORT_SORTS,
@@ -499,7 +507,7 @@ import {
     const email = user?.email || state.auth.profile?.email || "—";
     const initials = accountInitials(name);
     const firstName = name.split(/\s+/)[0] || "there";
-    const version = state.config?.appVersion || "1.7.0";
+    const version = state.config?.appVersion || "1.9.0";
 
     if (els.accountAvatar) els.accountAvatar.textContent = initials;
     if (els.topbarAvatar) els.topbarAvatar.textContent = initials;
@@ -526,23 +534,22 @@ import {
       state.auth.session = session;
       state.auth.user = session.user || state.auth.user;
       state.auth.recovery = false;
+
+      // Paint the last dashboard this account saw before touching the network.
+      // A returning operator sees their counts and recent reports immediately;
+      // the authoritative refresh below replaces them when it lands.
+      hydrateDashboardCache();
+
       if (els.appShell) els.appShell.hidden = false;
       if (els.appBoot) els.appBoot.hidden = true;
       document.body.classList.add("is-app");
       document.body.classList.remove("is-landing", "is-auth");
       renderAccount();
-      // The account copy of the Apify key and the call-script library must be in
-      // state before the key is validated, a saved scan is resumed or the
-      // dashboard counts are drawn.
-      await loadAccountProfile();
-      await loadAccountScripts();
-      await loadLibrary({ force: true });
-      if (state.token) {
-        setKeyStatus("checking");
-        validateStoredKey({ silent: true });
-        await resumeActiveRun();
-      }
+      renderDashboard();
+      renderLibrary();
 
+      // Open the requested view straight away. Only the dashboard is cached, so
+      // a report or data view still waits for its own data below.
       const target = view || viewFromHash() || "dashboard";
       const viewOptions = { scroll: false, focus: false, historyMode };
       if (target === "data") {
@@ -554,10 +561,46 @@ import {
       } else {
         showView(target, viewOptions);
       }
+
+      // Profile, scripts and library are independent reads. Run them together
+      // so the slowest one no longer adds to the others' wait.
+      const [profileResult, scriptsResult, libraryResult] = await Promise.allSettled([
+        loadAccountProfile(),
+        loadAccountScripts(),
+        loadLibrary({ force: true }),
+      ]);
+      for (const result of [profileResult, scriptsResult, libraryResult]) {
+        if (result.status === "rejected") {
+          console.warn("[lead-atlas] Workspace refresh failed.", result.reason);
+        }
+      }
+
+      if (state.token) {
+        setKeyStatus("checking");
+        validateStoredKey({ silent: true });
+        await resumeActiveRun();
+      }
       checkForUpdates();
     } finally {
       state.auth.entering = false;
     }
+  }
+
+  function resetLibraryState() {
+    state.library = {
+      ...state.library,
+      reports: [],
+      stats: null,
+      analytics: null,
+      activity: [],
+      loading: false,
+      loaded: false,
+      error: null,
+      search: "",
+      source: "all",
+      busyReportId: null,
+    };
+    state.dashboard = { loading: false, loaded: false };
   }
 
   async function signOutUser() {
@@ -569,6 +612,7 @@ import {
     }
     state.auth.signingOut = true;
     const sb = supabaseClient();
+    const userId = state.auth.user?.id;
     if (state.scriptUi.saveTimer) saveScriptStore();
     if (state.auth.user?.id && (state.scriptUi.cloudTimer || hasPendingScripts())) {
       await saveScriptsToAccount({ announceError: false });
@@ -578,6 +622,9 @@ import {
     } catch (error) {
       console.warn("[lead-atlas] Sign out failed.", error);
     }
+    // The dashboard cache is the signed-in account's data; never leave it on a
+    // shared machine after sign-out.
+    clearDashboardCache(userId);
     state.auth.session = null;
     state.auth.user = null;
     state.auth.profile = null;
@@ -585,18 +632,7 @@ import {
     clearLocalTokenState();
     setKeyStatus("empty");
     resetScriptState();
-    state.library = {
-      ...state.library,
-      reports: [],
-      stats: null,
-      loading: false,
-      loaded: false,
-      error: null,
-      search: "",
-      source: "all",
-      busyReportId: null,
-    };
-    state.dashboard = { loading: false, loaded: false };
+    resetLibraryState();
     state.savedReport = null;
     state.results = null;
     state.importDesk = null;
@@ -611,12 +647,14 @@ import {
     if (!sb) return;
     sb.onAuthStateChange((event, session, user) => {
       if (event === "SIGNED_OUT") {
+        clearDashboardCache(state.auth.user?.id);
         state.auth.session = null;
         state.auth.user = null;
         state.auth.profile = null;
         clearLocalTokenState();
         setKeyStatus("empty");
         resetScriptState();
+        resetLibraryState();
         if (!state.auth.signingOut) {
           goToSignIn({ notice: "Your session ended. Sign in again to open your workspace." });
         }
@@ -5239,6 +5277,65 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
   const ANALYTICS_PAGE_SIZE = 1000;
   const ANALYTICS_ROW_LIMIT = 5000;
 
+  function readDashboardCache() {
+    const key = dashboardCacheKey(state.auth.user?.id);
+    if (!key) return null;
+    try {
+      return parseDashboardCache(window.localStorage.getItem(key));
+    } catch {
+      return null;
+    }
+  }
+
+  function writeDashboardCache() {
+    const key = dashboardCacheKey(state.auth.user?.id);
+    if (!key || !state.library.loaded) return;
+    try {
+      const raw = serializeDashboardCache({
+        reports: state.library.reports,
+        stats: state.library.stats,
+        activity: state.library.activity,
+      });
+      if (raw && window.localStorage.getItem(key) !== raw) {
+        window.localStorage.setItem(key, raw);
+      }
+    } catch (error) {
+      console.warn("[lead-atlas] Dashboard cache could not be saved.", error);
+    }
+  }
+
+  function clearDashboardCache(userId = state.auth.user?.id) {
+    const key = dashboardCacheKey(userId);
+    if (!key) return;
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      /* nothing to clear */
+    }
+  }
+
+  function rebuildOutreachAnalytics() {
+    state.library.analytics = buildOutreachAnalytics({
+      leads: state.library.activity,
+      reports: state.library.reports,
+      account: accountAnalyticsLabel(),
+    });
+    return state.library.analytics;
+  }
+
+  function hydrateDashboardCache() {
+    const snapshot = readDashboardCache();
+    if (!snapshot) return false;
+    state.library.reports = snapshot.reports;
+    state.library.stats = snapshot.stats;
+    state.library.activity = snapshot.activity;
+    state.library.loaded = true;
+    state.library.loading = false;
+    state.library.error = null;
+    rebuildOutreachAnalytics();
+    return true;
+  }
+
   async function fetchLeadActivity(sb) {
     const rows = [];
     for (let offset = 0; offset < ANALYTICS_ROW_LIMIT; offset += ANALYTICS_PAGE_SIZE) {
@@ -5261,7 +5358,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     return (
       profile.full_name ||
       profile.company ||
-      accountName() ||
+      accountDisplayName() ||
       user.email ||
       "This account"
     );
@@ -5361,9 +5458,11 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
   async function loadLibrary({ force = false } = {}) {
     const sb = supabaseClient();
     if (!isAuthed() || !state.auth.configured || !sb) {
-      state.library.loaded = true;
-      state.library.reports = [];
-      state.library.stats = null;
+      if (!state.library.loaded) {
+        state.library.loaded = true;
+        state.library.reports = [];
+        state.library.stats = null;
+      }
       renderLibrary();
       renderDashboard();
       return;
@@ -5375,46 +5474,77 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     renderLibrary();
 
     try {
-      const reports = await sb.select("lead_reports", {
-        select: "id,name,niche,location,source,run_id,lead_count,summary,created_at,updated_at",
-        order: "created_at.desc",
-        limit: 200,
-      });
-      state.library.reports = Array.isArray(reports) ? reports : [];
-      state.library.loaded = true;
-
-      const totalFromReports = state.library.reports.reduce(
-        (total, report) => total + reportLeadCount(report),
-        0,
-      );
-      const [leadsResult, contactedResult, dncResult, activityResult] =
+      // All five reads are independent. Fetching them together keeps a slow
+      // activity page from delaying the report cards and counts.
+      const [reportsResult, leadsResult, contactedResult, dncResult, activityResult] =
         await Promise.allSettled([
+          sb.select("lead_reports", {
+            select: "id,name,niche,location,source,run_id,lead_count,summary,created_at,updated_at",
+            order: "created_at.desc",
+            limit: 200,
+          }),
           sb.count("leads"),
           sb.count("leads", { outreach_status: "eq.contacted" }),
           sb.count("leads", { outreach_status: "eq.do-not-contact" }),
           fetchLeadActivity(sb),
         ]);
-      state.library.stats = {
-        reports: state.library.reports.length,
-        leads:
-          leadsResult.status === "fulfilled" ? leadsResult.value : totalFromReports,
-        contacted: contactedResult.status === "fulfilled" ? contactedResult.value : 0,
-        doNotContact: dncResult.status === "fulfilled" ? dncResult.value : 0,
-      };
-      if (activityResult.status === "fulfilled") {
-        state.library.activity = activityResult.value;
-        state.library.analytics = buildOutreachAnalytics({
-          leads: state.library.activity,
-          reports: state.library.reports,
-          account: accountAnalyticsLabel(),
-        });
+
+      const reportsFresh = reportsResult.status === "fulfilled";
+      if (reportsFresh) {
+        state.library.reports = Array.isArray(reportsResult.value) ? reportsResult.value : [];
+        state.library.loaded = true;
+        state.library.error = null;
+      } else if (!state.library.loaded) {
+        state.library.error = friendlySupabaseError(reportsResult.reason);
+        console.warn("[lead-atlas] Library could not load.", reportsResult.reason);
       } else {
-        state.library.activity = [];
-        state.library.analytics = null;
-        console.warn("[lead-atlas] Outreach activity could not load.", activityResult.reason);
+        console.warn(
+          "[lead-atlas] Saved reports could not refresh; keeping the cached copy.",
+          reportsResult.reason,
+        );
       }
+
+      if (reportsFresh) {
+        const previous = state.library.stats || {};
+        const totalFromReports = state.library.reports.reduce(
+          (total, report) => total + reportLeadCount(report),
+          0,
+        );
+        state.library.stats = {
+          reports: state.library.reports.length,
+          leads:
+            leadsResult.status === "fulfilled"
+              ? leadsResult.value
+              : Number(previous.leads) || totalFromReports,
+          contacted:
+            contactedResult.status === "fulfilled"
+              ? contactedResult.value
+              : Number(previous.contacted) || 0,
+          doNotContact:
+            dncResult.status === "fulfilled"
+              ? dncResult.value
+              : Number(previous.doNotContact) || 0,
+        };
+      }
+
+      if (activityResult.status === "fulfilled") {
+        state.library.activity = Array.isArray(activityResult.value) ? activityResult.value : [];
+        rebuildOutreachAnalytics();
+      } else {
+        // Keep the cached activity (and its analytics) rather than blanking the
+        // dashboard because one refresh failed.
+        console.warn(
+          "[lead-atlas] Outreach activity could not refresh; keeping the cached copy.",
+          activityResult.reason,
+        );
+        if (!state.library.analytics) rebuildOutreachAnalytics();
+      }
+
+      if (reportsFresh) writeDashboardCache();
     } catch (error) {
-      state.library.error = friendlySupabaseError(error);
+      if (!state.library.loaded) {
+        state.library.error = friendlySupabaseError(error);
+      }
       console.warn("[lead-atlas] Library could not load.", error);
     } finally {
       state.library.loading = false;
@@ -5562,9 +5692,10 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       els.libraryGrid.setAttribute("aria-busy", state.library.loading ? "true" : "false");
     }
     if (els.libraryCount) {
-      els.libraryCount.textContent = state.library.loading
-        ? "Loading…"
-        : `${formatNumber(reports.length)} of ${formatNumber(total)} report${total === 1 ? "" : "s"}`;
+      els.libraryCount.textContent =
+        state.library.loading && !state.library.loaded
+          ? "Loading…"
+          : `${formatNumber(reports.length)} of ${formatNumber(total)} report${total === 1 ? "" : "s"}`;
     }
 
     if (state.library.loading && !state.library.loaded) {
@@ -6097,6 +6228,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       account: accountAnalyticsLabel(),
     });
     renderDashboard();
+    writeDashboardCache();
   }
 
   function syncSavedLead(lead) {
@@ -6130,46 +6262,71 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
   /* ---------------- init ---------------- */
 
+  function applyServerConfig(config) {
+    state.config = {
+      ...FALLBACK_CONFIG,
+      ...config,
+      limits: { ...FALLBACK_CONFIG.limits, ...(config.limits || {}) },
+      pricing: { ...FALLBACK_CONFIG.pricing, ...(config.pricing || {}) },
+      minStars:
+        Array.isArray(config.minStars) && config.minStars.length
+          ? config.minStars
+          : FALLBACK_CONFIG.minStars,
+      minReviews:
+        Array.isArray(config.minReviews) && config.minReviews.length
+          ? config.minReviews
+          : FALLBACK_CONFIG.minReviews,
+    };
+    const supabase = config.supabase || {};
+    state.config.supabase = supabase;
+    const sb = supabaseClient();
+    if (sb) {
+      sb.configure(supabase);
+      state.auth.configured = Boolean(
+        supabase.configured && supabase.url && supabase.anonKey && sb.isConfigured(),
+      );
+    } else {
+      state.auth.configured = false;
+    }
+    renderFooterVersion(config.appVersion);
+    if (els.sidebarVersion) {
+      els.sidebarVersion.textContent = `Version ${config.appVersion || "1.9.0"}`;
+    }
+    populateMinStars();
+    populateMinReviews();
+    setRangeBounds();
+    syncRangeVisual();
+    updateEstimate();
+  }
+
+  function readCachedConfig() {
+    try {
+      return parseConfigCache(window.localStorage.getItem(CONFIG_CACHE_KEY));
+    } catch {
+      return null;
+    }
+  }
+
+  function writeCachedConfig(config) {
+    try {
+      const raw = serializeConfigCache(config);
+      if (raw && window.localStorage.getItem(CONFIG_CACHE_KEY) !== raw) {
+        window.localStorage.setItem(CONFIG_CACHE_KEY, raw);
+      }
+    } catch (error) {
+      console.warn("[lead-atlas] Server config could not be cached.", error);
+    }
+  }
+
   async function loadConfig() {
     try {
       const config = await api("/api/config", { tokenOverride: null });
-      state.config = {
-        ...FALLBACK_CONFIG,
-        ...config,
-        limits: { ...FALLBACK_CONFIG.limits, ...(config.limits || {}) },
-        pricing: { ...FALLBACK_CONFIG.pricing, ...(config.pricing || {}) },
-        minStars:
-          Array.isArray(config.minStars) && config.minStars.length
-            ? config.minStars
-            : FALLBACK_CONFIG.minStars,
-        minReviews:
-          Array.isArray(config.minReviews) && config.minReviews.length
-            ? config.minReviews
-            : FALLBACK_CONFIG.minReviews,
-      };
-      const supabase = config.supabase || {};
-      state.config.supabase = supabase;
-      const sb = supabaseClient();
-      if (sb) {
-        sb.configure(supabase);
-        state.auth.configured = Boolean(
-          supabase.configured && supabase.url && supabase.anonKey && sb.isConfigured(),
-        );
-      } else {
-        state.auth.configured = false;
-      }
-      renderFooterVersion(config.appVersion);
-      if (els.sidebarVersion) {
-        els.sidebarVersion.textContent = `Version ${config.appVersion || "1.7.0"}`;
-      }
-      populateMinStars();
-      populateMinReviews();
-      setRangeBounds();
-      syncRangeVisual();
-      updateEstimate();
+      applyServerConfig(config);
+      writeCachedConfig(config);
     } catch (error) {
+      // Keep the cached configuration (including Supabase) when the refresh
+      // fails; a first visit simply continues with the fallback pricing.
       console.warn("[lead-atlas] Could not load server config; using fallback pricing.", error);
-      state.auth.configured = false;
     }
   }
 
@@ -6186,14 +6343,19 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       state.scriptUi.selectedId = activeScript(state.scripts)?.id || null;
       renderScriptPlaceholders();
       renderScriptChip();
+      // Paint from the last config immediately; refresh it in the background.
+      // Without a cache (first visit), wait for the server as before.
+      const cachedConfig = readCachedConfig();
+      if (cachedConfig) applyServerConfig(cachedConfig);
+      const configTask = loadConfig();
+      if (!state.auth.configured) await configTask;
+
+      // Apply the saved brief after config has filled both minimum selects.
       const savedBrief = readBrief();
       populateMinStars();
       populateMinReviews();
       setRangeBounds();
       syncRangeVisual();
-
-      await loadConfig();
-      // Apply the saved brief after config has filled both minimum selects.
       if (savedBrief) applyBrief(savedBrief);
       syncRangeVisual();
       syncWebsiteState();
