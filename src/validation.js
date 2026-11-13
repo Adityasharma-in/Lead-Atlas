@@ -85,6 +85,35 @@ function parseMinStars(value) {
   throw new ApiError(400, 'VALIDATION_ERROR', 'Invalid minimum rating.');
 }
 
+function parseMinReviews(value) {
+  // Missing means "use the product default"; an explicit empty/"all" means the
+  // caller wants every review count.
+  if (value === undefined || value === null) return LIMITS.defaultMinReviews;
+  if (typeof value === 'string') {
+    const cleaned = value.trim().toLowerCase();
+    // An explicit empty/"all" choice means "any review count". Anything else
+    // must be a real number; junk like "lots" must not silently disable the gate.
+    if (cleaned === '' || cleaned === 'all' || cleaned === 'any') return 0;
+    if (!/^[\d,\s]+$/.test(value)) {
+      throw new ApiError(
+        400,
+        'VALIDATION_ERROR',
+        'Minimum reviews must be a whole number from 0 to 1000.',
+      );
+    }
+  }
+  const number =
+    typeof value === 'number' ? value : Number(String(value).replace(/[,\s]/g, ''));
+  if (!Number.isInteger(number) || number < 0 || number > 1000) {
+    throw new ApiError(
+      400,
+      'VALIDATION_ERROR',
+      'Minimum reviews must be a whole number from 0 to 1000.',
+    );
+  }
+  return number;
+}
+
 export function normalizeScanRequest(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new ApiError(400, 'VALIDATION_ERROR', 'Send a JSON object with your scan settings.');
@@ -120,6 +149,7 @@ export function normalizeScanRequest(input) {
     contactsSuppressed: contactsRequested && !includeContacts,
     maxResults: parseMaxResults(input.maxResults),
     minStars: parseMinStars(input.minStars),
+    minReviews: parseMinReviews(input.minReviews),
     skipClosed: parseBoolean(input.skipClosed, true, 'Skip closed places'),
   };
 }
@@ -183,6 +213,11 @@ export function createRunPlan(input) {
   }
   if (query.maxResults >= 250) {
     notices.push('Large scans can take several minutes and use more Apify credits.');
+  }
+  if (query.minReviews > 0) {
+    notices.push(
+      `Leads with fewer than ${query.minReviews} reviews are removed after the scan. Apify's actor has no review-count filter, so fewer places may come back than requested.`,
+    );
   }
 
   return {

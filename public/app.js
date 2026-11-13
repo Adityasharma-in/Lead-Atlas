@@ -9,10 +9,12 @@ import {
   parseImportContent,
 } from "./import-core.js";
 import {
+  CALL_MARK,
   OUTREACH,
   OUTREACH_NOTE_LIMIT,
   OUTREACH_STATUSES,
   applyOutreachEntry,
+  callMarkForStatus,
   normalizeOutreachEntry,
   normalizeOutreachNote,
   normalizeOutreachStatus,
@@ -46,6 +48,17 @@ import {
   upsertScript,
 } from "./scripts-core.js";
 import { isMissingTokenColumnError, resolveAccountToken } from "./account-core.js";
+import { assignLeadIndexes, formatLeadIndex } from "./lead-identity-core.js";
+import { buildOutreachAnalytics } from "./analytics-core.js";
+import {
+  REPORT_CONTACT_FILTERS,
+  REPORT_REVIEW_FILTERS,
+  REPORT_SORTS,
+  filterReportLeads,
+  hasActiveFilters,
+  normalizeReportFilters,
+  paginateReportLeads,
+} from "./report-core.js";
 
 (() => {
   "use strict";
@@ -69,6 +82,15 @@ import { isMissingTokenColumnError, resolveAccountToken } from "./account-core.j
       { value: "threeAndHalf", label: "3.5+ stars" },
       { value: "four", label: "4+ stars" },
       { value: "fourAndHalf", label: "4.5+ stars" },
+    ],
+    minReviews: [
+      { value: "", label: "Any reviews" },
+      { value: "10", label: "10+ reviews", selected: true },
+      { value: "25", label: "25+ reviews" },
+      { value: "50", label: "50+ reviews" },
+      { value: "100", label: "100+ reviews" },
+      { value: "250", label: "250+ reviews" },
+      { value: "500", label: "500+ reviews" },
     ],
     pricing: {
       place: 0.004,
@@ -101,6 +123,8 @@ import { isMissingTokenColumnError, resolveAccountToken } from "./account-core.j
     library: {
       reports: [],
       stats: null,
+      analytics: null,
+      activity: [],
       loading: false,
       loaded: false,
       error: null,
@@ -120,6 +144,7 @@ import { isMissingTokenColumnError, resolveAccountToken } from "./account-core.j
       contact: "all",
       outreach: "all",
       rating: "all",
+      reviews: "all",
       sort: "rating",
       page: 1,
     },
@@ -474,7 +499,7 @@ import { isMissingTokenColumnError, resolveAccountToken } from "./account-core.j
     const email = user?.email || state.auth.profile?.email || "—";
     const initials = accountInitials(name);
     const firstName = name.split(/\s+/)[0] || "there";
-    const version = state.config?.appVersion || "1.6.1";
+    const version = state.config?.appVersion || "1.7.0";
 
     if (els.accountAvatar) els.accountAvatar.textContent = initials;
     if (els.topbarAvatar) els.topbarAvatar.textContent = initials;
@@ -826,10 +851,13 @@ import { isMissingTokenColumnError, resolveAccountToken } from "./account-core.j
     }
     renderOutreachSummary();
     if (table && state.view === "report") renderTable();
-    if (drawer && state.drawerLead) renderDrawerOutreach(state.drawerLead, { syncNote });
+    if (drawer && state.drawerLead) {
+      renderDrawerOutreach(state.drawerLead, { syncNote });
+      renderDrawerContacts(state.drawerLead);
+    }
   }
 
-  function setOutreachStatus(lead, status, { note, announce = true } = {}) {
+  function setOutreachStatus(lead, status, { note, announce = true, deferRender = false } = {}) {
     if (!lead) return false;
     const nextStatus = normalizeOutreachStatus(status) || OUTREACH.TODO;
     const effectiveNote =
@@ -868,7 +896,7 @@ import { isMissingTokenColumnError, resolveAccountToken } from "./account-core.j
     state.outreach.entries[key] = entry;
     writeOutreachLedger();
     state.drawerNoteDirty = false;
-    refreshOutreachViews({ drawer: true });
+    if (!deferRender) refreshOutreachViews({ drawer: true });
     syncSavedLead(lead);
 
     if (announce) {
@@ -905,6 +933,29 @@ import { isMissingTokenColumnError, resolveAccountToken } from "./account-core.j
         });
       }
     }
+    return true;
+  }
+
+  function markLeadCalled(lead) {
+    if (!lead) return false;
+    const status = normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO;
+    // A do-not-contact lead keeps its stop mark, and an already-contacted lead
+    // keeps its original call date.
+    if (status !== OUTREACH.TODO) return false;
+    const changed = setOutreachStatus(lead, OUTREACH.CONTACTED, {
+      announce: false,
+      deferRender: true,
+    });
+    if (!changed) return false;
+
+    // The ledger write is synchronous, so the tick is already safe before the
+    // dialer opens. Defer the table/drawer swap until the browser has handed
+    // the tel: link to the phone app; a later visibility refresh covers the
+    // return trip too.
+    refreshOutreachViews({ table: false, drawer: false });
+    window.setTimeout(() => {
+      refreshOutreachViews({ drawer: Boolean(state.drawerLead) });
+    }, 120);
     return true;
   }
 
@@ -1899,6 +1950,26 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "dashContactedCount",
       "dashContactedRate",
       "dashDncCount",
+      "dashAnalyticsAccount",
+      "dashTodayReached",
+      "dashTodayDelta",
+      "dashBestDay",
+      "dashBestDayLabel",
+      "dashMonthReached",
+      "dashMonthLeads",
+      "dashMonthTotalLeads",
+      "dashMonthScans",
+      "dashMonthImports",
+      "dashDayChart",
+      "dashSourceScanLeads",
+      "dashSourceScanReached",
+      "dashSourceScanTodo",
+      "dashSourceImportLeads",
+      "dashSourceImportReached",
+      "dashSourceImportTodo",
+      "dashSourceUnknownLeads",
+      "dashSourceUnknownReached",
+      "dashSourceUnknownTodo",
       "dashRecentReports",
       "dashEmpty",
       "dashKeyStatus",
@@ -1960,6 +2031,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "maxResults",
       "resultsOutput",
       "minStars",
+      "minReviews",
       "includeContacts",
       "contactsSuppressed",
       "skipClosed",
@@ -2020,8 +2092,8 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "leadSearch",
       "filterWebsite",
       "filterContact",
-      "filterOutreach",
       "filterRating",
+      "filterReviews",
       "sortBy",
       "sortRating",
       "ratingHeader",
@@ -2725,6 +2797,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       websiteFilter: selectedWebsite(),
       maxResults: Number(els.maxResults.value),
       minStars: els.minStars.value,
+      minReviews: els.minReviews?.value ?? "",
       skipClosed: els.skipClosed.checked,
       contactPreference: state.contactPreference,
     };
@@ -2756,6 +2829,12 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     if (typeof brief.minStars === "string") {
       const hasOption = $$("option", els.minStars).some((option) => option.value === brief.minStars);
       if (hasOption) els.minStars.value = brief.minStars;
+    }
+    if (typeof brief.minReviews === "string" && els.minReviews) {
+      const hasOption = $$("option", els.minReviews).some(
+        (option) => option.value === brief.minReviews,
+      );
+      if (hasOption) els.minReviews.value = brief.minReviews;
     }
     els.skipClosed.checked = brief.skipClosed !== false;
     state.contactPreference = brief.contactPreference !== false;
@@ -2838,6 +2917,25 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     if (options.some((option) => option.value === current)) els.minStars.value = current;
   }
 
+  function populateMinReviews() {
+    if (!els.minReviews) return;
+    const current = els.minReviews.value;
+    const options = state.config.minReviews || FALLBACK_CONFIG.minReviews;
+    els.minReviews.innerHTML = options
+      .map(
+        (option) =>
+          `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`,
+      )
+      .join("");
+    const values = new Set(options.map((option) => String(option.value)));
+    if (values.has(current)) {
+      els.minReviews.value = current;
+      return;
+    }
+    const preferred = options.find((option) => option.selected)?.value ?? options[0]?.value ?? "";
+    els.minReviews.value = String(preferred);
+  }
+
   function setRangeBounds() {
     const limits = state.config.limits || FALLBACK_CONFIG.limits;
     const max = Math.max(5, Number(limits.maxResults) || 500);
@@ -2913,6 +3011,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       includeContacts: els.includeContacts.checked && !els.includeContacts.disabled,
       maxResults: Number(els.maxResults.value),
       minStars: els.minStars.value,
+      minReviews: els.minReviews?.value ?? "",
       skipClosed: els.skipClosed.checked,
     };
   }
@@ -3487,20 +3586,12 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
   /* ---------------- filters & report ---------------- */
 
   function resetFilters({ render = false } = {}) {
-    state.filters = {
-      q: "",
-      website: "all",
-      contact: "all",
-      outreach: "all",
-      rating: "all",
-      sort: "rating",
-      page: 1,
-    };
+    state.filters = normalizeReportFilters({});
     if (els.leadSearch) els.leadSearch.value = "";
     if (els.filterWebsite) els.filterWebsite.value = "all";
     if (els.filterContact) els.filterContact.value = "all";
-    if (els.filterOutreach) els.filterOutreach.value = "all";
     if (els.filterRating) els.filterRating.value = "all";
+    if (els.filterReviews) els.filterReviews.value = "all";
     if (els.sortBy) els.sortBy.value = "rating";
     if (els.clearFilters) els.clearFilters.hidden = true;
     if (render) {
@@ -3510,15 +3601,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
   }
 
   function filtersAreActive() {
-    const f = state.filters;
-    return Boolean(
-      f.q ||
-        f.website !== "all" ||
-        f.contact !== "all" ||
-        f.outreach !== "all" ||
-        f.rating !== "all" ||
-        f.sort !== "rating",
-    );
+    return hasActiveFilters(state.filters);
   }
 
   function syncRatingSort() {
@@ -3543,102 +3626,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
   function getFilteredLeads() {
     if (!state.results) return [];
-    const f = state.filters;
-    const query = f.q.trim().toLowerCase();
-    const ratingFloor = f.rating === "all" ? null : Number(f.rating);
-
-    const filtered = state.results.leads.filter((lead) => {
-      if (f.website === "with" && !lead.hasWebsite) return false;
-      if (f.website === "without" && lead.hasWebsite) return false;
-
-      if (f.contact === "email" && !lead.emails?.length) return false;
-      if (f.contact === "phone" && !lead.phones?.length) return false;
-      if (f.contact === "reachable" && !lead.emails?.length && !lead.phones?.length) return false;
-      if (f.contact === "none" && (lead.emails?.length || lead.phones?.length)) return false;
-
-      const outreachStatus = normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO;
-      if (f.outreach !== "all" && f.outreach !== outreachStatus) return false;
-
-      if (ratingFloor !== null) {
-        if (typeof lead.rating !== "number" || lead.rating < ratingFloor) return false;
-      }
-
-      if (query) {
-        const haystack = [
-          lead.name,
-          lead.category,
-          ...(lead.categories || []),
-          lead.address,
-          lead.city,
-          lead.state,
-          lead.domain,
-          ...(lead.emails || []),
-          ...(lead.phones || []),
-          ...(lead.socials || []).map((social) => `${social.label} ${social.handle || ""}`),
-          lead.outreachNote,
-          outreachStatusLabel(outreachStatus),
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        if (!haystack.includes(query)) return false;
-      }
-      return true;
-    });
-
-    const sorted = [...filtered];
-    const outreachRank = {
-      [OUTREACH.TODO]: 0,
-      [OUTREACH.CONTACTED]: 1,
-      [OUTREACH.DO_NOT_CONTACT]: 2,
-    };
-    sorted.sort((a, b) => {
-      if (f.sort === "reviews") {
-        return (b.reviewsCount || 0) - (a.reviewsCount || 0) || a.name.localeCompare(b.name);
-      }
-      if (f.sort === "rating-asc") {
-        // Lowest rated first; places without a rating stay at the bottom.
-        return (
-          (a.rating ?? 99) - (b.rating ?? 99) ||
-          (b.reviewsCount || 0) - (a.reviewsCount || 0) ||
-          a.name.localeCompare(b.name)
-        );
-      }
-      if (f.sort === "name") {
-        return a.name.localeCompare(b.name, "en", { sensitivity: "base" });
-      }
-      if (f.sort === "contact") {
-        const aContact = (a.phones?.length ? 1 : 0) + (a.emails?.length ? 1 : 0);
-        const bContact = (b.phones?.length ? 1 : 0) + (b.emails?.length ? 1 : 0);
-        return bContact - aContact || (b.rating ?? -1) - (a.rating ?? -1) || a.name.localeCompare(b.name);
-      }
-      if (f.sort === "outreach") {
-        const aStatus = normalizeOutreachStatus(a.outreachStatus) || OUTREACH.TODO;
-        const bStatus = normalizeOutreachStatus(b.outreachStatus) || OUTREACH.TODO;
-        return (
-          outreachRank[aStatus] - outreachRank[bStatus] ||
-          (b.rating ?? -1) - (a.rating ?? -1) ||
-          a.name.localeCompare(b.name)
-        );
-      }
-      if (f.sort === "contacted") {
-        // Only a real contact date counts here. An updatedAt fallback would
-        // promote untouched “to contact” rows above leads actually called.
-        const aStamp = Date.parse(a.contactedAt || 0) || 0;
-        const bStamp = Date.parse(b.contactedAt || 0) || 0;
-        return (
-          bStamp - aStamp ||
-          (b.rating ?? -1) - (a.rating ?? -1) ||
-          a.name.localeCompare(b.name)
-        );
-      }
-      return (
-        (b.rating ?? -1) - (a.rating ?? -1) ||
-        (b.reviewsCount || 0) - (a.reviewsCount || 0) ||
-        a.name.localeCompare(b.name)
-      );
-    });
-    return sorted;
+    return filterReportLeads(state.results.leads, state.filters);
   }
 
   function animateMetric(element, value, formatter, { decimals = 0 } = {}) {
@@ -3737,9 +3725,6 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     for (const chip of $$("[data-outreach-filter]", els.outreachStrip)) {
       chip.setAttribute("aria-pressed", chip.dataset.outreachFilter === active ? "true" : "false");
     }
-    if (els.filterOutreach && els.filterOutreach.value !== active) {
-      els.filterOutreach.value = active;
-    }
     if (els.outreachStrip) {
       els.outreachStrip.classList.toggle("is-empty", counts.total === 0);
       els.outreachStrip.classList.toggle("has-progress", counts.marked > 0);
@@ -3773,6 +3758,10 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
   function renderReport() {
     const results = state.results;
     if (!results) return;
+    // Legacy saved reports and reordered data may not carry an index yet. Assign
+    // once from existing values, filling only missing numbers, so the same
+    // contact keeps the same report number across visits.
+    if (Array.isArray(results.leads)) results.leads = assignLeadIndexes(results.leads);
     const imported = results.mode === "import";
     const saved = results.mode === "saved";
     const query = results.query || {};
@@ -3839,8 +3828,8 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
     els.filterWebsite.value = state.filters.website;
     els.filterContact.value = state.filters.contact;
-    if (els.filterOutreach) els.filterOutreach.value = state.filters.outreach;
     els.filterRating.value = state.filters.rating;
+    if (els.filterReviews) els.filterReviews.value = state.filters.reviews;
     els.sortBy.value = state.filters.sort;
     els.leadSearch.value = state.filters.q;
     els.clearFilters.hidden = !filtersAreActive();
@@ -3877,6 +3866,33 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     [OUTREACH.CONTACTED]: "i-check",
     [OUTREACH.DO_NOT_CONTACT]: "i-ban",
   };
+
+  function callStateLabel(lead) {
+    const mark = callMarkForStatus(lead?.outreachStatus);
+    if (mark === CALL_MARK.CALLED) {
+      return lead?.contactedAt ? `Called ${formatDate(lead.contactedAt, true)}` : "Called";
+    }
+    if (mark === CALL_MARK.BLOCKED) return "Do not contact";
+    return "Not called yet";
+  }
+
+  function callMarkHtml(lead) {
+    const mark = callMarkForStatus(lead?.outreachStatus);
+    const label = callStateLabel(lead);
+    if (mark === CALL_MARK.CALLED) {
+      return `<span class="call-mark is-called" data-call-mark role="img" aria-label="${escapeHtml(
+        label,
+      )}" title="${escapeHtml(label)}">${icon("i-check")}</span>`;
+    }
+    if (mark === CALL_MARK.BLOCKED) {
+      return `<span class="call-mark is-blocked" data-call-mark role="img" aria-label="${escapeHtml(
+        label,
+      )}" title="${escapeHtml(label)}">${icon("i-ban")}</span>`;
+    }
+    return `<span class="call-mark is-open" data-call-mark role="img" aria-label="${escapeHtml(
+      label,
+    )}" title="${escapeHtml(label)}"><span class="call-mark-dot" aria-hidden="true"></span></span>`;
+  }
 
   function outreachCellHtml(lead) {
     const status = normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO;
@@ -3921,8 +3937,13 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     const phone = lead.phones?.[0] || lead.phone;
     const phoneDigits = phone ? phoneHref(phone) : "";
     if (phone && phoneDigits.replace(/\D/g, "").length >= 6) {
+      const callLabel = callStateLabel(lead);
       contactLines.push(
-        `<a class="contact-line" href="tel:${escapeHtml(phoneDigits)}" title="Call ${escapeHtml(phone)}">${icon("i-phone")}${escapeHtml(phone)}</a>`,
+        `<a class="contact-line is-phone" href="tel:${escapeHtml(phoneDigits)}" title="Call ${escapeHtml(
+          phone,
+        )} — ${escapeHtml(callLabel)}">${icon("i-phone")}<span class="contact-line-text">${escapeHtml(
+          phone,
+        )}</span>${callMarkHtml(lead)}</a>`,
       );
     }
     const email = (lead.emails || []).find((value) => isEmail(value));
@@ -3971,7 +3992,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     const mapsUrl = safeUrl(lead.mapsUrl) || mapsFallback(lead);
 
     return `<tr data-lead-key="${escapeHtml(lead.id)}" aria-label="${escapeHtml(lead.name)}">
-      <td class="cell-rank">${String(rank).padStart(2, "0")}</td>
+      <td class="cell-rank">${escapeHtml(String(rank))}</td>
       <td class="cell-business">
         <button type="button" class="lead-name-button" title="Open ${escapeHtml(lead.name)} details">${escapeHtml(lead.name)}</button>
         <div class="lead-business-meta">
@@ -3996,15 +4017,18 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
   function renderTable() {
     if (!state.results) return;
     syncRatingSort();
-    const filtered = getFilteredLeads();
+    const paged = paginateReportLeads(
+      state.results.leads || [],
+      state.filters,
+      state.pageSize,
+    );
+    const filtered = paged.filtered;
     const total = state.results.leads.length;
-    const pageSize = state.pageSize;
-    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-    if (state.filters.page > totalPages) state.filters.page = totalPages;
-    if (state.filters.page < 1) state.filters.page = 1;
-    const page = state.filters.page;
-    const start = (page - 1) * pageSize;
-    const pageLeads = filtered.slice(start, start + pageSize);
+    const totalPages = paged.totalPages;
+    const page = paged.page;
+    const start = paged.start;
+    const pageLeads = paged.pageLeads;
+    state.filters.page = page;
 
     els.clearFilters.hidden = !filtersAreActive();
 
@@ -4038,9 +4062,9 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
     els.leadsTable.hidden = false;
     els.emptyState.hidden = true;
-    const end = Math.min(start + pageSize, filtered.length);
+    const end = paged.end;
     els.leadsBody.innerHTML = pageLeads
-      .map((lead, index) => rowHtml(lead, start + index + 1))
+      .map((lead) => rowHtml(lead, formatLeadIndex(lead)))
       .join("");
     els.resultCount.textContent =
       filtered.length === total
@@ -4344,15 +4368,46 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
   /* ---------------- lead drawer ---------------- */
 
-  function contactRowHtml(kind, value, href, iconName) {
+  function contactRowHtml(kind, value, href, iconName, markHtml = "") {
     const wrapper = href ? "a" : "div";
     const attrs = href
       ? ` href="${escapeHtml(href)}" ${href.startsWith("http") ? 'target="_blank" rel="noopener noreferrer"' : ""}`
       : "";
     return `<${wrapper} class="contact-row"${attrs}>
       <span class="contact-kind">${icon(iconName)}${escapeHtml(kind)}</span>
-      <span class="contact-value">${escapeHtml(value)}</span>
+      <span class="contact-value-line">
+        <span class="contact-value">${escapeHtml(value)}</span>
+        ${markHtml}
+      </span>
     </${wrapper}>`;
+  }
+
+  function renderDrawerContacts(lead) {
+    if (!lead) return;
+    const contactRows = [];
+    for (const phone of lead.phones || []) {
+      const href = phoneHref(phone);
+      contactRows.push(
+        contactRowHtml(
+          "Phone",
+          phone,
+          href.replace(/\D/g, "").length >= 6 ? `tel:${href}` : null,
+          "i-phone",
+          callMarkHtml(lead),
+        ),
+      );
+    }
+    for (const email of lead.emails || []) {
+      contactRows.push(
+        contactRowHtml("Email", email, isEmail(email) ? `mailto:${email}` : null, "i-mail"),
+      );
+    }
+    els.drawerContacts.innerHTML = contactRows.length
+      ? contactRows.join("")
+      : `<div class="drawer-empty">No phone number or email found for this listing.</div>`;
+    els.drawerContactCount.textContent = contactRows.length
+      ? `${contactRows.length} detail${contactRows.length === 1 ? "" : "s"}`
+      : "None found";
   }
 
   function factHtml(label, value) {
@@ -4416,29 +4471,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     const mapsUrl = safeUrl(lead.mapsUrl) || mapsFallback(lead);
     els.drawerMapLink.href = mapsUrl;
 
-    const contactRows = [];
-    for (const phone of lead.phones || []) {
-      const href = phoneHref(phone);
-      contactRows.push(
-        contactRowHtml(
-          "Phone",
-          phone,
-          href.replace(/\D/g, "").length >= 6 ? `tel:${href}` : null,
-          "i-phone",
-        ),
-      );
-    }
-    for (const email of lead.emails || []) {
-      contactRows.push(
-        contactRowHtml("Email", email, isEmail(email) ? `mailto:${email}` : null, "i-mail"),
-      );
-    }
-    els.drawerContacts.innerHTML = contactRows.length
-      ? contactRows.join("")
-      : `<div class="drawer-empty">No phone number or email found for this listing.</div>`;
-    els.drawerContactCount.textContent = contactRows.length
-      ? `${contactRows.length} detail${contactRows.length === 1 ? "" : "s"}`
-      : "None found";
+    renderDrawerContacts(lead);
 
     const website = safeUrl(lead.website);
     const socials = (lead.socials || [])
@@ -4914,6 +4947,9 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       updateEstimate();
       saveBrief();
     });
+    els.minReviews?.addEventListener("change", () => {
+      saveBrief();
+    });
     els.skipClosed?.addEventListener("change", () => {
       updateEstimate();
       saveBrief();
@@ -4990,8 +5026,8 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     for (const [element, key] of [
       [els.filterWebsite, "website"],
       [els.filterContact, "contact"],
-      [els.filterOutreach, "outreach"],
       [els.filterRating, "rating"],
+      [els.filterReviews, "reviews"],
       [els.sortBy, "sort"],
     ]) {
       element?.addEventListener("change", () => {
@@ -5034,6 +5070,15 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       scrollToTarget(els.reportToolbar);
     });
     els.leadsBody?.addEventListener("click", (event) => {
+      const callLink = event.target.closest('a[href^="tel:"]');
+      if (callLink) {
+        const row = callLink.closest("tr[data-lead-key]");
+        const lead = row
+          ? state.results?.leads?.find((entry) => entry.id === row.dataset.leadKey)
+          : null;
+        if (lead) markLeadCalled(lead);
+        return;
+      }
       const statusButton = event.target.closest("button[data-outreach-status]");
       if (statusButton) {
         const row = statusButton.closest("tr[data-lead-key]");
@@ -5051,7 +5096,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
           // The active filter excludes the new state, so the row is gone.
           // Keep keyboard users anchored to the filter that hid it.
           const activeChip = $(".outreach-tally[aria-pressed=\"true\"]", els.outreachStrip);
-          (activeChip || els.filterOutreach)?.focus({ preventScroll: true });
+          (activeChip || els.clearFilters)?.focus({ preventScroll: true });
         }
         return;
       }
@@ -5065,6 +5110,11 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     els.exportJsonBtn?.addEventListener("click", () => downloadExport("json"));
 
     els.closeLeadDialog?.addEventListener("click", () => els.leadDialog.close());
+    els.drawerContacts?.addEventListener("click", (event) => {
+      const callLink = event.target.closest('a[href^="tel:"]');
+      if (!callLink || !state.drawerLead) return;
+      markLeadCalled(state.drawerLead);
+    });
     els.leadDialog?.addEventListener("click", (event) => {
       if (event.target === els.leadDialog) els.leadDialog.close();
     });
@@ -5117,6 +5167,15 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
         showView("setup", { scroll: false, focus: false });
         window.setTimeout(() => scrollToTarget(target), 60);
       }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState !== "visible" || !state.results) return;
+      refreshOutreachViews({ drawer: Boolean(state.drawerLead) });
+    });
+    window.addEventListener("pageshow", (event) => {
+      if (!event.persisted || !state.results) return;
+      refreshOutreachViews({ drawer: Boolean(state.drawerLead) });
     });
 
     window.addEventListener("beforeunload", (event) => {
@@ -5177,6 +5236,37 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     return source === "import" ? "Import" : "Scan";
   }
 
+  const ANALYTICS_PAGE_SIZE = 1000;
+  const ANALYTICS_ROW_LIMIT = 5000;
+
+  async function fetchLeadActivity(sb) {
+    const rows = [];
+    for (let offset = 0; offset < ANALYTICS_ROW_LIMIT; offset += ANALYTICS_PAGE_SIZE) {
+      const page = await sb.select("leads", {
+        select: "report_id,lead_key,outreach_status,contacted_at,created_at",
+        order: "created_at.asc",
+        limit: ANALYTICS_PAGE_SIZE,
+        offset,
+      });
+      if (!Array.isArray(page) || !page.length) break;
+      rows.push(...page);
+      if (page.length < ANALYTICS_PAGE_SIZE) break;
+    }
+    return rows;
+  }
+
+  function accountAnalyticsLabel() {
+    const profile = state.auth.profile || {};
+    const user = state.auth.user || {};
+    return (
+      profile.full_name ||
+      profile.company ||
+      accountName() ||
+      user.email ||
+      "This account"
+    );
+  }
+
   function monthReportCount(reports) {
     const now = new Date();
     return reports.filter((report) => {
@@ -5187,6 +5277,85 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
   function setLibraryStat(id, value) {
     if (els[id]) els[id].textContent = formatNumber(value);
+  }
+
+  function setAnalyticsText(id, value) {
+    if (els[id]) els[id].textContent = value;
+  }
+
+  function renderDashboardAnalytics() {
+    const analytics = state.library.analytics;
+    const available = Boolean(analytics);
+    const today = analytics?.today || {};
+    const month = analytics?.month || {};
+    const yesterday = analytics?.yesterday || {};
+    const sources = month.bySource || {};
+
+    setAnalyticsText("dashAnalyticsAccount", analytics?.account || accountAnalyticsLabel());
+    setAnalyticsText("dashTodayReached", available ? formatNumber(today.reached || 0) : "—");
+    setAnalyticsText("dashMonthReached", available ? formatNumber(month.reached || 0) : "—");
+    setAnalyticsText("dashMonthLeads", available ? formatNumber(month.leads || 0) : "—");
+    setAnalyticsText("dashMonthTotalLeads", available ? formatNumber(month.leads || 0) : "—");
+    setAnalyticsText("dashMonthScans", available ? formatNumber(month.scans || 0) : "—");
+    setAnalyticsText("dashMonthImports", available ? formatNumber(month.imports || 0) : "—");
+
+    if (els.dashTodayDelta) {
+      if (!available) {
+        els.dashTodayDelta.textContent = "Sign in to see today’s activity.";
+      } else if (!today.reached && !yesterday.reached) {
+        els.dashTodayDelta.textContent = "No calls logged yet today.";
+      } else if (analytics.delta > 0) {
+        els.dashTodayDelta.textContent = `${pluralize(analytics.delta, "more call")} than yesterday (${formatNumber(yesterday.reached || 0)}).`;
+      } else if (analytics.delta < 0) {
+        els.dashTodayDelta.textContent = `${pluralize(Math.abs(analytics.delta), "fewer call")} than yesterday (${formatNumber(yesterday.reached || 0)}).`;
+      } else {
+        els.dashTodayDelta.textContent = `Same as yesterday (${formatNumber(yesterday.reached || 0)}).`;
+      }
+    }
+
+    if (els.dashBestDay) {
+      const best = analytics?.best || {};
+      els.dashBestDay.textContent = best.reached ? formatNumber(best.reached) : "—";
+      if (els.dashBestDayLabel) {
+        els.dashBestDayLabel.textContent = best.reached
+          ? `${best.weekday}, ${best.label}`
+          : "No calls logged yet.";
+      }
+    }
+
+    for (const source of ["scan", "import", "unknown"]) {
+      const data = sources[source] || { leads: 0, reached: 0, toContact: 0 };
+      const prefix = source.charAt(0).toUpperCase() + source.slice(1);
+      setAnalyticsText(`dashSource${prefix}Leads`, available ? formatNumber(data.leads || 0) : "—");
+      setAnalyticsText(
+        `dashSource${prefix}Reached`,
+        available ? formatNumber(data.reached || 0) : "—",
+      );
+      setAnalyticsText(
+        `dashSource${prefix}Todo`,
+        available ? formatNumber(data.toContact || 0) : "—",
+      );
+    }
+
+    if (!els.dashDayChart) return;
+    if (!available) {
+      els.dashDayChart.innerHTML =
+        '<p class="dash-day-empty">Day-by-day activity will appear after your library loads.</p>';
+      return;
+    }
+    const max = Math.max(1, analytics.maxReached || 1);
+    els.dashDayChart.innerHTML = analytics.days
+      .map((day) => {
+        const height = day.reached ? Math.max(8, Math.round((day.reached / max) * 100)) : 2;
+        const label = `${day.weekday} ${day.label}: ${pluralize(day.reached, "lead")} reached, ${pluralize(day.leads, "lead")} added`;
+        return `<div class="dash-day ${day.isToday ? "is-today" : ""}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
+          <span class="dash-day-value">${day.reached ? formatNumber(day.reached) : ""}</span>
+          <span class="dash-day-track"><i style="height: ${height}%"></i></span>
+          <span class="dash-day-label">${escapeHtml(day.isToday ? "Today" : day.weekday)}</span>
+          <span class="dash-day-date">${escapeHtml(day.label)}</span>
+        </div>`;
+      })
+      .join("");
   }
 
   async function loadLibrary({ force = false } = {}) {
@@ -5218,11 +5387,13 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
         (total, report) => total + reportLeadCount(report),
         0,
       );
-      const [leadsResult, contactedResult, dncResult] = await Promise.allSettled([
-        sb.count("leads"),
-        sb.count("leads", { outreach_status: "eq.contacted" }),
-        sb.count("leads", { outreach_status: "eq.do-not-contact" }),
-      ]);
+      const [leadsResult, contactedResult, dncResult, activityResult] =
+        await Promise.allSettled([
+          sb.count("leads"),
+          sb.count("leads", { outreach_status: "eq.contacted" }),
+          sb.count("leads", { outreach_status: "eq.do-not-contact" }),
+          fetchLeadActivity(sb),
+        ]);
       state.library.stats = {
         reports: state.library.reports.length,
         leads:
@@ -5230,6 +5401,18 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
         contacted: contactedResult.status === "fulfilled" ? contactedResult.value : 0,
         doNotContact: dncResult.status === "fulfilled" ? dncResult.value : 0,
       };
+      if (activityResult.status === "fulfilled") {
+        state.library.activity = activityResult.value;
+        state.library.analytics = buildOutreachAnalytics({
+          leads: state.library.activity,
+          reports: state.library.reports,
+          account: accountAnalyticsLabel(),
+        });
+      } else {
+        state.library.activity = [];
+        state.library.analytics = null;
+        console.warn("[lead-atlas] Outreach activity could not load.", activityResult.reason);
+      }
     } catch (error) {
       state.library.error = friendlySupabaseError(error);
       console.warn("[lead-atlas] Library could not load.", error);
@@ -5312,6 +5495,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
         ? `${formatNumber(contacted)} of ${formatNumber(totalLeads)} saved leads have been reached. ${formatNumber(doNotContact)} are kept off the call list.`
         : "Save a report and start marking calls. Your progress will show here.";
     }
+    renderDashboardAnalytics();
 
     if (els.dashScriptCount) {
       const count = state.scripts.scripts.length;
@@ -5896,12 +6080,32 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     }, 900);
   }
 
+  function recordSavedLeadActivity(lead) {
+    const reportId = state.results?.savedReportId;
+    if (!reportId || !lead) return;
+    const key = lead.outreachKey || outreachKeyForLead(lead);
+    if (!key) return;
+    const row = state.library.activity.find(
+      (entry) => entry.report_id === reportId && entry.lead_key === key,
+    );
+    if (!row) return;
+    row.outreach_status = normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO;
+    row.contacted_at = lead.contactedAt || null;
+    state.library.analytics = buildOutreachAnalytics({
+      leads: state.library.activity,
+      reports: state.library.reports,
+      account: accountAnalyticsLabel(),
+    });
+    renderDashboard();
+  }
+
   function syncSavedLead(lead) {
     const reportId = state.results?.savedReportId;
     const sb = supabaseClient();
     if (!reportId || !lead || !isAuthed() || !sb) return;
     const key = lead.outreachKey || outreachKeyForLead(lead);
     if (!key) return;
+    recordSavedLeadActivity(lead);
     const patch = {
       outreach_status: normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO,
       outreach_note: normalizeOutreachNote(lead.outreachNote) || null,
@@ -5938,6 +6142,10 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
           Array.isArray(config.minStars) && config.minStars.length
             ? config.minStars
             : FALLBACK_CONFIG.minStars,
+        minReviews:
+          Array.isArray(config.minReviews) && config.minReviews.length
+            ? config.minReviews
+            : FALLBACK_CONFIG.minReviews,
       };
       const supabase = config.supabase || {};
       state.config.supabase = supabase;
@@ -5952,9 +6160,10 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       }
       renderFooterVersion(config.appVersion);
       if (els.sidebarVersion) {
-        els.sidebarVersion.textContent = `Version ${config.appVersion || "1.6.1"}`;
+        els.sidebarVersion.textContent = `Version ${config.appVersion || "1.7.0"}`;
       }
       populateMinStars();
+      populateMinReviews();
       setRangeBounds();
       syncRangeVisual();
       updateEstimate();
@@ -5969,8 +6178,6 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       cacheElements();
       bindEvents();
       announceUpdatedBuild();
-      populateMinStars();
-      setRangeBounds();
       // The account copy loads after sign-in; localStorage is only a cache and
       // migration source, never the token's home.
       state.token = "";
@@ -5980,13 +6187,18 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       renderScriptPlaceholders();
       renderScriptChip();
       const savedBrief = readBrief();
+      populateMinStars();
+      populateMinReviews();
+      setRangeBounds();
+      syncRangeVisual();
+
+      await loadConfig();
+      // Apply the saved brief after config has filled both minimum selects.
       if (savedBrief) applyBrief(savedBrief);
       syncRangeVisual();
       syncWebsiteState();
       updateEstimate();
       updateKeyUI();
-
-      await loadConfig();
       startUpdatePolling();
 
       const sb = supabaseClient();

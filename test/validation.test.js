@@ -55,6 +55,7 @@ describe('normalizeScanRequest', () => {
       contactsSuppressed: false,
       maxResults: 40,
       minStars: '',
+      minReviews: 10,
       skipClosed: true,
     });
   });
@@ -123,6 +124,31 @@ describe('normalizeScanRequest', () => {
       400,
       'VALIDATION_ERROR',
     );
+  });
+
+  it('defaults the review gate to ten unless it is explicitly cleared', () => {
+    assert.equal(normalizeScanRequest(baseQuery()).minReviews, 10);
+    assert.equal(normalizeScanRequest(baseQuery({ minReviews: null })).minReviews, 10);
+    assert.equal(normalizeScanRequest(baseQuery({ minReviews: '' })).minReviews, 0);
+    assert.equal(normalizeScanRequest(baseQuery({ minReviews: 'all' })).minReviews, 0);
+    assert.equal(normalizeScanRequest(baseQuery({ minReviews: 'any' })).minReviews, 0);
+  });
+
+  it('accepts whole-number review minimums from zero to one thousand', () => {
+    assert.equal(normalizeScanRequest(baseQuery({ minReviews: 0 })).minReviews, 0);
+    assert.equal(normalizeScanRequest(baseQuery({ minReviews: '25' })).minReviews, 25);
+    assert.equal(normalizeScanRequest(baseQuery({ minReviews: '1,000' })).minReviews, 1000);
+    assert.equal(normalizeScanRequest(baseQuery({ minReviews: 1000 })).minReviews, 1000);
+  });
+
+  it('rejects malformed review minimums', () => {
+    for (const minReviews of [-1, 1001, 1.5, '4.5', 'lots', true]) {
+      expectApiError(
+        () => normalizeScanRequest(baseQuery({ minReviews })),
+        400,
+        'VALIDATION_ERROR',
+      );
+    }
   });
 
   it('rejects non-object bodies', () => {
@@ -216,6 +242,7 @@ describe('createRunPlan', () => {
     assert.equal(plan.cost.estimateUsd, 2.257);
     assert.deepEqual(plan.notices, [
       'Large scans can take several minutes and use more Apify credits.',
+      "Leads with fewer than 10 reviews are removed after the scan. Apify's actor has no review-count filter, so fewer places may come back than requested.",
     ]);
   });
 
@@ -225,7 +252,24 @@ describe('createRunPlan', () => {
     assert.equal(plan.actorInput.scrapeContacts, false);
     assert.deepEqual(plan.notices, [
       'Contact enrichment was turned off because the scan is limited to places without a website.',
+      "Leads with fewer than 10 reviews are removed after the scan. Apify's actor has no review-count filter, so fewer places may come back than requested.",
     ]);
+  });
+
+  it('names the configured review gate in the notice', () => {
+    const plan = createRunPlan(baseQuery({ minReviews: '50' }));
+
+    assert.equal(plan.query.minReviews, 50);
+    assert.ok(plan.notices[0].startsWith('Leads with fewer than 50 reviews'));
+    assert.equal('minReviews' in plan.actorInput, false);
+    assert.equal('reviewCount' in plan.actorInput, false);
+  });
+
+  it('drops the review notice when the gate is cleared', () => {
+    const plan = createRunPlan(baseQuery({ minReviews: 0 }));
+
+    assert.equal(plan.query.minReviews, 0);
+    assert.deepEqual(plan.notices, []);
   });
 });
 
