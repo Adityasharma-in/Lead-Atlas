@@ -354,5 +354,7 @@
       smoke: a stored session on `/` reached `app.html#dashboard` instead of staying on the
       marketing page; the fake token was then rejected, returned to sign-in, and both the
       session and dashboard cache were cleared.
-- [ ] B7: New branch + PR stacked on the 1.8.0 PR, with a plain-language PR description.
+- [x] B7: `feat/instant-dashboard-session` pushed; PR #2 opened against
+      `feat/outreach-dashboard-stable-leads` with `PR-1.9.0.md` as the description —
+      https://github.com/Adityasharma-in/Lead-Atlas/pull/2.
 

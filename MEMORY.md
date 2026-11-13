@@ -39,8 +39,10 @@ magic-link, and password-recovery emails on the live domain.
   parse/serialize/version/cap/corruption paths and the guard’s stored, missing, malformed
   and blocked-storage cases are covered.
 - Version: 1.8.0 → 1.9.0. No schema, RLS, CSP, API-shape or dependency changes.
-- PR: stacked on `feat/outreach-dashboard-stable-leads` (PR #1) while PR #1 is open, so the
-  1.8.0 work is not duplicated.
+- PR: branch `feat/instant-dashboard-session`; PR #2
+  (https://github.com/Adityasharma-in/Lead-Atlas/pull/2) is stacked on
+  `feat/outreach-dashboard-stable-leads` (PR #1) while PR #1 is open, so the 1.8.0 work is
+  not duplicated.
 
 ## Outreach dashboard, accurate leads, stable indexes, review gate and filter repair (2026-11-13)
 - Goal: show daily and monthly outreach performance, remove scrape/import mismatches and
