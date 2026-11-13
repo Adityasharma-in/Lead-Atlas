@@ -329,3 +329,30 @@
       iframe smoke at 390 px and 1280 px found no horizontal overflow, the analytics
       section visible, review controls present, and `#filterOutreach` gone.
 
+## Feature: instant workspace boot and signed-in home redirect (2026-11-13)
+
+### Work
+- [x] B1: `public/boot-cache-core.js` — validated, user-scoped cache snapshots for the
+      dashboard (reports, stats, activity) and server config. Pure parse/serialize helpers
+      with versioning, size caps (200 reports / 5,000 activity rows) and corrupt/outdated
+      data rejection.
+- [x] B2: `public/session-guard.js` — a tiny blocking head script for the marketing home:
+      when both stored Supabase tokens exist, replace `/` with `/app.html#dashboard` before
+      the page paints. Never runs on other public pages; malformed storage or blocked
+      navigation leaves the page usable.
+- [x] B3: `public/index.html` — loads the guard in the `<head>` so a signed-in visit never
+      flashes the landing page.
+- [x] B4: `public/app.js` — boots from the cached config and dashboard snapshot, shows the
+      workspace and target view immediately, refreshes profile/scripts/library together,
+      fetches reports + counts + activity in one `Promise.allSettled`, keeps cached data on
+      a failed refresh, writes the cache after loads and marks, and clears it on sign-out.
+- [x] B5: Tests — `test/boot-cache-core.test.js` and `test/session-guard.test.js` cover
+      parse/serialize, versioning, caps, corrupt entries, and redirects for stored,
+      missing, malformed and blocked sessions. Full suite 310/310.
+- [x] B6: Docs + verification — README/TASKS/MEMORY updated, version 1.8.0 → 1.9.0,
+      `npm test` 310/310, `node --check` green on all touched modules, and a local browser
+      smoke: a stored session on `/` reached `app.html#dashboard` instead of staying on the
+      marketing page; the fake token was then rejected, returned to sign-in, and both the
+      session and dashboard cache were cleared.
+- [ ] B7: New branch + PR stacked on the 1.8.0 PR, with a plain-language PR description.
+

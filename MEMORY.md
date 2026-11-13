@@ -4,14 +4,43 @@
 
 ## Current Phase: SHIP — live on Vercel at https://lead-atlas-ochre.vercel.app; Supabase email redirect allowlist pending
 
-## Last Completed Task: Outreach dashboard, accurate leads, stable indexes, review gate and filter repair (2026-11-13)
+## Last Completed Task: Instant workspace boot and signed-in home redirect (2026-11-13)
 
-## Next Task: In Supabase **Authentication → URL Configuration**, set the Site URL to
-`https://lead-atlas-ochre.vercel.app` and add
+## Next Task: Merge PR #1 (`feat/outreach-dashboard-stable-leads`), then PR #2
+(`feat/instant-dashboard-session`, stacked on PR #1), and let the GitHub-connected Vercel
+project build `main`. In Supabase **Authentication → URL Configuration**, set the Site URL
+to `https://lead-atlas-ochre.vercel.app` and add
 `https://lead-atlas-ochre.vercel.app/auth.html` plus
-`https://lead-atlas-ochre.vercel.app/**` to Redirect URLs. Then test confirmation,
-magic-link, and password-recovery emails on the live domain. After that, commit and push
-the working tree so the GitHub-connected project can build future deploys from source.
+`https://lead-atlas-ochre.vercel.app/**` to Redirect URLs, then test confirmation,
+magic-link, and password-recovery emails on the live domain.
+
+## Instant workspace boot and signed-in home redirect (2026-11-13)
+- Goal: a signed-in visit must not flash the marketing home page, and the dashboard must
+  paint without waiting for visible Supabase round trips.
+- Guard: `public/session-guard.js` is a tiny classic script loaded in `index.html`’s
+  `<head>`. It redirects `/` and `/index.html` to `/app.html#dashboard` only when both
+  access and refresh tokens exist; malformed storage or blocked navigation leaves the
+  marketing page usable. Other public pages and `auth.html` are never touched.
+- Cache: `public/boot-cache-core.js` owns versioned, account-scoped snapshots. The dashboard
+  key is `leadAtlas.dashboardCache.v1.<user-id>` (recent reports, stats, up to 5,000
+  activity rows); the public server config is `leadAtlas.config.v1`. Both reject corrupt or
+  outdated entries and drop unusable rows; dashboard caps are 200 reports / 5,000 activity
+  rows.
+- Boot: `enterApp()` hydrates the snapshot, reveals the shell, paints the dashboard and
+  library, and opens the deep-linked view before any request. Profile, scripts and library
+  then refresh together through one `Promise.allSettled`; `loadLibrary()` fetches reports,
+  three counts and activity in one `Promise.allSettled` instead of sequentially. A failed
+  refresh keeps the cached copy visible.
+- Invalidation: the dashboard cache is rewritten after a successful library load and after
+  an outreach mark (`recordSavedLeadActivity`), skips identical writes, and is removed on
+  sign-out and `SIGNED_OUT`. Sign-out also clears in-memory reports, activity and analytics.
+- Verification: `npm test` 310/310 (new `test/boot-cache-core.test.js` and
+  `test/session-guard.test.js`), `node --check` green on the touched modules. Cache
+  parse/serialize/version/cap/corruption paths and the guard’s stored, missing, malformed
+  and blocked-storage cases are covered.
+- Version: 1.8.0 → 1.9.0. No schema, RLS, CSP, API-shape or dependency changes.
+- PR: stacked on `feat/outreach-dashboard-stable-leads` (PR #1) while PR #1 is open, so the
+  1.8.0 work is not duplicated.
 
 ## Outreach dashboard, accurate leads, stable indexes, review gate and filter repair (2026-11-13)
 - Goal: show daily and monthly outreach performance, remove scrape/import mismatches and
@@ -387,10 +416,10 @@ the working tree so the GitHub-connected project can build future deploys from s
   (scratch edit was disposable; recovery path itself covered by unit tests).
 
 ## Active Context
-- Current app version: `1.8.0` (outreach analytics, stable lead identity and numbering,
-  review quality gate, account-backed call scripts, multipage
-  public site, account-only workspace/library, deep-linkable workspace routes and the
-  account-bound Apify key).
+- Current app version: `1.9.0` (instant dashboard boot from an account-scoped cache,
+  signed-in home redirect, outreach analytics, stable lead identity and numbering, review
+  quality gate, account-backed call scripts, multipage public site, account-only
+  workspace/library, deep-linkable workspace routes and the account-bound Apify key).
 - Live deployment: `https://lead-atlas-ochre.vercel.app` (Vercel project `lead-atlas`,
   Express preset, one serverless function, `SELF_UPDATE=off`).
 - Repo: git clone of https://github.com/Adityasharma-in/Lead-Atlas.git (branch `main`),
@@ -457,6 +486,8 @@ the working tree so the GitHub-connected project can build future deploys from s
 - `public/supabase-client.js` — `createClient`, auth API, session refresh, PKCE redirect
   handling, PostgREST CRUD/count. Session key `leadAtlas.supabaseSession.v1`.
 - `public/account-core.js` — pure account-token precedence and missing-column rules.
+- `public/boot-cache-core.js` — validated dashboard/config snapshots for instant boot.
+- `public/session-guard.js` — signed-in home → `app.html#dashboard` redirect.
 - `public/site.js` — public nav, mobile menu, reveal motion, active link, version label,
   sign-out notice.
 - `public/auth-page.js` — standalone auth controller; owns all auth UI/logic, mode tabs,
@@ -500,13 +531,12 @@ the working tree so the GitHub-connected project can build future deploys from s
 - Deployment Protection: Vercel Authentication disabled.
 
 ## Blockers
+- PR #2 is stacked on PR #1. Merge PR #1 first, or let GitHub retarget PR #2 to `main`
+  after #1 lands, so the 1.8.0 changes are not duplicated.
 - Supabase Auth → URL Configuration still needs the Vercel production origin:
   `https://lead-atlas-ochre.vercel.app/auth.html` and
   `https://lead-atlas-ochre.vercel.app/**`. Without it, confirmation, magic-link, and
   recovery emails fail on the live domain. Password sign-in works.
-- The working tree is uncommitted. Git-triggered Vercel builds still use `df898b2`, whose
-  server default export hangs; only CLI deployments from this working tree contain the
-  serverless fix.
 
 ## Decisions Made This Session
 - Vercel uses the zero-config Express preset: `src/server.js` default-exports one lazy
