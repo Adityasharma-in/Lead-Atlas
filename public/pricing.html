@@ -3,27 +3,28 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f4eee0" />
+    <meta name="theme-color" content="#F2F3EB" />
     <title>Pricing & FAQ — Lead Atlas</title>
     <meta name="description" content="Lead Atlas is free. Connect your own Apify account and pay only for the Google Maps scans you run. Read the pricing breakdown and common questions." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=Spline+Sans+Mono:ital,wght@0,300..700;1,300..700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/workspace.css" />
+    <link rel="stylesheet" href="/atlas.css" />
   </head>
-  <body class="is-landing">
+  <body class="is-landing" data-page="pricing">
     <a class="skip-link" href="#top">Skip to the content</a>
 
     <svg class="icon-sprite" aria-hidden="true">
       <symbol id="i-compass" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.4" />
         <path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1 5.1-2.1Z" fill="currentColor" />
-        <circle cx="12" cy="12" r="1.1" fill="var(--paper, #f4eee0)" />
+        <circle cx="12" cy="12" r="1.1" fill="var(--paper, #F2F3EB)" />
       </symbol>
       <symbol id="i-arrow" viewBox="0 0 24 24">
         <path d="M5 19 19 5M8 5h11v11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
@@ -359,29 +360,33 @@
                 <svg viewBox="0 0 700 420">
                   <defs>
                     <pattern id="finalGrid" width="36" height="36" patternUnits="userSpaceOnUse">
-                      <path d="M36 0H0v36" fill="none" stroke="#d7cbb5" stroke-width=".5" />
+                      <path d="M36 0H0v36" fill="none" stroke="#f2f3eb" stroke-width=".5" opacity=".13" />
                     </pattern>
                   </defs>
-                  <rect width="700" height="420" fill="url(#finalGrid)" opacity=".55" />
-                  <g fill="none" stroke="#c9bda6" stroke-width="1" opacity=".7">
+                  <rect width="700" height="420" fill="url(#finalGrid)" />
+                  <g fill="none" stroke="#f2f3eb" stroke-width="1" opacity=".16">
                     <path d="M-20 90c90-30 150 20 230 0s120-60 210-30 140 10 280 50" />
                     <path d="M-20 210c100-20 150 40 250 10s140-60 240-20 140 20 230 30" />
                     <path d="M-20 330c100-30 170 20 260 0s130-50 230-20 120 10 230 20" />
                     <path d="M120-20c-10 100 20 180 10 280s-30 120-10 200" />
                     <path d="M420-20c-20 100 20 180 0 280s-30 120-10 200" />
                   </g>
-                  <path d="M60 360c100-80 160-120 250-140s130-80 250-90" fill="none" stroke="#cf5521" stroke-width="2" stroke-dasharray="7 9" />
-                  <g fill="#cf5521">
+                  <g fill="none" stroke="#c8f14a" stroke-width=".8" opacity=".35">
+                    <path d="M-20 150c120-20 190 30 290 6s160-40 260-16 120 10 190 16" stroke-dasharray="3 8" />
+                    <path d="M250-20c-6 110 14 190 6 290s-22 100-6 170" stroke-dasharray="2 7" />
+                  </g>
+                  <path d="M60 360c100-80 160-120 250-140s130-80 250-90" fill="none" stroke="#c8f14a" stroke-width="2" stroke-dasharray="7 9" />
+                  <g fill="#c8f14a">
                     <circle cx="60" cy="360" r="5" />
                     <circle cx="560" cy="130" r="5" />
                   </g>
-                  <g transform="translate(220 160)" fill="#1e3a2c">
+                  <g transform="translate(220 160)" fill="#f2f3eb">
                     <path d="M0-16c-7 0-13 6-13 13 0 9 13 21 13 21S13 6 13-3c0-7-6-13-13-13Z" />
-                    <circle cy="-3" r="4.2" fill="#f4eee0" />
+                    <circle cy="-3" r="4.2" fill="#0c1611" />
                   </g>
-                  <g transform="translate(480 260)" fill="#1e3a2c">
+                  <g transform="translate(480 260)" fill="#f2f3eb">
                     <path d="M0-16c-7 0-13 6-13 13 0 9 13 21 13 21S13 6 13-3c0-7-6-13-13-13Z" />
-                    <circle cy="-3" r="4.2" fill="#f4eee0" />
+                    <circle cy="-3" r="4.2" fill="#0c1611" />
                   </g>
                 </svg>
               </div>

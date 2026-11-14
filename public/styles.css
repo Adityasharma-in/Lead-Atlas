@@ -3,24 +3,24 @@
    ============================================================ */
 
 :root {
-  --paper: #f4eee0;
-  --paper-2: #ece4d3;
-  --paper-3: #ded3be;
-  --white: #fbf7ec;
-  --ink: #18251d;
-  --ink-soft: #37473c;
-  --muted: #595d52;
-  --muted-2: #62665b;
-  --forest: #1e3a2c;
-  --forest-2: #2b503c;
-  --moss: #7e927e;
-  --orange: #cf5521;
-  --orange-deep: #a83e14;
-  --amber: #dba648;
-  --line: #d2c7b2;
-  --line-dark: #a99c85;
-  --danger: #a62f25;
-  --ok: #2f6b46;
+  --paper: #f3effc;
+  --paper-2: #e9e1f8;
+  --paper-3: #d9ccef;
+  --white: #fdfbff;
+  --ink: #1c0033;
+  --ink-soft: #3f1a60;
+  --muted: #65527d;
+  --muted-2: #756387;
+  --forest: #240046;
+  --forest-2: #3c096c;
+  --moss: #9d4edd;
+  --orange: #ff6d00;
+  --orange-deep: #d95a00;
+  --amber: #ff9e00;
+  --line: #d8cbea;
+  --line-dark: #b49ed2;
+  --danger: #b3125b;
+  --ok: #ff9100;
   --serif: "Fraunces", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   --sans: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
   --mono: "DM Mono", "Courier New", monospace;
@@ -46,8 +46,8 @@ body {
   margin: 0;
   min-width: 320px;
   background:
-    radial-gradient(ellipse 80% 50% at 12% 0%, rgba(219, 166, 72, 0.1), transparent 70%),
-    linear-gradient(180deg, #f6f0e3 0%, var(--paper) 55%, #f1eadb 100%);
+    radial-gradient(ellipse 80% 50% at 12% 0%, rgba(255, 158, 0, 0.1), transparent 70%),
+    linear-gradient(180deg, #f4efff 0%, var(--paper) 55%, #ece4fa 100%);
   color: var(--ink);
   font-family: var(--sans);
   font-size: 16px;
@@ -194,7 +194,7 @@ hr {
 }
 
 .eyebrow.light {
-  color: rgba(244, 238, 224, 0.58);
+  color: rgba(243, 239, 252, 0.58);
 }
 
 .mono-label {
@@ -239,7 +239,7 @@ hr {
 }
 
 .btn:hover {
-  background: rgba(24, 37, 29, 0.05);
+  background: rgba(28, 0, 51, 0.05);
 }
 
 .btn:active {
@@ -284,7 +284,7 @@ hr {
 
 .btn-outline {
   border-color: var(--line-dark);
-  background: rgba(251, 247, 236, 0.55);
+  background: rgba(253, 251, 255, 0.55);
 }
 
 .btn-outline:hover {
@@ -293,13 +293,13 @@ hr {
 }
 
 .btn-outline-light {
-  border-color: rgba(244, 238, 224, 0.38);
+  border-color: rgba(243, 239, 252, 0.38);
   color: var(--paper);
 }
 
 .btn-outline-light:hover {
   border-color: var(--paper);
-  background: rgba(244, 238, 224, 0.08);
+  background: rgba(243, 239, 252, 0.08);
 }
 
 .btn-quiet {
@@ -411,13 +411,13 @@ hr {
   top: 0;
   z-index: 100;
   border-bottom: 1px solid var(--line);
-  background: rgba(244, 238, 224, 0.9);
+  background: rgba(243, 239, 252, 0.9);
   backdrop-filter: blur(16px) saturate(1.1);
   transition: box-shadow 0.25s var(--ease);
 }
 
 .site-header.is-scrolled {
-  box-shadow: 0 10px 30px rgba(24, 37, 29, 0.08);
+  box-shadow: 0 10px 30px rgba(28, 0, 51, 0.08);
 }
 
 .header-inner {
@@ -554,14 +554,14 @@ hr {
 }
 
 .key-chip.is-connected {
-  border-color: rgba(47, 107, 70, 0.5);
-  background: rgba(47, 107, 70, 0.06);
+  border-color: rgba(255, 145, 0, 0.5);
+  background: rgba(255, 145, 0, 0.06);
   color: var(--ok);
 }
 
 .key-chip.is-invalid {
-  border-color: rgba(166, 47, 37, 0.5);
-  background: rgba(166, 47, 37, 0.05);
+  border-color: rgba(179, 18, 91, 0.5);
+  background: rgba(179, 18, 91, 0.05);
   color: var(--danger);
 }
 
@@ -572,18 +572,18 @@ hr {
   flex: none;
   border-radius: 50%;
   background: var(--orange);
-  box-shadow: 0 0 0 3px rgba(207, 85, 33, 0.13);
+  box-shadow: 0 0 0 3px rgba(255, 109, 0, 0.13);
   transition: background 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
 
 .is-connected .key-dot {
   background: var(--ok);
-  box-shadow: 0 0 0 3px rgba(47, 107, 70, 0.13);
+  box-shadow: 0 0 0 3px rgba(255, 145, 0, 0.13);
 }
 
 .is-invalid .key-dot {
   background: var(--danger);
-  box-shadow: 0 0 0 3px rgba(166, 47, 37, 0.13);
+  box-shadow: 0 0 0 3px rgba(179, 18, 91, 0.13);
 }
 
 /* ---------- hero ---------- */
@@ -704,7 +704,7 @@ hr {
   padding: 11px;
   border: 1px solid var(--ink);
   background: var(--forest);
-  box-shadow: 20px 22px 0 rgba(24, 37, 29, 0.09);
+  box-shadow: 20px 22px 0 rgba(28, 0, 51, 0.09);
   overflow: hidden;
 }
 
@@ -712,7 +712,7 @@ hr {
   content: "";
   position: absolute;
   inset: 11px;
-  border: 1px solid rgba(24, 37, 29, 0.18);
+  border: 1px solid rgba(28, 0, 51, 0.18);
   pointer-events: none;
   z-index: 1;
 }
@@ -728,15 +728,15 @@ hr {
 .map-corner-a {
   top: 4px;
   left: 4px;
-  border-top: 1px solid rgba(244, 238, 224, 0.55);
-  border-left: 1px solid rgba(244, 238, 224, 0.55);
+  border-top: 1px solid rgba(243, 239, 252, 0.55);
+  border-left: 1px solid rgba(243, 239, 252, 0.55);
 }
 
 .map-corner-b {
   right: 4px;
   bottom: 4px;
-  border-right: 1px solid rgba(244, 238, 224, 0.55);
-  border-bottom: 1px solid rgba(244, 238, 224, 0.55);
+  border-right: 1px solid rgba(243, 239, 252, 0.55);
+  border-bottom: 1px solid rgba(243, 239, 252, 0.55);
 }
 
 .map-topline {
@@ -762,7 +762,7 @@ hr {
   display: block;
   width: 100%;
   height: auto;
-  background: #e9e0cc;
+  background: #e4dbf5;
 }
 
 .map-label {
@@ -774,8 +774,8 @@ hr {
   max-width: 210px;
   padding: 7px 9px 7px 7px;
   border: 1px solid var(--ink);
-  background: rgba(251, 247, 236, 0.96);
-  box-shadow: 3px 3px 0 rgba(24, 37, 29, 0.18);
+  background: rgba(253, 251, 255, 0.96);
+  box-shadow: 3px 3px 0 rgba(28, 0, 51, 0.18);
   animation: pinIn 0.55s var(--ease) both;
 }
 
@@ -844,8 +844,8 @@ hr {
   flex-direction: column;
   align-items: center;
   padding: 6px 9px;
-  border: 2px solid rgba(30, 58, 44, 0.72);
-  color: rgba(30, 58, 44, 0.78);
+  border: 2px solid rgba(36, 0, 70, 0.72);
+  color: rgba(36, 0, 70, 0.78);
   font-family: var(--mono);
   font-size: 6.5px;
   letter-spacing: 0.18em;
@@ -867,7 +867,7 @@ hr {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: rgba(30, 58, 44, 0.72);
+  color: rgba(36, 0, 70, 0.72);
   font-family: var(--mono);
   font-size: 6.5px;
   letter-spacing: 0.08em;
@@ -877,7 +877,7 @@ hr {
 .map-scale-line {
   width: 42px;
   height: 5px;
-  border: 1px solid rgba(30, 58, 44, 0.6);
+  border: 1px solid rgba(36, 0, 70, 0.6);
   border-top: 0;
 }
 
@@ -963,7 +963,7 @@ hr {
   border-top: 4px solid var(--forest);
   border-radius: var(--radius);
   background: var(--white);
-  box-shadow: 10px 10px 0 rgba(24, 37, 29, 0.055);
+  box-shadow: 10px 10px 0 rgba(28, 0, 51, 0.055);
 }
 
 .brief-card-top {
@@ -1052,9 +1052,9 @@ hr {
 .field select {
   width: 100%;
   height: 50px;
-  border: 1px solid #c7bba4;
+  border: 1px solid #c3b0de;
   border-radius: 3px;
-  background: #faf6eb;
+  background: #faf7ff;
   color: var(--ink);
   font-family: var(--sans);
   font-size: 14.5px;
@@ -1066,7 +1066,7 @@ hr {
 }
 
 .field input[type="text"]::placeholder {
-  color: #9c9481;
+  color: #8f7aa8;
   font-size: 13.5px;
 }
 
@@ -1075,12 +1075,12 @@ hr {
   outline: none;
   border-color: var(--forest);
   background: var(--white);
-  box-shadow: 0 0 0 3px rgba(30, 58, 44, 0.11);
+  box-shadow: 0 0 0 3px rgba(36, 0, 70, 0.11);
 }
 
 .field input.is-invalid {
   border-color: var(--danger);
-  background: #fdf3ef;
+  background: #fdf1f7;
 }
 
 .hint {
@@ -1094,7 +1094,7 @@ hr {
   margin: 7px 0 0;
   padding: 5px 8px;
   border-left: 2px solid var(--danger);
-  background: rgba(166, 47, 37, 0.055);
+  background: rgba(179, 18, 91, 0.055);
   color: var(--danger);
   font-size: 11px;
   line-height: 1.45;
@@ -1146,7 +1146,7 @@ hr {
   padding: 11px;
   border: 1px solid var(--line-dark);
   border-radius: 3px;
-  background: #faf6eb;
+  background: #faf7ff;
   transition: background 0.18s var(--ease), border-color 0.18s var(--ease), color 0.18s var(--ease), transform 0.18s var(--ease);
 }
 
@@ -1185,7 +1185,7 @@ hr {
 .radio-card input:checked + .radio-card-body {
   border-color: var(--forest);
   background: var(--forest);
-  box-shadow: inset 0 0 0 1px var(--forest), 3px 3px 0 rgba(207, 85, 33, 0.28);
+  box-shadow: inset 0 0 0 1px var(--forest), 3px 3px 0 rgba(255, 109, 0, 0.28);
   color: var(--paper);
 }
 
@@ -1194,7 +1194,7 @@ hr {
 }
 
 .radio-card input:checked + .radio-card-body small {
-  color: rgba(244, 238, 224, 0.62);
+  color: rgba(243, 239, 252, 0.62);
 }
 
 .radio-card input:focus-visible + .radio-card-body {
@@ -1369,7 +1369,7 @@ hr {
   border: 2px solid var(--ink);
   border-radius: 50%;
   background: var(--paper);
-  box-shadow: 0 0 0 3px rgba(207, 85, 33, 0.13);
+  box-shadow: 0 0 0 3px rgba(255, 109, 0, 0.13);
 }
 
 .range-field input[type="range"]::-moz-range-thumb {
@@ -1415,9 +1415,9 @@ hr {
 .form-alert {
   margin-top: 20px;
   padding: 12px 14px;
-  border: 1px solid rgba(166, 47, 37, 0.4);
+  border: 1px solid rgba(179, 18, 91, 0.4);
   border-left: 3px solid var(--danger);
-  background: rgba(166, 47, 37, 0.055);
+  background: rgba(179, 18, 91, 0.055);
   color: var(--danger);
   font-size: 12px;
   line-height: 1.55;
@@ -1452,7 +1452,7 @@ hr {
 
 .brief-connection.is-connected .key-dot {
   background: var(--ok);
-  box-shadow: 0 0 0 3px rgba(47, 107, 70, 0.13);
+  box-shadow: 0 0 0 3px rgba(255, 145, 0, 0.13);
 }
 
 .brief-connection.is-invalid {
@@ -1551,7 +1551,7 @@ hr {
   border: 1px solid var(--ink);
   background: var(--forest);
   color: var(--paper);
-  box-shadow: 6px 6px 0 rgba(24, 37, 29, 0.09);
+  box-shadow: 6px 6px 0 rgba(28, 0, 51, 0.09);
 }
 
 .estimate-card::before {
@@ -1561,12 +1561,12 @@ hr {
   top: -100px;
   width: 260px;
   height: 260px;
-  border: 1px solid rgba(244, 238, 224, 0.12);
+  border: 1px solid rgba(243, 239, 252, 0.12);
   border-radius: 50%;
   box-shadow:
-    0 0 0 26px rgba(244, 238, 224, 0.035),
-    0 0 0 54px rgba(244, 238, 224, 0.03),
-    0 0 0 84px rgba(244, 238, 224, 0.025);
+    0 0 0 26px rgba(243, 239, 252, 0.035),
+    0 0 0 54px rgba(243, 239, 252, 0.03),
+    0 0 0 84px rgba(243, 239, 252, 0.025);
   pointer-events: none;
 }
 
@@ -1577,7 +1577,7 @@ hr {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  color: rgba(244, 238, 224, 0.65);
+  color: rgba(243, 239, 252, 0.65);
   font-family: var(--mono);
   font-size: 8px;
   letter-spacing: 0.16em;
@@ -1589,7 +1589,7 @@ hr {
   align-items: center;
   gap: 5px;
   padding: 4px 7px;
-  border: 1px solid rgba(219, 166, 72, 0.35);
+  border: 1px solid rgba(255, 158, 0, 0.35);
   color: var(--amber);
   font-size: 7px;
   letter-spacing: 0.12em;
@@ -1607,11 +1607,11 @@ hr {
   0%,
   100% {
     opacity: 1;
-    box-shadow: 0 0 0 0 rgba(219, 166, 72, 0.35);
+    box-shadow: 0 0 0 0 rgba(255, 158, 0, 0.35);
   }
   50% {
     opacity: 0.55;
-    box-shadow: 0 0 0 4px rgba(219, 166, 72, 0);
+    box-shadow: 0 0 0 4px rgba(255, 158, 0, 0);
   }
 }
 
@@ -1643,7 +1643,7 @@ hr {
 
 .estimate-number .currency-code {
   margin-left: 3px;
-  color: rgba(244, 238, 224, 0.5);
+  color: rgba(243, 239, 252, 0.5);
   font-family: var(--mono);
   font-size: 8px;
   letter-spacing: 0.1em;
@@ -1653,7 +1653,7 @@ hr {
   position: relative;
   z-index: 1;
   margin: 0 0 17px;
-  color: rgba(244, 238, 224, 0.62);
+  color: rgba(243, 239, 252, 0.62);
   font-size: 10.5px;
   line-height: 1.5;
 }
@@ -1670,11 +1670,11 @@ hr {
   justify-content: space-between;
   gap: 12px;
   padding: 8px 0;
-  border-top: 1px solid rgba(244, 238, 224, 0.14);
+  border-top: 1px solid rgba(243, 239, 252, 0.14);
 }
 
 .estimate-rows dt {
-  color: rgba(244, 238, 224, 0.6);
+  color: rgba(243, 239, 252, 0.6);
   font-size: 10.5px;
 }
 
@@ -1691,7 +1691,7 @@ hr {
   position: relative;
   z-index: 1;
   margin: 15px 0 12px;
-  color: rgba(244, 238, 224, 0.46);
+  color: rgba(243, 239, 252, 0.46);
   font-size: 9px;
   line-height: 1.6;
 }
@@ -1702,7 +1702,7 @@ hr {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border-bottom: 1px solid rgba(219, 166, 72, 0.35);
+  border-bottom: 1px solid rgba(255, 158, 0, 0.35);
   color: var(--amber);
   font-family: var(--mono);
   font-size: 7.5px;
@@ -1724,7 +1724,7 @@ hr {
 .output-card {
   padding: 21px 22px;
   border: 1px solid var(--line-dark);
-  background: rgba(251, 247, 236, 0.55);
+  background: rgba(253, 251, 255, 0.55);
 }
 
 .output-list {
@@ -1795,7 +1795,7 @@ hr {
   gap: 7px;
   align-items: center;
   padding: 6px 0;
-  border-bottom: 1px solid rgba(169, 156, 133, 0.28);
+  border-bottom: 1px solid rgba(180, 158, 210, 0.28);
   font-family: var(--mono);
   font-size: 7.5px;
   line-height: 1.3;
@@ -1868,8 +1868,8 @@ hr {
   border-top: 1px solid var(--ink);
   border-bottom: 1px solid var(--ink);
   background:
-    radial-gradient(circle at 92% 8%, rgba(219, 166, 72, 0.1), transparent 38%),
-    radial-gradient(circle at 0% 100%, rgba(126, 146, 126, 0.12), transparent 42%),
+    radial-gradient(circle at 92% 8%, rgba(255, 158, 0, 0.1), transparent 38%),
+    radial-gradient(circle at 0% 100%, rgba(157, 78, 221, 0.12), transparent 42%),
     var(--forest);
   color: var(--paper);
 }
@@ -1881,12 +1881,12 @@ hr {
   top: -170px;
   width: 560px;
   height: 560px;
-  border: 1px solid rgba(244, 238, 224, 0.06);
+  border: 1px solid rgba(243, 239, 252, 0.06);
   border-radius: 50%;
   box-shadow:
-    0 0 0 52px rgba(244, 238, 224, 0.022),
-    0 0 0 104px rgba(244, 238, 224, 0.018),
-    0 0 0 156px rgba(244, 238, 224, 0.014);
+    0 0 0 52px rgba(243, 239, 252, 0.022),
+    0 0 0 104px rgba(243, 239, 252, 0.018),
+    0 0 0 156px rgba(243, 239, 252, 0.014);
   pointer-events: none;
 }
 
@@ -1918,7 +1918,7 @@ hr {
 .field-notes-copy > p:not(.eyebrow) {
   max-width: 39ch;
   margin: 24px 0;
-  color: rgba(244, 238, 224, 0.62);
+  color: rgba(243, 239, 252, 0.62);
   font-size: 13px;
   line-height: 1.75;
 }
@@ -1927,8 +1927,8 @@ hr {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1px;
-  border: 1px solid rgba(244, 238, 224, 0.16);
-  background: rgba(244, 238, 224, 0.14);
+  border: 1px solid rgba(243, 239, 252, 0.16);
+  background: rgba(243, 239, 252, 0.14);
 }
 
 .note-card {
@@ -1941,7 +1941,7 @@ hr {
 }
 
 .note-card:hover {
-  background: #244433;
+  background: #2c0854;
 }
 
 .note-number {
@@ -1957,7 +1957,7 @@ hr {
   width: 38px;
   height: 38px;
   margin: 34px 0 18px;
-  border: 1px solid rgba(244, 238, 224, 0.22);
+  border: 1px solid rgba(243, 239, 252, 0.22);
   color: var(--orange);
 }
 
@@ -1977,7 +1977,7 @@ hr {
 
 .note-card p {
   margin: 0;
-  color: rgba(244, 238, 224, 0.58);
+  color: rgba(243, 239, 252, 0.58);
   font-size: 11.5px;
   line-height: 1.7;
 }
@@ -2055,8 +2055,8 @@ hr {
   overflow: hidden;
   padding: clamp(48px, 6vw, 72px) 0 clamp(60px, 7vw, 88px);
   background:
-    radial-gradient(circle at 78% 4%, rgba(219, 166, 72, 0.08), transparent 38%),
-    radial-gradient(circle at 4% 100%, rgba(126, 146, 126, 0.12), transparent 44%),
+    radial-gradient(circle at 78% 4%, rgba(255, 158, 0, 0.08), transparent 38%),
+    radial-gradient(circle at 4% 100%, rgba(157, 78, 221, 0.12), transparent 44%),
     var(--forest);
   color: var(--paper);
 }
@@ -2099,7 +2099,7 @@ hr {
 .progress-sub {
   max-width: 55ch;
   margin: 22px 0 0;
-  color: rgba(244, 238, 224, 0.6);
+  color: rgba(243, 239, 252, 0.6);
   font-size: 13.5px;
   line-height: 1.7;
 }
@@ -2116,8 +2116,8 @@ hr {
   position: relative;
   min-height: 470px;
   overflow: hidden;
-  border: 1px solid rgba(244, 238, 224, 0.22);
-  background: #183024;
+  border: 1px solid rgba(243, 239, 252, 0.22);
+  background: #240046;
 }
 
 .progress-map::after {
@@ -2132,8 +2132,8 @@ hr {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(244, 238, 224, 0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(244, 238, 224, 0.055) 1px, transparent 1px);
+    linear-gradient(rgba(243, 239, 252, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(243, 239, 252, 0.055) 1px, transparent 1px);
   background-size: 42px 42px;
   mask-image: radial-gradient(circle at center, black 30%, transparent 82%);
 }
@@ -2150,10 +2150,10 @@ hr {
     from 0deg,
     transparent 0deg,
     transparent 288deg,
-    rgba(219, 166, 72, 0.025) 300deg,
-    rgba(219, 166, 72, 0.14) 338deg,
-    rgba(219, 166, 72, 0.32) 356deg,
-    rgba(219, 166, 72, 0.42) 360deg
+    rgba(255, 158, 0, 0.025) 300deg,
+    rgba(255, 158, 0, 0.14) 338deg,
+    rgba(255, 158, 0, 0.32) 356deg,
+    rgba(255, 158, 0, 0.42) 360deg
   );
   mask-image: radial-gradient(circle, black 0%, black 50%, transparent 71%);
   animation: sweep 6s linear infinite;
@@ -2172,7 +2172,7 @@ hr {
   left: 20%;
   width: 55%;
   height: 62%;
-  border: 1px dashed rgba(244, 238, 224, 0.16);
+  border: 1px dashed rgba(243, 239, 252, 0.16);
   border-radius: 48% 52% 42% 58% / 55% 44% 56% 45%;
   transform: rotate(-8deg);
 }
@@ -2183,7 +2183,7 @@ hr {
   height: 9px;
   border-radius: 50%;
   background: var(--orange);
-  box-shadow: 0 0 0 5px rgba(207, 85, 33, 0.15), 0 0 18px rgba(207, 85, 33, 0.45);
+  box-shadow: 0 0 0 5px rgba(255, 109, 0, 0.15), 0 0 18px rgba(255, 109, 0, 0.45);
   animation: plotPulse 2.8s ease-in-out infinite;
 }
 
@@ -2191,7 +2191,7 @@ hr {
   content: "";
   position: absolute;
   inset: -4px;
-  border: 1px solid rgba(207, 85, 33, 0.32);
+  border: 1px solid rgba(255, 109, 0, 0.32);
   border-radius: 50%;
 }
 
@@ -2205,7 +2205,7 @@ hr {
   top: 40%;
   left: 65%;
   background: var(--amber);
-  box-shadow: 0 0 0 5px rgba(219, 166, 72, 0.12), 0 0 18px rgba(219, 166, 72, 0.38);
+  box-shadow: 0 0 0 5px rgba(255, 158, 0, 0.12), 0 0 18px rgba(255, 158, 0, 0.38);
   animation-delay: 0.8s;
 }
 
@@ -2225,7 +2225,7 @@ hr {
   top: 48%;
   left: 24%;
   background: var(--paper);
-  box-shadow: 0 0 0 5px rgba(244, 238, 224, 0.1);
+  box-shadow: 0 0 0 5px rgba(243, 239, 252, 0.1);
   animation-delay: 1.5s;
 }
 
@@ -2253,7 +2253,7 @@ hr {
   right: 18px;
   z-index: 2;
   width: 48px;
-  color: rgba(244, 238, 224, 0.55);
+  color: rgba(243, 239, 252, 0.55);
   text-align: center;
 }
 
@@ -2291,7 +2291,7 @@ hr {
 .progress-count small {
   display: block;
   margin-top: 8px;
-  color: rgba(244, 238, 224, 0.45);
+  color: rgba(243, 239, 252, 0.45);
   font-family: var(--mono);
   font-size: 8px;
   letter-spacing: 0.15em;
@@ -2306,7 +2306,7 @@ hr {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  color: rgba(244, 238, 224, 0.4);
+  color: rgba(243, 239, 252, 0.4);
   font-family: var(--mono);
   font-size: 7px;
   letter-spacing: 0.1em;
@@ -2316,7 +2316,7 @@ hr {
 }
 
 .plot-readout span:last-child {
-  color: rgba(219, 166, 72, 0.75);
+  color: rgba(255, 158, 0, 0.75);
 }
 
 .progress-console {
@@ -2440,7 +2440,7 @@ hr {
 .run-steps li.is-active .step-dot {
   border-color: var(--orange);
   background: var(--orange);
-  box-shadow: 0 0 0 4px rgba(207, 85, 33, 0.13);
+  box-shadow: 0 0 0 4px rgba(255, 109, 0, 0.13);
 }
 
 .run-steps li.is-done {
@@ -2486,7 +2486,7 @@ hr {
   margin-top: 30px;
   padding: 24px 26px;
   border: 1px solid rgba(231, 165, 143, 0.5);
-  background: rgba(166, 47, 37, 0.16);
+  background: rgba(179, 18, 91, 0.16);
   color: var(--paper);
 }
 
@@ -2500,7 +2500,7 @@ hr {
   width: 26px;
   height: 26px;
   flex: none;
-  color: #e7a58f;
+  color: #e3c8f2;
 }
 
 .progress-error-head h2 {
@@ -2514,7 +2514,7 @@ hr {
 .progress-error-head p {
   max-width: 70ch;
   margin: 0;
-  color: rgba(244, 238, 224, 0.68);
+  color: rgba(243, 239, 252, 0.68);
   font-size: 12px;
   line-height: 1.6;
 }
@@ -2540,8 +2540,8 @@ hr {
   padding-top: 30px;
   border-bottom: 1px solid var(--ink);
   background:
-    radial-gradient(circle at 100% 0%, rgba(219, 166, 72, 0.11), transparent 34%),
-    linear-gradient(180deg, #f1eadb 0%, var(--paper-2) 100%);
+    radial-gradient(circle at 100% 0%, rgba(255, 158, 0, 0.11), transparent 34%),
+    linear-gradient(180deg, #ece4fa 0%, var(--paper-2) 100%);
 }
 
 .report-hero::before {
@@ -2551,12 +2551,12 @@ hr {
   right: -100px;
   width: 460px;
   height: 460px;
-  border: 1px solid rgba(24, 37, 29, 0.055);
+  border: 1px solid rgba(28, 0, 51, 0.055);
   border-radius: 50%;
   box-shadow:
-    0 0 0 46px rgba(24, 37, 29, 0.02),
-    0 0 0 92px rgba(24, 37, 29, 0.014),
-    0 0 0 138px rgba(24, 37, 29, 0.01);
+    0 0 0 46px rgba(28, 0, 51, 0.02),
+    0 0 0 92px rgba(28, 0, 51, 0.014),
+    0 0 0 138px rgba(28, 0, 51, 0.01);
   pointer-events: none;
 }
 
@@ -2674,7 +2674,7 @@ hr {
 .stats-strip > div {
   min-width: 0;
   padding: 16px 18px 20px;
-  border-right: 1px solid rgba(169, 156, 133, 0.5);
+  border-right: 1px solid rgba(180, 158, 210, 0.5);
 }
 
 .stats-strip > div:first-child {
@@ -2732,7 +2732,7 @@ hr {
   gap: 22px 30px;
   align-items: center;
   padding: 18px 0 22px;
-  border-top: 1px solid rgba(169, 156, 133, 0.55);
+  border-top: 1px solid rgba(180, 158, 210, 0.55);
 }
 
 .outreach-strip.is-empty {
@@ -2784,7 +2784,7 @@ hr {
   margin-top: 8px;
   overflow: hidden;
   border: 1px solid var(--line-dark);
-  background: rgba(251, 247, 236, 0.8);
+  background: rgba(253, 251, 255, 0.8);
 }
 
 .outreach-progress-fill {
@@ -2831,7 +2831,7 @@ hr {
   padding: 7px 9px;
   border: 1px solid var(--line);
   border-radius: 2px;
-  background: rgba(251, 247, 236, 0.55);
+  background: rgba(253, 251, 255, 0.55);
   color: var(--ink-soft);
   text-align: left;
   transition:
@@ -2924,7 +2924,7 @@ hr {
 
 .search-field:focus-within {
   border-color: var(--forest);
-  box-shadow: 0 0 0 3px rgba(30, 58, 44, 0.09);
+  box-shadow: 0 0 0 3px rgba(36, 0, 70, 0.09);
 }
 
 .search-field .icon {
@@ -3138,7 +3138,7 @@ hr {
 }
 
 .leads-table tbody tr:hover {
-  background: rgba(251, 247, 236, 0.7);
+  background: rgba(253, 251, 255, 0.7);
   box-shadow: inset 3px 0 0 var(--orange);
 }
 
@@ -3212,7 +3212,7 @@ hr {
 .closed-badge {
   flex: none;
   padding: 2px 4px;
-  border: 1px solid rgba(166, 47, 37, 0.45);
+  border: 1px solid rgba(179, 18, 91, 0.45);
   color: var(--danger);
   font-size: 6.5px;
   letter-spacing: 0.06em;
@@ -3312,7 +3312,7 @@ a.contact-line:hover {
 }
 
 .call-mark.is-blocked {
-  background: rgba(207, 85, 33, 0.1);
+  background: rgba(255, 109, 0, 0.1);
   color: var(--orange-deep);
 }
 
@@ -3354,7 +3354,7 @@ a.contact-line:hover {
   padding: 0;
   border: 1px solid var(--line-dark);
   border-radius: 2px;
-  background: rgba(251, 247, 236, 0.7);
+  background: rgba(253, 251, 255, 0.7);
   color: var(--muted);
   transition:
     border-color 0.15s var(--ease),
@@ -3461,9 +3461,9 @@ a.contact-line:hover {
   align-items: center;
   gap: 4px;
   padding: 4px 6px;
-  border: 1px solid rgba(207, 85, 33, 0.32);
+  border: 1px solid rgba(255, 109, 0, 0.32);
   border-radius: 2px;
-  background: rgba(207, 85, 33, 0.07);
+  background: rgba(255, 109, 0, 0.07);
   color: var(--orange-deep);
   font-family: var(--mono);
   font-size: 6.5px;
@@ -3668,7 +3668,7 @@ a.contact-line:hover {
 }
 
 .dialog::backdrop {
-  background: rgba(12, 21, 16, 0.58);
+  background: rgba(20, 0, 38, 0.58);
   backdrop-filter: blur(5px);
 }
 
@@ -3696,7 +3696,7 @@ a.contact-line:hover {
   padding: 29px 30px 26px;
   border: 1px solid var(--ink);
   background: var(--paper);
-  box-shadow: 14px 14px 0 rgba(4, 10, 6, 0.22);
+  box-shadow: 14px 14px 0 rgba(24, 0, 45, 0.22);
 }
 
 .key-dialog-head {
@@ -3739,25 +3739,25 @@ a.contact-line:hover {
 }
 
 .key-status.is-connected {
-  border-color: rgba(47, 107, 70, 0.45);
-  background: rgba(47, 107, 70, 0.07);
+  border-color: rgba(255, 145, 0, 0.45);
+  background: rgba(255, 145, 0, 0.07);
   color: var(--ok);
 }
 
 .key-status.is-connected .key-dot {
   background: var(--ok);
-  box-shadow: 0 0 0 3px rgba(47, 107, 70, 0.13);
+  box-shadow: 0 0 0 3px rgba(255, 145, 0, 0.13);
 }
 
 .key-status.is-invalid {
-  border-color: rgba(166, 47, 37, 0.45);
-  background: rgba(166, 47, 37, 0.06);
+  border-color: rgba(179, 18, 91, 0.45);
+  background: rgba(179, 18, 91, 0.06);
   color: var(--danger);
 }
 
 .key-status.is-invalid .key-dot {
   background: var(--danger);
-  box-shadow: 0 0 0 3px rgba(166, 47, 37, 0.13);
+  box-shadow: 0 0 0 3px rgba(179, 18, 91, 0.13);
 }
 
 #keyForm > label {
@@ -3800,7 +3800,7 @@ a.contact-line:hover {
 .key-input-wrap input:focus {
   outline: none;
   border-color: var(--forest);
-  box-shadow: 0 0 0 3px rgba(30, 58, 44, 0.1);
+  box-shadow: 0 0 0 3px rgba(36, 0, 70, 0.1);
 }
 
 .key-reveal {
@@ -3918,7 +3918,7 @@ a.contact-line:hover {
   padding: 29px 30px 26px;
   border-left: 1px solid var(--ink);
   background: var(--paper);
-  box-shadow: -24px 0 60px rgba(4, 10, 6, 0.16);
+  box-shadow: -24px 0 60px rgba(24, 0, 45, 0.16);
 }
 
 .drawer-head {
@@ -4056,7 +4056,7 @@ a.contact-line:hover {
 
 .outreach-choice.is-active {
   border-color: var(--ink);
-  background: #fffdf7;
+  background: #fffdfe;
   box-shadow: inset 3px 0 0 var(--orange);
 }
 
@@ -4174,7 +4174,7 @@ a.contact-line:hover {
 .outreach-note-field textarea:focus {
   border-color: var(--forest);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(30, 58, 44, 0.09);
+  box-shadow: 0 0 0 3px rgba(36, 0, 70, 0.09);
 }
 
 .outreach-note-actions {
@@ -4219,7 +4219,7 @@ a.contact-line:hover {
 
 a.contact-row:hover {
   border-color: var(--ink);
-  background: #fffdf7;
+  background: #fffdfe;
 }
 
 .contact-kind {
@@ -4459,7 +4459,7 @@ a.contact-row:hover {
   flex: none;
   margin: -2px -4px -2px 3px;
   padding: 4px 7px;
-  border: 1px solid rgba(244, 238, 224, 0.38);
+  border: 1px solid rgba(243, 239, 252, 0.38);
   border-radius: 2px;
   background: transparent;
   color: var(--amber);
@@ -4479,17 +4479,17 @@ a.contact-row:hover {
 }
 
 .toast.is-success .icon {
-  color: #9ad2a8;
+  color: #e2c8fa;
 }
 
 .toast.is-error {
-  background: #6e241c;
-  border-color: #40130f;
-  box-shadow: 4px 4px 0 #d98c6a;
+  background: #7d1150;
+  border-color: #4a073b;
+  box-shadow: 4px 4px 0 #d4a6e8;
 }
 
 .toast.is-error .icon {
-  color: #f0b69f;
+  color: #eccdf5;
 }
 
 .toast.is-leaving {
@@ -4520,8 +4520,8 @@ a.contact-row:hover {
   max-width: calc(100vw - 32px);
   padding: 12px 16px;
   border: 1px solid var(--danger);
-  background: #f6e3d8;
-  box-shadow: 5px 5px 0 rgba(166, 47, 37, 0.16);
+  background: #f3e6fb;
+  box-shadow: 5px 5px 0 rgba(179, 18, 91, 0.16);
   color: var(--danger);
   font-size: 11.5px;
   line-height: 1.4;
@@ -4641,7 +4641,7 @@ a.contact-row:hover {
   }
 
   .stats-strip > div:nth-child(-n + 3) {
-    border-bottom: 1px solid rgba(169, 156, 133, 0.5);
+    border-bottom: 1px solid rgba(180, 158, 210, 0.5);
   }
 
   .stats-strip > div:nth-child(4) {
@@ -4904,13 +4904,13 @@ a.contact-row:hover {
     margin: 12px 0;
     padding: 15px 16px;
     border: 1px solid var(--line-dark);
-    background: rgba(251, 247, 236, 0.55);
-    box-shadow: 3px 3px 0 rgba(24, 37, 29, 0.04);
+    background: rgba(253, 251, 255, 0.55);
+    box-shadow: 3px 3px 0 rgba(28, 0, 51, 0.04);
   }
 
   .leads-table tbody tr:hover {
     border-color: var(--ink);
-    box-shadow: 3px 3px 0 rgba(207, 85, 33, 0.16);
+    box-shadow: 3px 3px 0 rgba(255, 109, 0, 0.16);
   }
 
   .leads-table td {
@@ -5273,8 +5273,8 @@ a.contact-row:hover {
   }
 
   .stats-strip > div {
-    border-right: 1px solid rgba(169, 156, 133, 0.5) !important;
-    border-bottom: 1px solid rgba(169, 156, 133, 0.5);
+    border-right: 1px solid rgba(180, 158, 210, 0.5) !important;
+    border-bottom: 1px solid rgba(180, 158, 210, 0.5);
   }
 
   .stats-strip > div:nth-child(2n) {
@@ -5340,7 +5340,7 @@ a.contact-row:hover {
 
   .key-dialog-inner {
     padding: 23px 20px;
-    box-shadow: 8px 8px 0 rgba(4, 10, 6, 0.22);
+    box-shadow: 8px 8px 0 rgba(24, 0, 45, 0.22);
   }
 
   .key-dialog-head h2 {
@@ -5437,8 +5437,8 @@ a.contact-row:hover {
   padding-top: 30px;
   border-bottom: 1px solid var(--ink);
   background:
-    radial-gradient(circle at 92% 4%, rgba(219, 166, 72, 0.17), transparent 35%),
-    radial-gradient(circle at 8% 100%, rgba(126, 146, 126, 0.14), transparent 44%),
+    radial-gradient(circle at 92% 4%, rgba(255, 158, 0, 0.17), transparent 35%),
+    radial-gradient(circle at 8% 100%, rgba(157, 78, 221, 0.14), transparent 44%),
     var(--forest);
   color: var(--paper);
 }
@@ -5450,12 +5450,12 @@ a.contact-row:hover {
   right: -150px;
   width: 560px;
   height: 560px;
-  border: 1px solid rgba(244, 238, 224, 0.09);
+  border: 1px solid rgba(243, 239, 252, 0.09);
   border-radius: 50%;
   box-shadow:
-    0 0 0 54px rgba(244, 238, 224, 0.025),
-    0 0 0 108px rgba(244, 238, 224, 0.017),
-    0 0 0 162px rgba(244, 238, 224, 0.012);
+    0 0 0 54px rgba(243, 239, 252, 0.025),
+    0 0 0 108px rgba(243, 239, 252, 0.017),
+    0 0 0 162px rgba(243, 239, 252, 0.012);
   pointer-events: none;
 }
 
@@ -5469,8 +5469,8 @@ a.contact-row:hover {
 }
 
 .data-hero .report-nav .text-link {
-  border-bottom-color: rgba(244, 238, 224, 0.34);
-  color: rgba(244, 238, 224, 0.74);
+  border-bottom-color: rgba(243, 239, 252, 0.34);
+  color: rgba(243, 239, 252, 0.74);
 }
 
 .data-hero .report-nav .text-link:hover {
@@ -5479,7 +5479,7 @@ a.contact-row:hover {
 }
 
 .data-hero .report-timestamp {
-  color: rgba(244, 238, 224, 0.54);
+  color: rgba(243, 239, 252, 0.54);
 }
 
 .data-heading {
@@ -5514,7 +5514,7 @@ a.contact-row:hover {
 .data-sub {
   max-width: 62ch;
   margin: 19px 0 0;
-  color: rgba(244, 238, 224, 0.63);
+  color: rgba(243, 239, 252, 0.63);
   font-size: 13px;
   line-height: 1.7;
 }
@@ -5525,8 +5525,8 @@ a.contact-row:hover {
   flex: none;
   gap: 1px;
   margin: 0;
-  border: 1px solid rgba(244, 238, 224, 0.19);
-  background: rgba(244, 238, 224, 0.16);
+  border: 1px solid rgba(243, 239, 252, 0.19);
+  background: rgba(243, 239, 252, 0.16);
 }
 
 .data-stats > div {
@@ -5536,7 +5536,7 @@ a.contact-row:hover {
 }
 
 .data-stats dt {
-  color: rgba(244, 238, 224, 0.5);
+  color: rgba(243, 239, 252, 0.5);
   font-family: var(--mono);
   font-size: 7.5px;
   letter-spacing: 0.12em;
@@ -5564,7 +5564,7 @@ a.contact-row:hover {
 .data-stats small {
   display: block;
   overflow: hidden;
-  color: rgba(244, 238, 224, 0.43);
+  color: rgba(243, 239, 252, 0.43);
   font-size: 9px;
   line-height: 1.3;
   text-overflow: ellipsis;
@@ -5577,7 +5577,7 @@ a.contact-row:hover {
   flex-wrap: wrap;
   gap: 10px 34px;
   padding: 15px 0 20px;
-  border-top: 1px solid rgba(244, 238, 224, 0.17);
+  border-top: 1px solid rgba(243, 239, 252, 0.17);
 }
 
 .data-meta > div {
@@ -5589,7 +5589,7 @@ a.contact-row:hover {
 
 .data-meta span {
   flex: none;
-  color: rgba(244, 238, 224, 0.43);
+  color: rgba(243, 239, 252, 0.43);
   font-family: var(--mono);
   font-size: 7.5px;
   letter-spacing: 0.12em;
@@ -5600,7 +5600,7 @@ a.contact-row:hover {
 .data-meta strong,
 .data-meta code {
   overflow-wrap: anywhere;
-  color: rgba(244, 238, 224, 0.84);
+  color: rgba(243, 239, 252, 0.84);
   font-family: var(--mono);
   font-size: 10px;
   font-weight: 400;
@@ -5639,9 +5639,9 @@ a.contact-row:hover {
   padding: clamp(30px, 5vw, 56px);
   border: 1px dashed var(--line-dark);
   background:
-    radial-gradient(circle at 50% -12%, rgba(219, 166, 72, 0.2), transparent 46%),
-    linear-gradient(180deg, var(--white), #f6eedf);
-  box-shadow: 5px 5px 0 rgba(24, 37, 29, 0.05);
+    radial-gradient(circle at 50% -12%, rgba(255, 158, 0, 0.2), transparent 46%),
+    linear-gradient(180deg, var(--white), #f5f0ff);
+  box-shadow: 5px 5px 0 rgba(28, 0, 51, 0.05);
   text-align: center;
   transition:
     border-color 0.2s var(--ease),
@@ -5653,11 +5653,11 @@ a.contact-row:hover {
   border-color: var(--orange);
   border-style: solid;
   background:
-    radial-gradient(circle at 50% -12%, rgba(219, 166, 72, 0.34), transparent 50%),
-    linear-gradient(180deg, var(--white), #f3e4ce);
+    radial-gradient(circle at 50% -12%, rgba(255, 158, 0, 0.34), transparent 50%),
+    linear-gradient(180deg, var(--white), #eee0fb);
   box-shadow:
-    inset 0 0 0 4px rgba(207, 85, 33, 0.09),
-    6px 6px 0 rgba(207, 85, 33, 0.18);
+    inset 0 0 0 4px rgba(255, 109, 0, 0.09),
+    6px 6px 0 rgba(255, 109, 0, 0.18);
 }
 
 .import-drop.is-reading > *:not(.import-file-input) {
@@ -5753,8 +5753,8 @@ a.contact-row:hover {
   padding: 18px 20px;
   border: 1px solid var(--danger);
   background:
-    repeating-linear-gradient(45deg, rgba(166, 47, 37, 0.035) 0 8px, transparent 8px 16px),
-    #f6e3d8;
+    repeating-linear-gradient(45deg, rgba(179, 18, 91, 0.035) 0 8px, transparent 8px 16px),
+    #f3e6fb;
 }
 
 .import-status[hidden] {
@@ -5791,7 +5791,7 @@ a.contact-row:hover {
   padding: clamp(22px, 3.2vw, 32px);
   border: 1px solid var(--ink);
   background: var(--white);
-  box-shadow: 5px 5px 0 rgba(24, 37, 29, 0.07);
+  box-shadow: 5px 5px 0 rgba(28, 0, 51, 0.07);
 }
 
 .import-current-head {
@@ -5850,7 +5850,7 @@ a.contact-row:hover {
 .import-current-stats span {
   padding: 6px 9px;
   border: 1px solid var(--line);
-  background: #f8f2e6;
+  background: #f7f3ff;
   color: var(--ink-soft);
   font-family: var(--mono);
   font-size: 8px;
@@ -5946,7 +5946,7 @@ a.contact-row:hover {
   padding: 27px 26px;
   border: 1px solid var(--ink);
   background:
-    radial-gradient(circle at 100% 0%, rgba(219, 166, 72, 0.16), transparent 38%),
+    radial-gradient(circle at 100% 0%, rgba(255, 158, 0, 0.16), transparent 38%),
     var(--ink);
   color: var(--paper);
 }
@@ -5968,7 +5968,7 @@ a.contact-row:hover {
 
 .import-guide > p:not(.mono-label) {
   margin: 14px 0 0;
-  color: rgba(244, 238, 224, 0.6);
+  color: rgba(243, 239, 252, 0.6);
   font-size: 11.5px;
   line-height: 1.7;
 }
@@ -5976,15 +5976,15 @@ a.contact-row:hover {
 .import-guide-list {
   margin: 19px 0 0;
   padding: 0;
-  border-top: 1px solid rgba(244, 238, 224, 0.14);
+  border-top: 1px solid rgba(243, 239, 252, 0.14);
   list-style: none;
 }
 
 .import-guide-list li {
   position: relative;
   padding: 10px 0 10px 19px;
-  border-bottom: 1px solid rgba(244, 238, 224, 0.14);
-  color: rgba(244, 238, 224, 0.7);
+  border-bottom: 1px solid rgba(243, 239, 252, 0.14);
+  color: rgba(243, 239, 252, 0.7);
   font-size: 11.5px;
   line-height: 1.55;
 }
@@ -6006,8 +6006,8 @@ a.contact-row:hover {
   gap: 11px;
   margin-top: 19px;
   padding: 14px;
-  border: 1px solid rgba(244, 238, 224, 0.15);
-  background: rgba(244, 238, 224, 0.05);
+  border: 1px solid rgba(243, 239, 252, 0.15);
+  background: rgba(243, 239, 252, 0.05);
 }
 
 .import-privacy .icon {
@@ -6020,7 +6020,7 @@ a.contact-row:hover {
 
 .import-privacy p {
   margin: 0;
-  color: rgba(244, 238, 224, 0.58);
+  color: rgba(243, 239, 252, 0.58);
   font-size: 10.5px;
   line-height: 1.6;
 }
@@ -6033,12 +6033,12 @@ a.contact-row:hover {
 .import-format-help {
   margin-top: 15px;
   padding-top: 14px;
-  border-top: 1px solid rgba(244, 238, 224, 0.14);
+  border-top: 1px solid rgba(243, 239, 252, 0.14);
 }
 
 .import-format-help summary {
   cursor: pointer;
-  color: rgba(244, 238, 224, 0.58);
+  color: rgba(243, 239, 252, 0.58);
   font-family: var(--mono);
   font-size: 8px;
   letter-spacing: 0.1em;
@@ -6053,7 +6053,7 @@ a.contact-row:hover {
 
 .import-format-help p {
   margin: 10px 0 0;
-  color: rgba(244, 238, 224, 0.55);
+  color: rgba(243, 239, 252, 0.55);
   font-size: 10.5px;
   line-height: 1.7;
 }
@@ -6286,7 +6286,7 @@ a.contact-row:hover {
 }
 
 .update-chip-ver {
-  color: rgba(244, 238, 224, 0.62);
+  color: rgba(243, 239, 252, 0.62);
   font-size: 8px;
   letter-spacing: 0.06em;
 }
@@ -6304,10 +6304,10 @@ a.contact-row:hover {
 @keyframes updateChime {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(207, 85, 33, 0.55);
+    box-shadow: 0 0 0 0 rgba(255, 109, 0, 0.55);
   }
   55% {
-    box-shadow: 0 0 0 6px rgba(207, 85, 33, 0);
+    box-shadow: 0 0 0 6px rgba(255, 109, 0, 0);
   }
 }
 
@@ -6386,7 +6386,7 @@ a.contact-row:hover {
 
 .script-chip:hover {
   border-color: var(--ink);
-  background: rgba(251, 247, 236, 0.55);
+  background: rgba(253, 251, 255, 0.55);
   color: var(--ink);
 }
 
@@ -6425,7 +6425,7 @@ a.contact-row:hover {
   margin-top: 17px;
   border-color: var(--ink);
   background: var(--white);
-  box-shadow: 3px 3px 0 rgba(207, 85, 33, 0.16);
+  box-shadow: 3px 3px 0 rgba(255, 109, 0, 0.16);
 }
 
 .drawer-script-link .icon {
@@ -6488,7 +6488,7 @@ a.contact-row:hover {
   background: var(--white);
   box-shadow:
     inset 3px 0 0 var(--orange),
-    4px 4px 0 rgba(24, 37, 29, 0.05);
+    4px 4px 0 rgba(28, 0, 51, 0.05);
 }
 
 .report-script-sheet-label {
@@ -6570,7 +6570,7 @@ a.contact-row:hover {
   height: min(820px, calc(100dvh - 40px));
   border: 1px solid var(--ink);
   background: var(--paper);
-  box-shadow: 16px 16px 0 rgba(4, 10, 6, 0.22);
+  box-shadow: 16px 16px 0 rgba(24, 0, 45, 0.22);
 }
 
 .script-dialog-head {
@@ -6582,7 +6582,7 @@ a.contact-row:hover {
   padding: 25px 30px 20px;
   border-bottom: 1px solid var(--line-dark);
   background:
-    radial-gradient(circle at 93% 0%, rgba(219, 166, 72, 0.15), transparent 34%),
+    radial-gradient(circle at 93% 0%, rgba(255, 158, 0, 0.15), transparent 34%),
     var(--paper);
 }
 
@@ -6638,7 +6638,7 @@ a.contact-row:hover {
 
 .script-search:focus-within {
   border-color: var(--forest);
-  box-shadow: 0 0 0 3px rgba(30, 58, 44, 0.09);
+  box-shadow: 0 0 0 3px rgba(36, 0, 70, 0.09);
 }
 
 .script-search .icon {
@@ -6732,7 +6732,7 @@ a.contact-row:hover {
   border-color: var(--ink);
   border-left-color: var(--orange);
   background: var(--white);
-  box-shadow: 3px 3px 0 rgba(24, 37, 29, 0.06);
+  box-shadow: 3px 3px 0 rgba(28, 0, 51, 0.06);
 }
 
 .script-list-title {
@@ -6853,7 +6853,7 @@ a.contact-row:hover {
   border: 1px solid var(--line-dark);
   border-radius: 50%;
   background: var(--white);
-  box-shadow: 4px 4px 0 rgba(207, 85, 33, 0.14);
+  box-shadow: 4px 4px 0 rgba(255, 109, 0, 0.14);
   color: var(--orange);
 }
 
@@ -7036,7 +7036,7 @@ a.contact-row:hover {
 
 .script-placeholder:hover {
   border-color: var(--orange);
-  background: #fff8ee;
+  background: #fdf9ff;
   color: var(--orange-deep);
   transform: translateY(-1px);
 }
@@ -7061,7 +7061,7 @@ a.contact-row:hover {
 }
 
 .script-body-input::placeholder {
-  color: #9c9481;
+  color: #8f7aa8;
   font-family: var(--sans);
   font-size: 13px;
   line-height: 1.6;
@@ -7070,7 +7070,7 @@ a.contact-row:hover {
 .script-body-input:focus {
   outline: none;
   border-color: var(--forest);
-  box-shadow: 0 0 0 3px rgba(30, 58, 44, 0.09);
+  box-shadow: 0 0 0 3px rgba(36, 0, 70, 0.09);
 }
 
 .script-editor-hint {
@@ -7141,7 +7141,7 @@ a.contact-row:hover {
   padding: 25px 31px 23px;
   border: 1px solid var(--ink);
   background: var(--paper);
-  box-shadow: 14px 14px 0 rgba(4, 10, 6, 0.22);
+  box-shadow: 14px 14px 0 rgba(24, 0, 45, 0.22);
 }
 
 .call-sheet-head {
@@ -7230,7 +7230,7 @@ a.contact-row:hover {
 .call-sheet-script-select select:focus {
   outline: none;
   border-color: var(--forest);
-  box-shadow: 0 0 0 3px rgba(30, 58, 44, 0.09);
+  box-shadow: 0 0 0 3px rgba(36, 0, 70, 0.09);
 }
 
 .call-sheet-body {
@@ -7280,15 +7280,15 @@ a.contact-row:hover {
 }
 
 .call-sheet-actions .btn.is-done {
-  border-color: rgba(47, 107, 70, 0.5);
-  background: rgba(47, 107, 70, 0.08);
+  border-color: rgba(255, 145, 0, 0.5);
+  background: rgba(255, 145, 0, 0.08);
   color: var(--ok);
   box-shadow: none;
 }
 
 .call-sheet-actions .btn.is-blocked {
-  border-color: rgba(166, 47, 37, 0.35);
-  background: rgba(166, 47, 37, 0.06);
+  border-color: rgba(179, 18, 91, 0.35);
+  background: rgba(179, 18, 91, 0.06);
   color: var(--danger);
   box-shadow: none;
 }
