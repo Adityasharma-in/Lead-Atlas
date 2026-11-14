@@ -18,6 +18,7 @@
     if (!menu || !button) return;
     menu.hidden = true;
     button.setAttribute("aria-expanded", "false");
+    button.setAttribute("aria-label", "Open menu");
   }
 
   function bindMenu() {
@@ -29,6 +30,7 @@
       const open = menu.hidden;
       menu.hidden = !open;
       button.setAttribute("aria-expanded", open ? "true" : "false");
+      button.setAttribute("aria-label", open ? "Close menu" : "Open menu");
     });
     menu.addEventListener("click", (event) => {
       if (event.target.closest("a, button")) closeMenu();

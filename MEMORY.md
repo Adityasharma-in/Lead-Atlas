@@ -581,3 +581,37 @@ magic-link, and password-recovery emails on the live domain.
 - The site is multipage, not one document: public pages are separate files; `auth.html`
   is the only auth surface; `app.html` is the account-only workspace. Workspace views are
   hash routes so they remain deep-linkable without a router dependency.
+
+## Survey Signal UI redesign + drawer polish (2026-11-14)
+- Direction: replaced the lavender "Atlas After Dark" skin with **Survey Signal** — a
+  chalk/forest field-instrument system with hi-vis lime, ultramarine links, oxide danger,
+  Archivo display/UI type and Spline Sans Mono labels. `public/atlas.css` is the new skin;
+  `styles.css` and `workspace.css` stay as layout scaffolding. All five pages load the new
+  layer last.
+- Surface work: recolored the landing hero map, shared final CTA map, auth mini-map and
+  dashboard quick-scan map; compact 2-column mobile report cards; 2x3 mobile report stats;
+  restored dialog/toast contrast; enlarged auth/mobile tap targets.
+- Slider: replaced the legacy 4px ultramarine range track and rounded-square thumb with a
+  thin 12px track and a circular lime handle. The old pseudo-track no longer draws a blue
+  line through the fill.
+- Drawer: removed the legacy `drawer-facts` table border/background that produced an olive
+  empty cell and vertical divider; long lead names now get `<wbr>` break opportunities
+  after commas, so "P.G.Dip.Diab" no longer splits as "Dip.D / iab".
+- Verification: computed-color audit clean on desktop/mobile pages, report, and all
+  dialogs; `npm test` 310/310; `node --check public/app.js`; CSS brace count balanced.
+  No functional contracts, schema, API, CSP or dependency changes. Changes remain local
+  and uncommitted.
+## Search/control polish + dashboard quick card (2026-11-14)
+- Search fields: report and library are 40px single-field bars, script search is 34px.
+  Their inputs are transparent, borderless, and full-height; a high-specificity reset
+  beats the global form-control rule that was drawing a nested 44px input with its own
+  border/background. Focus rings stay on the outer label only.
+- Controls: app `.btn` is 42px, `.btn-small` 34px, primary icon tiles 22px/18px; setup
+  text inputs and selects are 42px with 34px right padding for the chevron. This removes
+  the legacy 50-54px control heights while keeping marketing/auth surfaces unchanged.
+- Dashboard: the quick-scan card's map is now absolutely full-bleed with a lime gradient
+  overlay, and the content stays bottom-aligned. The SVG uses `xMidYMid slice` so the
+  decorative map fills the stretched card; no more hard 130px strip or empty lime body.
+- Verification: desktop/mobile screenshots of library toolbar, report toolbar, scan form,
+  dashboard grid and script dialog; computed heights 42/40/34 as intended; `npm test`
+  310/310. Changes remain local and uncommitted.

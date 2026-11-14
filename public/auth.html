@@ -3,18 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f4eee0" />
+    <meta name="theme-color" content="#F2F3EB" />
     <title>Sign in — Lead Atlas</title>
     <meta name="description" content="Sign in to Lead Atlas to reopen saved reports, pick up the outreach trail, and keep every call in one place." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=Spline+Sans+Mono:ital,wght@0,300..700;1,300..700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/workspace.css" />
+    <link rel="stylesheet" href="/atlas.css" />
   </head>
   <body class="is-auth">
     <a class="skip-link" href="#authForm">Skip to sign in</a>
@@ -23,7 +24,7 @@
       <symbol id="i-compass" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.4" />
         <path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1 5.1-2.1Z" fill="currentColor" />
-        <circle cx="12" cy="12" r="1.1" fill="var(--paper, #f4eee0)" />
+        <circle cx="12" cy="12" r="1.1" fill="var(--paper, #F2F3EB)" />
       </symbol>
       <symbol id="i-arrow" viewBox="0 0 24 24">
         <path d="M5 19 19 5M8 5h11v11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
@@ -217,28 +218,28 @@
             <svg viewBox="0 0 480 300">
               <defs>
                 <pattern id="authGrid" width="32" height="32" patternUnits="userSpaceOnUse">
-                  <path d="M32 0H0v32" fill="none" stroke="#a99c85" stroke-width=".45" opacity=".5" />
+                  <path d="M32 0H0v32" fill="none" stroke="#f2f3eb" stroke-width=".45" opacity=".12" />
                 </pattern>
               </defs>
               <rect width="480" height="300" fill="url(#authGrid)" />
-              <g fill="none" stroke="#7e927e" stroke-width="1" opacity=".55">
+              <g fill="none" stroke="#f2f3eb" stroke-width="1" opacity=".18">
                 <path d="M-20 70c80-20 120 30 200 10s110-50 190-20 80 10 140 20" />
                 <path d="M-20 170c90-20 130 30 220 10s120-40 200-10 80 10 120 10" />
                 <path d="M100-20c-10 80 20 140 10 220s-20 80-10 120" />
                 <path d="M340-20c-10 80 20 140 10 220s-20 80-10 120" />
               </g>
-              <path d="M40 250c70-60 120-90 180-100s100-50 190-60" fill="none" stroke="#cf5521" stroke-width="1.6" stroke-dasharray="5 7" opacity=".8" />
-              <g fill="#cf5521">
+              <path d="M40 250c70-60 120-90 180-100s100-50 190-60" fill="none" stroke="#c8f14a" stroke-width="1.6" stroke-dasharray="5 7" opacity=".9" />
+              <g fill="#c8f14a">
                 <circle cx="40" cy="250" r="4" />
                 <circle cx="410" cy="90" r="4" />
               </g>
-              <g transform="translate(200 130)" fill="#f4eee0">
+              <g transform="translate(200 130)" fill="#f2f3eb">
                 <path d="M0-14c-6 0-11 5-11 11 0 8 11 18 11 18S11 5 11-3c0-6-5-11-11-11Z" />
-                <circle cy="-3" r="3.5" fill="#1e3a2c" />
+                <circle cy="-3" r="3.5" fill="#0c1611" />
               </g>
-              <g transform="translate(360 200)" fill="#f4eee0">
+              <g transform="translate(360 200)" fill="#f2f3eb">
                 <path d="M0-14c-6 0-11 5-11 11 0 8 11 18 11 18S11 5 11-3c0-6-5-11-11-11Z" />
-                <circle cy="-3" r="3.5" fill="#1e3a2c" />
+                <circle cy="-3" r="3.5" fill="#0c1611" />
               </g>
             </svg>
             <div class="auth-mini-card">

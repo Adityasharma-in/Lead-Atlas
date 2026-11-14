@@ -4219,12 +4219,12 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
         : "Drop a CSV or JSON lead file. It is read here in your browser and opened in the same report view as a live scan — filters, drawer, stats, map links and exports included.";
     }
     if (els.dataLeadCount) {
-      els.dataLeadCount.textContent = imported ? formatNumber(imported.leads.length) : "—";
+      els.dataLeadCount.textContent = imported ? formatNumber(imported.leads.length) : "0";
     }
     if (els.dataFieldCount) {
       els.dataFieldCount.textContent = imported
         ? formatNumber(imported.mappedFields?.length || 0)
-        : "—";
+        : "0";
     }
     if (els.dataFileName) els.dataFileName.textContent = imported?.sourceName || "No file loaded";
     if (els.dataFormat) {
@@ -4488,7 +4488,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     els.drawerCategory.textContent = [lead.category || "Business", lead.priceLevel]
       .filter(Boolean)
       .join(" · ");
-    els.drawerName.textContent = lead.name;
+    els.drawerName.innerHTML = escapeHtml(lead.name).replace(/,(?=\S)/g, ",<wbr>");
     els.drawerAddress.textContent = lead.address || "Address not listed on Google Maps";
 
     const closedLabel = lead.permanentlyClosed
@@ -5821,7 +5821,8 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
       hydrateOutreach(leads);
       const summary = {
-        ...(report.summary || summarize(leads)),
+        ...(report.summary && typeof report.summary === "object" ? report.summary : {}),
+        ...summarize(leads),
         outreach: outreachCounts(leads),
       };
       state.results = {
