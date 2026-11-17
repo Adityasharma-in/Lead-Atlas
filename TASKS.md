@@ -434,3 +434,7 @@
       stripe on the top edge, 72ch measure, header stacked at 980px.
 - [x] P4: Docs and version - README and CALL-SCRIPTS wording, version 2.0.0 -> 2.0.1,
       `npm test` 333/333, `node --check`, structural checks.
+- [x] P5: Remove the global top-bar **Scripts** chip and its CSS/JS. Sidebar **Call
+      scripts** and the dashboard card stay as the library entry points; drop the dead
+      cache ids, click binding and count/title logic; rename `renderScriptChip()` to
+      `renderScriptSurfaces()`; point empty-state copy at the menu; `npm test` 333/333.

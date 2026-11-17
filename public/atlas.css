@@ -555,7 +555,6 @@ code {
 /* pills, dots, chips ---------------------------------------------- */
 
 .key-chip,
-.script-chip,
 .update-chip,
 .key-status,
 .dash-status-pill,
@@ -5154,8 +5153,7 @@ body.is-app .topbar-actions {
   min-width: 0;
 }
 
-body.is-app .topbar-actions .key-chip,
-body.is-app .topbar-actions .script-chip {
+body.is-app .topbar-actions .key-chip {
   min-height: 34px;
   padding: 0 10px;
   border: 1px solid var(--line-dark);
@@ -5172,8 +5170,7 @@ body.is-app .topbar-actions .script-chip {
     background 0.18s var(--ease);
 }
 
-body.is-app .topbar-actions .key-chip:hover,
-body.is-app .topbar-actions .script-chip:hover {
+body.is-app .topbar-actions .key-chip:hover {
   border-color: var(--ink);
   background: var(--paper);
 }
@@ -5181,30 +5178,6 @@ body.is-app .topbar-actions .script-chip:hover {
 body.is-app .topbar-actions .key-chip.is-connected {
   border-color: var(--ink);
   background: var(--signal-soft);
-}
-
-body.is-app .script-chip .icon {
-  width: 13px;
-  height: 13px;
-  color: var(--muted);
-}
-
-body.is-app .script-chip.has-scripts {
-  border-color: var(--ink);
-}
-
-body.is-app .script-chip-count {
-  display: inline-grid;
-  place-items: center;
-  min-width: 16px;
-  height: 16px;
-  margin-left: 2px;
-  padding: 0 4px;
-  border-radius: 3px;
-  background: var(--ink);
-  color: var(--signal);
-  font-size: 7px;
-  line-height: 1;
 }
 
 body.is-app .topbar-actions .update-chip {
@@ -13191,17 +13164,6 @@ body.is-app .boot-error strong {
   }
 
   body.is-app .topbar-crumb > span::after {
-    display: none;
-  }
-
-  body.is-app .topbar-actions .script-chip {
-    max-width: 38px;
-    padding: 0 9px;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-
-  body.is-app .topbar-actions .script-chip .script-chip-label {
     display: none;
   }
 

@@ -29,8 +29,9 @@ being called.
 - No changes to `/api/config`, `/api/runs`, the rate limiter, or security headers.
 
 ## Acceptance Criteria
-- [x] AC1: The header **Scripts** chip opens the library on every screen and at every
-      breakpoint; the library also opens from the report toolbar and empty state.
+- [x] AC1: The sidebar **Call scripts** entry and the dashboard call-scripts card open the
+      library on every screen and at every breakpoint; the library also opens from the
+      drawer empty state and from **Edit script** inside a call sheet.
 - [x] AC2: A script can be created, renamed, edited, duplicated, deleted (with undo),
       searched, and marked as the script that opens by default.
 - [x] AC3: Edits save locally under an account-scoped key and write through to

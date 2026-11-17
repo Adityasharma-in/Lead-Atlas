@@ -331,11 +331,12 @@ note from a file wins over the browser ledger.
 
 ## Call scripts and the call sheet
 
-Keep the words you actually say beside the leads you call. Open the **Scripts** chip in the
-header on any screen to write, edit, search, duplicate, and delete scripts; the lead drawer
-opens the same script as a readable **call sheet**. The active script also appears as plain
-text at the bottom of every extracted lead report, and again at the bottom of a lead’s detail
-drawer filled with that lead’s details — no extra click needed.
+Keep the words you actually say beside the leads you call. Open **Call scripts** in the
+sidebar - or the call-scripts card on the dashboard - to write, edit, search, duplicate, and
+delete scripts; the lead drawer opens the same script as a readable **call sheet**. The
+active script also appears as plain text at the bottom of every extracted lead report, and
+again at the bottom of a lead’s detail drawer filled with that lead’s details — no extra
+click needed.
 
 - **Saved to your account.** New scripts, edits, imports, deletions, and the default-script
   choice write through to your private `script_libraries` row. The editor still caches

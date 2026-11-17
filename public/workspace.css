@@ -4270,8 +4270,7 @@ body.is-app .grain {
   min-width: 0;
 }
 
-.topbar-actions .key-chip,
-.topbar-actions .script-chip {
+.topbar-actions .key-chip {
   min-height: 34px;
   background: rgba(253, 251, 255, 0.45);
 }
@@ -6081,17 +6080,6 @@ body.is-app .grain {
 @media (max-width: 560px) {
   .topbar-actions {
     gap: 6px;
-  }
-
-  .topbar-actions .script-chip {
-    width: 34px;
-    padding: 0;
-    justify-content: center;
-  }
-
-  .topbar-actions .script-chip-label,
-  .topbar-actions .script-chip-count {
-    display: none;
   }
 
   .topbar-actions .key-chip {

@@ -678,3 +678,12 @@ magic-link, and password-recovery emails on the live domain.
   AC4 match the single entry point. Version 2.0.0 -> 2.0.1 (patch).
 - Verified: `npm test` 333/333, `node --check` green, no duplicate ids, no stale
   `reportScriptBtn`/`reportDataLabel` references, CSS braces balanced.
+- Removed the global top-bar **Scripts** chip (`#scriptChip`). The sidebar **Call
+  scripts** entry and the dashboard **Open call scripts** card were already the primary
+  paths, and the top bar now carries only the update and key chips. Dropped the chip
+  markup, its cache ids, its click binding, its count/title logic and its CSS in atlas,
+  styles and workspace. `renderScriptChip()` became `renderScriptSurfaces()` (same five
+  call sites) because it now only refreshes the dashboard and sidebar counts plus the
+  report and drawer scripts; `scriptCountLabel()` went with the chip title.
+- Empty-state copy on the report card and lead drawer now says "Call scripts in the menu"
+  instead of pointing at the removed top-bar chip.
