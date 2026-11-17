@@ -185,7 +185,6 @@ import {
     callSheet: {
       lead: null,
       scriptId: null,
-      source: "report",
     },
     callMode: {
       open: false,
@@ -1952,11 +1951,9 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     refreshCallSheetOutreach();
   }
 
-  function openCallSheet(lead = null, { source = "report", scriptId = null } = {}) {
+  function openCallSheet(lead = null) {
     state.callSheet.lead = lead || null;
-    state.callSheet.source = source;
     const script =
-      findScript(state.scripts, scriptId) ||
       activeScript(state.scripts) ||
       state.scripts.scripts[0] ||
       null;
@@ -5429,7 +5426,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
         openScriptLibrary({ createIfEmpty: true, focusTitle: true });
         return;
       }
-      openCallSheet(state.drawerLead, { source: "drawer" });
+      openCallSheet(state.drawerLead);
     });
 
     els.closeScriptDialog?.addEventListener("click", closeScriptLibrary);
