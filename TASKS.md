@@ -420,4 +420,5 @@
       signed-in Supabase session.
 - [x] C8: Docs + release - README call-mode section, keyboard table, structure/test
       coverage and deferred follow-up note; TASKS/MEMORY updated; version 1.9.0 to 2.0.0
-      under the house minor-cap rule.
+      under the house minor-cap rule. Shipped on `feat/call-mode` as PR #4, stacked on
+      PR #3.

@@ -6,9 +6,11 @@
 
 ## Last Completed Task: Call mode — one lead at a time (2026-11-17)
 
-## Next Task: Run the account-gated browser smoke listed in `docs/CALL-MODE.md`, then
-commit the call-mode work and open a PR. Merge PR #1 (`feat/outreach-dashboard-stable-leads`)
-and PR #2 (`feat/instant-dashboard-session`, stacked on PR #1) when ready, and let the
+## Next Task: Review and merge the stack once its previews look right: PR #1
+(`feat/outreach-dashboard-stable-leads`) into `main`, then PR #2
+(`feat/instant-dashboard-session`), then PR #3 (`feat/survey-signal-ui`), then PR #4
+(`feat/call-mode`, https://github.com/Adityasharma-in/Lead-Atlas/pull/4). Run the
+account-gated browser smoke listed in `docs/CALL-MODE.md` before merging #4. Let the
 GitHub-connected Vercel project build `main`. In Supabase **Authentication → URL
 Configuration**, set the Site URL to `https://lead-atlas-ochre.vercel.app` and add
 `https://lead-atlas-ochre.vercel.app/auth.html` plus
@@ -651,4 +653,5 @@ magic-link, and password-recovery emails on the live domain.
 - Verification: `npm test` 333/333 including 23 new core tests; `node --check` green on
   `app.js` and `call-mode-core.js`; duplicate-id, id-reference, CSS brace and token
   checks clean. The account-gated browser smoke list is in `docs/CALL-MODE.md`. Version
-  1.9.0 → 2.0.0. Changes remain local and uncommitted.
+  1.9.0 → 2.0.0. Committed on `feat/call-mode` and opened as PR #4
+  (https://github.com/Adityasharma-in/Lead-Atlas/pull/4), stacked on PR #3.
