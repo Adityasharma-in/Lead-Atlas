@@ -13739,3 +13739,909 @@ body.is-app .app-bottom-nav {
     border-right: 0 !important;
   }
 }
+
+/* ==================================================================
+   CALL MODE
+   ================================================================== */
+
+/* The session is the dialing loop, so it gets the signal accent at both
+   entry points and a full-height stage of its own. */
+
+body.is-app .call-mode-btn {
+  border-color: var(--ink);
+  background: var(--signal);
+  color: var(--ink);
+  box-shadow: 2px 2px 0 rgba(12, 22, 17, 0.16);
+}
+
+body.is-app .call-mode-btn .icon {
+  color: var(--ink);
+}
+
+body.is-app .call-mode-btn:hover {
+  border-color: var(--ink);
+  background: var(--signal-soft);
+  color: var(--ink);
+}
+
+body.is-app .call-mode-btn:active {
+  box-shadow: none;
+  transform: translate(1px, 1px);
+}
+
+body.is-app .drawer-call-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  margin-top: 12px;
+  border-color: var(--ink);
+  background: var(--signal);
+  color: var(--ink);
+  box-shadow: 3px 3px 0 rgba(12, 22, 17, 0.14);
+  font-size: 11px;
+}
+
+body.is-app .drawer-call-mode .icon {
+  width: 14px;
+  height: 14px;
+}
+
+body.is-app .drawer-call-mode .icon:last-child {
+  margin-left: auto;
+}
+
+body.is-app .drawer-call-mode:hover {
+  border-color: var(--ink);
+  background: var(--signal-soft);
+  color: var(--ink);
+}
+
+body.is-app .drawer-call-mode:disabled {
+  border-color: var(--line);
+  background: var(--paper-2);
+  color: var(--muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* dialog shell ------------------------------------------------------ */
+
+body.is-app .call-mode {
+  width: min(1140px, calc(100vw - 40px));
+  height: min(880px, calc(100dvh - 40px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+}
+
+body.is-app .call-mode-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--paper);
+}
+
+body.is-app .call-mode-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex: none;
+  padding: 18px 22px 15px;
+  border-bottom: 1px solid var(--ink);
+  background: var(--white);
+}
+
+body.is-app .call-mode-head-copy {
+  min-width: 0;
+}
+
+body.is-app .call-mode-head h2 {
+  margin: 5px 0 0;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: clamp(1.6rem, 2.7vw, 2.2rem);
+  font-stretch: 112%;
+  font-weight: 780;
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+  overflow-wrap: anywhere;
+}
+
+body.is-app .call-mode-sub {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+body.is-app .call-mode-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: none;
+  padding-top: 4px;
+}
+
+body.is-app .call-mode-progress {
+  width: 120px;
+  height: 6px;
+  overflow: hidden;
+  border: 1px solid var(--line-dark);
+  border-radius: 999px;
+  background: var(--paper-2);
+}
+
+body.is-app .call-mode-progress-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--signal);
+  transition: width 0.25s var(--ease);
+}
+
+body.is-app .call-mode-session {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 22px;
+}
+
+body.is-app .call-mode-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(300px, 0.78fr);
+  gap: 20px;
+  align-items: start;
+}
+
+body.is-app .call-mode-main,
+body.is-app .call-mode-side {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* lead card --------------------------------------------------------- */
+
+body.is-app .call-mode-lead {
+  padding: 16px 17px;
+  border: 1px solid var(--ink);
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: 5px 5px 0 rgba(12, 22, 17, 0.06);
+}
+
+body.is-app .call-mode-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--line-dark);
+  border-radius: 4px;
+  background: var(--paper-2);
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+body.is-app .call-mode-status::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+body.is-app .call-mode-status[data-status="contacted"] {
+  border-color: var(--ink);
+  background: var(--signal);
+  color: var(--ink);
+}
+
+body.is-app .call-mode-status[data-status="do-not-contact"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+body.is-app .call-mode-phone {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--ink);
+  border-radius: 11px;
+  background: var(--signal);
+  color: var(--ink);
+  text-decoration: none;
+  box-shadow: 4px 4px 0 rgba(12, 22, 17, 0.14);
+  transition:
+    transform 0.16s var(--ease),
+    box-shadow 0.16s var(--ease);
+}
+
+body.is-app .call-mode-phone:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 6px 6px 0 rgba(12, 22, 17, 0.16);
+}
+
+body.is-app .call-mode-phone:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 rgba(12, 22, 17, 0.16);
+}
+
+body.is-app .call-mode-phone-glyph {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border: 1px solid var(--ink);
+  border-radius: 9px;
+  background: var(--ink);
+  color: var(--signal);
+}
+
+body.is-app .call-mode-phone-glyph .icon {
+  width: 21px;
+  height: 21px;
+}
+
+body.is-app .call-mode-phone-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+body.is-app .call-mode-phone-copy .mono-label {
+  color: rgba(12, 22, 17, 0.62);
+}
+
+body.is-app .call-mode-phone-copy strong {
+  font-family: var(--mono);
+  font-size: clamp(1.35rem, 2.6vw, 1.9rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+body.is-app .call-mode-phone-go {
+  margin-left: auto;
+  color: rgba(12, 22, 17, 0.55);
+}
+
+body.is-app .call-mode-phone-go .icon {
+  width: 16px;
+  height: 16px;
+}
+
+body.is-app .call-mode-no-phone {
+  margin: 12px 0 0;
+  padding: 10px 11px;
+  border: 1px dashed var(--line-dark);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+body.is-app .call-mode-extra-phones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+body.is-app .call-mode-extra-phone {
+  padding: 4px 8px;
+  border: 1px solid var(--line-dark);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 8.5px;
+  text-decoration: none;
+}
+
+body.is-app .call-mode-extra-phone:hover {
+  border-color: var(--ink);
+  background: var(--paper-2);
+}
+
+body.is-app .call-mode-address {
+  margin: 11px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+body.is-app .call-mode-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 13px;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+}
+
+body.is-app .call-mode-links .text-link {
+  gap: 5px;
+  font-size: 9.5px;
+}
+
+body.is-app .call-mode-links .text-link .icon {
+  width: 12px;
+  height: 12px;
+  color: var(--blue);
+}
+
+/* script, outcomes, notes ------------------------------------------- */
+
+body.is-app .call-mode-script,
+body.is-app .call-mode-outcomes,
+body.is-app .call-mode-notes {
+  padding: 15px 16px;
+  border: 1px solid var(--line-dark);
+  border-radius: 12px;
+  background: var(--white);
+}
+
+body.is-app .call-mode-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+body.is-app .call-mode-section-head h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 15px;
+  font-stretch: 108%;
+  font-weight: 740;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+body.is-app .call-mode-section-head .mono-label {
+  margin: 0;
+  color: var(--muted);
+}
+
+body.is-app .call-mode-script-select {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+body.is-app .call-mode-script-select .select-wrap {
+  min-width: 120px;
+  max-width: 190px;
+}
+
+body.is-app .call-mode-script-select select {
+  width: 100%;
+  min-height: 30px;
+  padding: 5px 26px 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 9.5px;
+}
+
+body.is-app .call-mode-script-body {
+  max-height: clamp(220px, 40vh, 430px);
+  overflow-y: auto;
+  padding: 14px 15px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+body.is-app .call-mode-script-body.is-empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+body.is-app .call-mode-script-empty {
+  display: grid;
+  justify-items: start;
+  gap: 9px;
+  padding: 16px;
+  border: 1px dashed var(--line-dark);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+body.is-app .call-mode-script-empty p {
+  max-width: 44ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
+body.is-app .call-mode-choices {
+  margin-top: 0;
+}
+
+body.is-app .call-mode-key {
+  min-width: 20px;
+  margin-left: auto;
+  padding: 2px 4px;
+  border: 1px solid var(--line-dark);
+  border-radius: 3px;
+  background: var(--white);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 7.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+}
+
+body.is-app .call-mode-choices .outreach-choice.is-active .call-mode-key {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--signal);
+}
+
+body.is-app .call-mode-outcome-hint {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+body.is-app .call-mode-outcome-hint kbd {
+  padding: 1px 4px;
+  border: 1px solid var(--line-dark);
+  border-radius: 3px;
+  background: var(--paper);
+  font-family: var(--mono);
+  font-size: 7.5px;
+}
+
+body.is-app .call-mode-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+body.is-app .call-mode-preset {
+  min-height: 28px;
+  padding: 6px 9px;
+  border: 1px solid var(--line-dark);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background 0.16s var(--ease),
+    border-color 0.16s var(--ease);
+}
+
+body.is-app .call-mode-preset:hover {
+  border-color: var(--ink);
+  background: var(--signal-soft);
+}
+
+body.is-app .call-mode-note-field {
+  margin-top: 0;
+}
+
+body.is-app .call-mode-note-field textarea {
+  min-height: 92px;
+}
+
+body.is-app .call-mode-note-hint {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 8.5px;
+  line-height: 1.45;
+}
+
+/* footer ------------------------------------------------------------ */
+
+body.is-app .call-mode-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex: none;
+  padding: 12px 22px;
+  border-top: 1px solid var(--ink);
+  background: var(--white);
+}
+
+body.is-app .call-mode-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 11px;
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.03em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+body.is-app .call-mode-keys kbd {
+  padding: 1px 3px;
+  border: 1px solid var(--line-dark);
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 7px;
+}
+
+body.is-app .call-mode-nav {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+}
+
+body.is-app .call-mode-nav .btn {
+  min-height: 40px;
+  font-size: 10.5px;
+}
+
+body.is-app .call-mode-nav .call-mode-next {
+  min-width: 176px;
+  justify-content: center;
+}
+
+body.is-app .call-mode-nav .call-mode-skip {
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+body.is-app .call-mode-nav .btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+/* empty & complete -------------------------------------------------- */
+
+body.is-app .call-mode-empty,
+body.is-app .call-mode-complete {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  max-width: 480px;
+  margin: clamp(20px, 8vh, 80px) auto;
+  padding: 30px 26px;
+  border: 1px solid var(--line-dark);
+  border-radius: 14px;
+  background: var(--white);
+  text-align: center;
+}
+
+body.is-app .call-mode-empty-mark,
+body.is-app .call-mode-complete-mark {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: var(--signal);
+  color: var(--ink);
+}
+
+body.is-app .call-mode-empty-mark .icon,
+body.is-app .call-mode-complete-mark .icon {
+  width: 20px;
+  height: 20px;
+}
+
+body.is-app .call-mode-empty h3,
+body.is-app .call-mode-complete h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+  font-stretch: 112%;
+  font-weight: 760;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+body.is-app .call-mode-empty p,
+body.is-app .call-mode-complete-copy {
+  max-width: 40ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+body.is-app .call-mode-empty-actions,
+body.is-app .call-mode-complete-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+body.is-app .call-mode-complete-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  margin: 6px 0 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+body.is-app .call-mode-complete-stats > div {
+  padding: 10px 8px;
+  border-left: 1px solid var(--line);
+}
+
+body.is-app .call-mode-complete-stats > div:first-child {
+  border-left: 0;
+}
+
+body.is-app .call-mode-complete-stats dt {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 6.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+body.is-app .call-mode-complete-stats dd {
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 760;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+/* focus & toasts ---------------------------------------------------- */
+
+body.is-app .call-mode a:focus-visible,
+body.is-app .call-mode button:focus-visible,
+body.is-app .call-mode select:focus-visible,
+body.is-app .call-mode textarea:focus-visible,
+body.is-app .call-mode [tabindex="0"]:focus-visible,
+body.is-app .call-mode [tabindex="-1"]:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* The footer owns the bottom edge; keep undo toasts above it. */
+body.is-app .call-mode .toast-region {
+  bottom: 84px;
+}
+
+/* phone layout ------------------------------------------------------ */
+
+@media (max-width: 760px) {
+  body.is-app .call-mode {
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  body.is-app .call-mode-inner {
+    height: 100dvh;
+  }
+
+  body.is-app .call-mode-head {
+    gap: 12px;
+    padding: calc(14px + env(safe-area-inset-top)) 15px 12px;
+  }
+
+  body.is-app .call-mode-head h2 {
+    font-size: 1.4rem;
+  }
+
+  body.is-app .call-mode-sub {
+    font-size: 9.5px;
+  }
+
+  body.is-app .call-mode-head-tools {
+    gap: 9px;
+  }
+
+  body.is-app .call-mode-progress {
+    width: 64px;
+  }
+
+  body.is-app .call-mode-session {
+    padding: 14px 14px 16px;
+  }
+
+  body.is-app .call-mode-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  body.is-app .call-mode-main,
+  body.is-app .call-mode-side {
+    gap: 12px;
+  }
+
+  body.is-app .call-mode-lead,
+  body.is-app .call-mode-script,
+  body.is-app .call-mode-outcomes,
+  body.is-app .call-mode-notes {
+    padding: 13px;
+  }
+
+  body.is-app .call-mode-script-body {
+    max-height: 34vh;
+    font-size: 12.5px;
+  }
+
+  body.is-app .call-mode-script-select .select-wrap {
+    min-width: 100px;
+    max-width: 150px;
+  }
+
+  body.is-app .call-mode-phone {
+    gap: 10px;
+    padding: 10px 11px;
+  }
+
+  body.is-app .call-mode-phone-glyph {
+    width: 40px;
+    height: 40px;
+  }
+
+  body.is-app .call-mode-phone-copy strong {
+    font-size: clamp(1.25rem, 6vw, 1.65rem);
+  }
+
+  body.is-app .call-mode-address {
+    font-size: 11px;
+  }
+
+  /* Keep iOS from zooming the sheet when the note or script picker
+     takes focus, while the rest of the type scale stays compact. */
+  body.is-app .call-mode select,
+  body.is-app .call-mode textarea {
+    font-size: 16px;
+  }
+
+  body.is-app .call-mode-script-select select {
+    min-height: 36px;
+  }
+
+  body.is-app .call-mode-note-field textarea {
+    min-height: 96px;
+  }
+
+  body.is-app .call-mode-foot {
+    display: block;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  body.is-app .call-mode-keys {
+    display: none;
+  }
+
+  body.is-app .call-mode-outcome-hint {
+    display: none;
+  }
+
+  body.is-app .call-mode-nav {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "prev next"
+      "skip skip";
+    gap: 7px;
+  }
+
+  body.is-app .call-mode-nav .btn {
+    min-height: 46px;
+    font-size: 11px;
+  }
+
+  body.is-app .call-mode-nav .call-mode-prev {
+    grid-area: prev;
+  }
+
+  body.is-app .call-mode-nav .call-mode-next {
+    grid-area: next;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  body.is-app .call-mode-nav .call-mode-skip {
+    grid-area: skip;
+    min-height: 32px;
+    padding: 6px 10px;
+    border-top: 1px solid var(--line);
+    font-size: 10px;
+  }
+
+  body.is-app .call-mode-empty,
+  body.is-app .call-mode-complete {
+    margin: 20px auto;
+    padding: 24px 20px;
+  }
+
+  body.is-app .call-mode-empty-actions .btn,
+  body.is-app .call-mode-complete-actions .btn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  body.is-app .call-mode .toast-region {
+    bottom: calc(132px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 560px) {
+  body.is-app .call-mode-head h2 {
+    font-size: 1.25rem;
+  }
+
+  body.is-app .call-mode-progress {
+    width: 48px;
+  }
+
+  body.is-app .call-mode-lead,
+  body.is-app .call-mode-script,
+  body.is-app .call-mode-outcomes,
+  body.is-app .call-mode-notes {
+    padding: 12px;
+  }
+
+  body.is-app .call-mode-links {
+    gap: 9px;
+  }
+
+  body.is-app .call-mode-complete-stats dt {
+    font-size: 6px;
+  }
+
+  body.is-app .call-mode-complete-stats dd {
+    font-size: 19px;
+  }
+}

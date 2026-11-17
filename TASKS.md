@@ -389,3 +389,35 @@
       with a lime gradient for readability instead of a 130px strip and empty lime block.
 - [x] QA on desktop and mobile; `npm test` 310/310; CSS braces 1845/1845; no functional,
       API, schema or dependency changes.
+
+## Feature: Call mode - one lead at a time (2026-11-17)
+- [x] C1: Planning - `docs/CALL-MODE.md` records the problem, goals, non-goals (durable
+      follow-up task deferred), acceptance criteria, session state, queue rules, data
+      writes, keyboard/focus, accessibility, responsive behavior, failure modes and test
+      plan before implementation.
+- [x] C2: Pure core - `public/call-mode-core.js` with `CALL_ACTIONS`, `CALL_NOTE_PRESETS`,
+      `planCallSession`, `stepCallQueue`, `resolveCallShortcut`, `appendCallNote` and
+      `callProgress`; no DOM, storage or network access.
+- [x] C3: Tests - `test/call-mode-core.test.js` covers report-order planning, duplicate and
+      missing ids, blocked filtering, requested/blocked/all-contacted starts, clamping,
+      completion, shortcut guards, preset appending (added/duplicate/full/empty) and
+      progress. Full suite 333/333.
+- [x] C4: Workspace UI - report hero and drawer entry points, `#callModeDialog` with lead
+      card, dialable phone (same six-digit rule as the drawer), address, filled script
+      picker, outcome group, note presets and footer navigation; `state.callMode` plus
+      `renderCallMode`, advance/outcome/note/preset controllers and a document-level
+      shortcut map.
+- [x] C5: Data path - status changes reuse `setOutreachStatus()`; note-only saves share a
+      new `writeOutreachNote()` helper with the drawer, so the ledger, saved-report sync,
+      Undo toast and exports stay identical. No schema, API, CSP or dependency changes.
+- [x] C6: Styling - Survey Signal CALL MODE section in `public/atlas.css`: signal entry
+      buttons, full-height dialog stage, two-column desktop body, thumb-row mobile footer
+      above the safe area, 16px mobile inputs, empty/complete panels, and toast offsets.
+- [x] C7: Verification - `npm test` 333/333, `node --check` green on `app.js` and
+      `call-mode-core.js`, no duplicate HTML ids, every call-mode id referenced by JS
+      exists, CSS braces balanced and no undefined color tokens. Account-gated browser
+      smoke remains documented in README and `docs/CALL-MODE.md` because the flows need a
+      signed-in Supabase session.
+- [x] C8: Docs + release - README call-mode section, keyboard table, structure/test
+      coverage and deferred follow-up note; TASKS/MEMORY updated; version 1.9.0 to 2.0.0
+      under the house minor-cap rule.

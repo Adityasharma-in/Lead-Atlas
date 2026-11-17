@@ -1392,6 +1392,10 @@
                 </p>
               </div>
               <div class="report-actions">
+                <button type="button" class="btn btn-outline export-btn call-mode-btn" id="callModeBtn">
+                  <svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg>
+                  <span>Call mode</span>
+                </button>
                 <button type="button" class="btn btn-primary export-btn save-report-btn" id="saveReportBtn">
                   <svg class="icon" aria-hidden="true"><use href="#i-save"></use></svg>
                   <span id="saveReportLabel">Save to library</span>
@@ -2077,6 +2081,12 @@
           <svg class="icon" aria-hidden="true"><use href="#i-external"></use></svg>
         </a>
 
+        <button type="button" class="btn btn-outline drawer-call-mode" id="drawerCallModeBtn">
+          <svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg>
+          <span>Call this lead</span>
+          <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+        </button>
+
         <button type="button" class="btn btn-outline drawer-script-link" id="drawerScriptBtn">
           <svg class="icon" aria-hidden="true"><use href="#i-script"></use></svg>
           <span id="drawerScriptLabel">Read call script</span>
@@ -2437,6 +2447,297 @@
             <button type="button" class="btn btn-quiet" id="closeCallSheetBtn">Close</button>
           </footer>
         </div>
+      </div>
+    </dialog>
+
+    <!-- ============================== CALL MODE ============================== -->
+    <dialog class="dialog call-mode" id="callModeDialog" aria-labelledby="callModeName">
+      <div class="call-mode-inner">
+        <header class="call-mode-head">
+          <div class="call-mode-head-copy">
+            <p class="mono-label" id="callModeKicker">Call mode</p>
+            <h2 id="callModeName">Lead name</h2>
+            <p class="call-mode-sub" id="callModeSub"></p>
+            <p class="sr-only" id="callModeAnnounce" aria-live="polite"></p>
+          </div>
+          <div class="call-mode-head-tools">
+            <div
+              class="call-mode-progress"
+              id="callModeProgressBar"
+              role="progressbar"
+              aria-label="Session progress"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="0"
+            >
+              <span class="call-mode-progress-fill" id="callModeProgressFill"></span>
+            </div>
+            <button
+              type="button"
+              class="icon-button"
+              id="closeCallMode"
+              aria-label="End call session"
+            >
+              <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+            </button>
+          </div>
+        </header>
+
+        <div class="call-mode-session" id="callModeSession">
+          <div class="call-mode-empty" id="callModeEmpty" tabindex="-1" hidden>
+            <span class="call-mode-empty-mark" aria-hidden="true">
+              <svg class="icon"><use href="#i-phone"></use></svg>
+            </span>
+            <h3>No one to call in this view.</h3>
+            <p id="callModeEmptyCopy"></p>
+            <div class="call-mode-empty-actions">
+              <button type="button" class="btn btn-primary" id="callModeEmptyInclude" hidden>
+                Include do-not-contact
+              </button>
+              <button type="button" class="btn btn-outline" id="callModeEmptyClose">
+                Back to report
+              </button>
+            </div>
+          </div>
+
+          <div class="call-mode-grid" id="callModeGrid">
+            <div class="call-mode-main">
+              <section class="call-mode-lead" aria-label="Lead details">
+                <p
+                  class="call-mode-status"
+                  id="callModeStatus"
+                  data-status="to-contact"
+                >
+                  To contact
+                </p>
+
+                <a class="call-mode-phone" id="callModePhone" href="tel:">
+                  <span class="call-mode-phone-glyph" aria-hidden="true">
+                    <svg class="icon"><use href="#i-phone"></use></svg>
+                  </span>
+                  <span class="call-mode-phone-copy">
+                    <span class="mono-label">Dial</span>
+                    <strong id="callModePhoneLabel">—</strong>
+                  </span>
+                  <span class="call-mode-phone-go" aria-hidden="true">
+                    <svg class="icon"><use href="#i-external"></use></svg>
+                  </span>
+                </a>
+
+                <p class="call-mode-no-phone" id="callModeNoPhone" hidden>
+                  No dialable phone number on this listing. Use email or Google Maps instead.
+                </p>
+
+                <div class="call-mode-extra-phones" id="callModeExtraPhones" hidden></div>
+
+                <p class="call-mode-address" id="callModeAddress"></p>
+
+                <div class="call-mode-links">
+                  <a
+                    class="text-link"
+                    id="callModeMaps"
+                    href="https://www.google.com/maps"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <svg class="icon" aria-hidden="true"><use href="#i-map"></use></svg>
+                    <span>Maps</span>
+                  </a>
+                  <a class="text-link" id="callModeEmail" href="mailto:">
+                    <svg class="icon" aria-hidden="true"><use href="#i-mail"></use></svg>
+                    <span>Email</span>
+                  </a>
+                  <a
+                    class="text-link"
+                    id="callModeWebsite"
+                    href="#"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg>
+                    <span>Website</span>
+                  </a>
+                </div>
+              </section>
+
+              <section class="call-mode-script" aria-label="Call script">
+                <div class="call-mode-section-head">
+                  <h3>Read</h3>
+                  <label
+                    class="call-mode-script-select"
+                    id="callModeScriptPicker"
+                    for="callModeScriptSelect"
+                  >
+                    <span class="mono-label">Script</span>
+                    <span class="select-wrap">
+                      <select id="callModeScriptSelect"></select>
+                      <svg class="icon select-chevron" aria-hidden="true">
+                        <use href="#i-chevron"></use>
+                      </svg>
+                    </span>
+                  </label>
+                </div>
+
+                <div class="call-mode-script-empty" id="callModeScriptEmpty" hidden>
+                  <p>
+                    No script saved yet. Write your opening once and it opens here on every call.
+                  </p>
+                  <button type="button" class="btn btn-outline" id="callModeWriteScript">
+                    Write a script
+                  </button>
+                </div>
+
+                <div
+                  class="call-mode-script-body"
+                  id="callModeScriptBody"
+                  tabindex="0"
+                  aria-label="Script to read during the call"
+                ></div>
+              </section>
+            </div>
+
+            <aside class="call-mode-side">
+              <section class="call-mode-outcomes" aria-labelledby="callModeOutcomeHeading">
+                <div class="call-mode-section-head">
+                  <h3 id="callModeOutcomeHeading">Outcome</h3>
+                  <span class="mono-label">C · X · U</span>
+                </div>
+
+                <div
+                  class="outreach-choices call-mode-choices"
+                  id="callModeOutcomes"
+                  role="group"
+                  aria-label="Call outcome"
+                >
+                  <button
+                    type="button"
+                    class="outreach-choice is-to-contact"
+                    data-outreach-status="to-contact"
+                    aria-pressed="false"
+                  >
+                    <span class="outreach-choice-mark" aria-hidden="true">
+                      <svg class="icon"><use href="#i-circle"></use></svg>
+                    </span>
+                    <span class="outreach-choice-copy">
+                      <strong>To contact</strong>
+                      <small>Back on the list</small>
+                    </span>
+                    <kbd class="call-mode-key" aria-hidden="true">U</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    class="outreach-choice is-contacted"
+                    data-outreach-status="contacted"
+                    aria-pressed="false"
+                  >
+                    <span class="outreach-choice-mark" aria-hidden="true">
+                      <svg class="icon"><use href="#i-check"></use></svg>
+                    </span>
+                    <span class="outreach-choice-copy">
+                      <strong>Reached out</strong>
+                      <small>Contact made · dates the mark</small>
+                    </span>
+                    <kbd class="call-mode-key" aria-hidden="true">C</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    class="outreach-choice is-do-not-contact"
+                    data-outreach-status="do-not-contact"
+                    aria-pressed="false"
+                  >
+                    <span class="outreach-choice-mark" aria-hidden="true">
+                      <svg class="icon"><use href="#i-ban"></use></svg>
+                    </span>
+                    <span class="outreach-choice-copy">
+                      <strong>Do not contact</strong>
+                      <small>Keep this lead off the call list</small>
+                    </span>
+                    <kbd class="call-mode-key" aria-hidden="true">X</kbd>
+                  </button>
+                </div>
+
+                <p class="call-mode-outcome-hint">
+                  <kbd>C</kbd> saves reached out and moves on. <kbd>X</kbd> saves do not contact
+                  and moves on.
+                </p>
+              </section>
+
+              <section class="call-mode-notes" aria-labelledby="callModeNoteHeading">
+                <div class="call-mode-section-head">
+                  <h3 id="callModeNoteHeading">Note</h3>
+                  <span class="mono-label" id="callModeNoteState" aria-live="polite">
+                    Saved
+                  </span>
+                </div>
+
+                <div
+                  class="call-mode-presets"
+                  id="callModeNotePresets"
+                  role="group"
+                  aria-label="Note presets"
+                ></div>
+
+                <label class="outreach-note-field call-mode-note-field" for="callModeNote">
+                  <span class="outreach-note-label">
+                    Private note
+                    <span class="outreach-note-count">
+                      <span id="callModeNoteCount">0</span> / 280
+                    </span>
+                  </span>
+                  <textarea
+                    id="callModeNote"
+                    maxlength="280"
+                    rows="3"
+                    placeholder="Who answered, best time to call back…"
+                  ></textarea>
+                </label>
+                <p class="call-mode-note-hint">
+                  Saves when you leave the field, mark an outcome, or move on.
+                </p>
+              </section>
+            </aside>
+          </div>
+
+          <div class="call-mode-complete" id="callModeComplete" tabindex="-1" hidden>
+            <span class="call-mode-complete-mark" aria-hidden="true">
+              <svg class="icon"><use href="#i-check"></use></svg>
+            </span>
+            <p class="mono-label">Session complete</p>
+            <h3>That’s the whole list.</h3>
+            <p class="call-mode-complete-copy" id="callModeCompleteCopy"></p>
+            <dl class="call-mode-complete-stats" id="callModeCompleteStats"></dl>
+            <div class="call-mode-complete-actions">
+              <button type="button" class="btn btn-primary" id="callModeRestart">
+                Start over
+              </button>
+              <button type="button" class="btn btn-outline" id="callModeDone">
+                Back to report
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <footer class="call-mode-foot" id="callModeFoot">
+          <p class="call-mode-keys" aria-hidden="true">
+            <span><kbd>J</kbd> next</span>
+            <span><kbd>K</kbd> previous</span>
+            <span><kbd>C</kbd> reached out</span>
+            <span><kbd>X</kbd> do not contact</span>
+            <span><kbd>U</kbd> reset</span>
+            <span><kbd>N</kbd> note</span>
+          </p>
+          <div class="call-mode-nav">
+            <button type="button" class="btn btn-outline call-mode-prev" id="callModePrev">
+              <svg class="icon flip" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+              Previous
+            </button>
+            <button type="button" class="btn btn-quiet call-mode-skip" id="callModeSkip">Skip</button>
+            <button type="button" class="btn btn-primary call-mode-next" id="callModeNext">
+              <svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>
+              <span>Reached out &amp; next</span>
+            </button>
+          </div>
+        </footer>
       </div>
     </dialog>
 
