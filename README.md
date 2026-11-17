@@ -219,7 +219,7 @@ same way you would: pull the newest commit and restart, in one click.
 - On page load — and every 5 minutes after that — the app asks the local server to compare
   its build with the tip of your repository's branch on GitHub.
 - When a newer commit exists, a **Update available** chip appears in the header. The footer
-  always shows the version and the build you are running (`Version 2.0.0`, then
+  always shows the version and the build you are running (`Version 2.0.1`, then
   `Build <sha> · <branch>` when the folder is a git clone).
 - Click the chip and the server **stashes any uncommitted local edits**, fetches and resets
   to the remote tip, runs `npm install` only if `package.json` or the lockfile changed, and
@@ -242,7 +242,7 @@ git clone and no process to restart. Ship changes with a commit and push, or wit
 ## Versioning
 
 The app version lives in the `version` field of `package.json` and is shown in the footer
-(`Version 2.0.0`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
+(`Version 2.0.1`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
 `GET /api/version`.
 
 The scheme is semver-like with one house rule — the minor part stops at 9:
@@ -332,10 +332,10 @@ note from a file wins over the browser ledger.
 ## Call scripts and the call sheet
 
 Keep the words you actually say beside the leads you call. Open the **Scripts** chip in the
-header on any screen to write, edit, search, duplicate, and delete scripts; the report
-toolbar and the lead drawer open the same scripts as a readable **call sheet**. The active
-script also appears as plain text at the bottom of every extracted lead report, and again at
-the bottom of a lead’s detail drawer filled with that lead’s details — no extra click needed.
+header on any screen to write, edit, search, duplicate, and delete scripts; the lead drawer
+opens the same script as a readable **call sheet**. The active script also appears as plain
+text at the bottom of every extracted lead report, and again at the bottom of a lead’s detail
+drawer filled with that lead’s details — no extra click needed.
 
 - **Saved to your account.** New scripts, edits, imports, deletions, and the default-script
   choice write through to your private `script_libraries` row. The editor still caches
@@ -343,8 +343,8 @@ the bottom of a lead’s detail drawer filled with that lead’s details — no 
 - **Write once, read beside every lead.** The report ends with the active script filled from
   the current search niche and location. The same script sits at the bottom of a lead drawer,
   filled with the business name, category, city, address, phone, email, and website from that
-  lead. The **Call sheet** buttons still open a focused reading view with copy and outreach
-  actions.
+  lead. The **Read call script** button in the lead drawer still opens a focused reading view
+  with copy and outreach actions.
 - **Placeholders keep the script reusable.** Put `{business}`, `{category}`, `{city}`,
   `{address}`, `{phone}`, `{email}`, `{website}`, `{niche}`, or `{location}` anywhere in the
   body. Missing values use plain fallbacks ("there", "your area", "this number"); unknown
@@ -771,7 +771,7 @@ lead-atlas/
 | A confirmation or magic link returns to the wrong page | Add the exact origin (including `/auth.html`, or the local wildcard) to Supabase **Authentication** → **URL Configuration** → **Redirect URLs**, and open the link in the same browser that requested it. For Vercel, add `https://lead-atlas-ochre.vercel.app/auth.html` and `https://lead-atlas-ochre.vercel.app/**`, then request a fresh link. |
 | The deployed site redirects to `vercel.com/sso-api` | Deployment Protection is on. In Vercel, open the project → **Settings** → **Deployment Protection** and disable **Vercel Authentication**, or run `vercel project protection disable lead-atlas --sso`. |
 | Every deployed page and API hangs, but CSS loads | The deployment was built from an old `src/server.js` that default-exported the app factory. Deploy the current tree, where the default export is the lazy Express request handler. |
-| The Vercel deployment shows an old version | A CLI deploy uploads the current working tree; a Git deploy builds the pushed commit. Redeploy the intended source — `/api/version` should report `2.0.0`. |
+| The Vercel deployment shows an old version | A CLI deploy uploads the current working tree; a Git deploy builds the pushed commit. Redeploy the intended source - `/api/version` should report `2.0.1`. |
 | `/api/*` returns 404 on Vercel | Confirm the project uses the Express preset and the current `vercel.json`. API routes are handled by the single function, not by static output. |
 | “Confirm your email first” | Click the confirmation link Supabase sent, or turn off **Confirm email** for local testing. |
 | The library is empty after a scan | Saving is explicit: open the report and choose **Save to library**. A scan that was never saved is not in the library. |

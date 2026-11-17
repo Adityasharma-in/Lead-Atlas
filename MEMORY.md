@@ -4,12 +4,13 @@
 
 ## Current Phase: SHIP — live on Vercel at https://lead-atlas-ochre.vercel.app; Supabase email redirect allowlist pending
 
-## Last Completed Task: Call mode — one lead at a time (2026-11-17)
+## Last Completed Task: Report page polish — redundant actions removed, script card rebuilt (2026-11-17)
 
 ## Next Task: Review and merge the stack once its previews look right: PR #1
 (`feat/outreach-dashboard-stable-leads`) into `main`, then PR #2
 (`feat/instant-dashboard-session`), then PR #3 (`feat/survey-signal-ui`), then PR #4
-(`feat/call-mode`, https://github.com/Adityasharma-in/Lead-Atlas/pull/4). Run the
+(`feat/call-mode`, https://github.com/Adityasharma-in/Lead-Atlas/pull/4), then PR #5
+(`fix/report-page-polish`, stacked on #4). Run the
 account-gated browser smoke listed in `docs/CALL-MODE.md` before merging #4. Let the
 GitHub-connected Vercel project build `main`. In Supabase **Authentication → URL
 Configuration**, set the Site URL to `https://lead-atlas-ochre.vercel.app` and add
@@ -421,10 +422,11 @@ magic-link, and password-recovery emails on the live domain.
   (scratch edit was disposable; recovery path itself covered by unit tests).
 
 ## Active Context
-- Current app version: `2.0.0` (call mode, instant dashboard boot from an account-scoped
-  cache, signed-in home redirect, outreach analytics, stable lead identity and numbering,
-  review quality gate, account-backed call scripts, multipage public site, account-only
-  workspace/library, deep-linkable workspace routes and the account-bound Apify key).
+- Current app version: `2.0.1` (report page polish, call mode, instant dashboard boot from
+  an account-scoped cache, signed-in home redirect, outreach analytics, stable lead identity
+  and numbering, review quality gate, account-backed call scripts, multipage public site,
+  account-only workspace/library, deep-linkable workspace routes and the account-bound Apify
+  key).
 - Live deployment: `https://lead-atlas-ochre.vercel.app` (Vercel project `lead-atlas`,
   Express preset, one serverless function, `SELF_UPDATE=off`).
 - Repo: git clone of https://github.com/Adityasharma-in/Lead-Atlas.git (current branch
@@ -655,3 +657,24 @@ magic-link, and password-recovery emails on the live domain.
   checks clean. The account-gated browser smoke list is in `docs/CALL-MODE.md`. Version
   1.9.0 → 2.0.0. Committed on `feat/call-mode` and opened as PR #4
   (https://github.com/Adityasharma-in/Lead-Atlas/pull/4), stacked on PR #3.
+
+## Report page polish - call mode preview pass (2026-11-17)
+- Goal: act on the preview annotations on the saved-report page before the call-mode
+  stack merges.
+- Removed the report hero **Call sheet** button (`#reportScriptBtn`). The drawer's
+  **Read call script** action remains the call sheet entry point, and the inline script
+  card still previews the active script at the end of the report. Dropped the dead cache
+  id and click binding with it.
+- Removed the report hero **Data desk** button. The report nav still carries its **Data
+  desk** link, and the header/hero entries are unchanged, so no path was lost. Dropped the
+  now-unused `#reportDataLabel` cache id and its update line.
+- Rebuilt the inline call-script card: the old two-column split left a tall empty column
+  beside long scripts. It is now one card with a compact dark header (label, title and
+  note on a 34ch side column) above a full-width paper reading surface. Reset the
+  inherited 30px top padding, 48px column gap and inner border; moved the orange signal
+  stripe from the left edge to the top edge; set a 72ch measure at 13.5px/1.8; the header
+  stacks at 980px and the card keeps its 18px mobile padding.
+- Docs: README call-sheet wording now names the drawer entry point; CALL-SCRIPTS goals and
+  AC4 match the single entry point. Version 2.0.0 -> 2.0.1 (patch).
+- Verified: `npm test` 333/333, `node --check` green, no duplicate ids, no stale
+  `reportScriptBtn`/`reportDataLabel` references, CSS braces balanced.

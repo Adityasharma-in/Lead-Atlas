@@ -528,7 +528,7 @@ import {
     const email = user?.email || state.auth.profile?.email || "—";
     const initials = accountInitials(name);
     const firstName = name.split(/\s+/)[0] || "there";
-    const version = state.config?.appVersion || "2.0.0";
+    const version = state.config?.appVersion || "2.0.1";
 
     if (els.accountAvatar) els.accountAvatar.textContent = initials;
     if (els.topbarAvatar) els.topbarAvatar.textContent = initials;
@@ -2654,7 +2654,6 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "reportLocation",
       "reportInWord",
       "reportSub",
-      "reportScriptBtn",
       "exportCsvBtn",
       "exportJsonBtn",
       "dataCardBtn",
@@ -2715,7 +2714,6 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "dataWarnings",
       "dataOpenReport",
       "dataReplaceBtn",
-      "reportDataLabel",
       "reportNavDataLabel",
       "leadDialog",
       "closeLeadDialog",
@@ -4770,7 +4768,6 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
   function updateReportImportLabels(imported) {
     const label = imported ? "Import another" : "Data desk";
-    if (els.reportDataLabel) els.reportDataLabel.textContent = label;
     if (els.reportNavDataLabel) els.reportNavDataLabel.textContent = label;
   }
 
@@ -5427,9 +5424,6 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     els.dataCardBtn?.addEventListener("click", openDataDesk);
 
     els.scriptChip?.addEventListener("click", () => openScriptLibrary());
-    els.reportScriptBtn?.addEventListener("click", () =>
-      openCallSheet(null, { source: "report" }),
-    );
     els.drawerScriptBtn?.addEventListener("click", () => {
       if (!state.scripts.scripts.length) {
         openScriptLibrary({ createIfEmpty: true, focusTitle: true });
@@ -6973,7 +6967,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     }
     renderFooterVersion(config.appVersion);
     if (els.sidebarVersion) {
-      els.sidebarVersion.textContent = `Version ${config.appVersion || "2.0.0"}`;
+      els.sidebarVersion.textContent = `Version ${config.appVersion || "2.0.1"}`;
     }
     populateMinStars();
     populateMinReviews();

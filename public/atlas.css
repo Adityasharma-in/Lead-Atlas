@@ -9272,10 +9272,16 @@ body.is-app .page-gap {
 
 /* report call script ---------------------------------------------- */
 
+/* One card, not two columns: a compact dark brief on top and the reading
+   surface below it. The old split left a tall empty column whenever the
+   script ran long, so the script now owns the full width of the card. */
 body.is-app .report-script {
   display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  align-items: stretch;
   margin-top: 22px;
+  padding-top: 0;
   overflow: hidden;
   border: 1px solid var(--ink);
   border-radius: 14px;
@@ -9284,48 +9290,77 @@ body.is-app .report-script {
 }
 
 body.is-app .report-script-lede {
-  padding: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 34ch);
+  grid-template-areas:
+    "label note"
+    "title note";
+  gap: 5px 28px;
+  align-items: start;
+  padding: 20px 24px 19px;
 }
 
 body.is-app .report-script-lede .mono-label {
+  grid-area: label;
   color: var(--signal);
 }
 
 body.is-app .report-script-lede h2 {
-  margin: 9px 0 0;
+  grid-area: title;
+  max-width: none;
+  margin: 2px 0 0;
   color: var(--paper);
   font-family: var(--serif);
-  font-size: clamp(1.5rem, 2.4vw, 2rem);
+  font-size: clamp(1.45rem, 2.2vw, 1.85rem);
   font-stretch: 110%;
   font-weight: 760;
   letter-spacing: -0.04em;
-  line-height: 1.02;
+  line-height: 1.04;
+  overflow-wrap: anywhere;
 }
 
 body.is-app .report-script-note {
-  max-width: 36ch;
-  margin: 10px 0 0;
-  color: rgba(242, 243, 235, 0.46);
+  grid-area: note;
+  align-self: center;
+  max-width: none;
+  margin: 0;
+  color: rgba(242, 243, 235, 0.5);
   font-size: 10.5px;
   line-height: 1.6;
 }
 
 body.is-app .report-script-sheet {
-  padding: 24px;
+  padding: 20px 24px 24px;
+  border: 0;
   background: var(--white);
   color: var(--ink);
+  box-shadow: inset 0 3px 0 var(--orange);
 }
 
 body.is-app .report-script-sheet-label {
+  margin: 0;
   color: var(--muted);
 }
 
 body.is-app .report-script-body {
+  max-width: 72ch;
   margin-top: 10px;
   color: var(--ink-soft);
-  font-size: 12.5px;
-  line-height: 1.75;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  line-height: 1.8;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+body.is-app .report-script-body.is-empty {
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+
+body.is-app .report-script.is-empty .report-script-sheet {
+  box-shadow: inset 0 3px 0 var(--line-dark);
 }
 
 body.is-app .report-script-body:empty::before {
@@ -12159,6 +12194,20 @@ body.is-app .boot-error strong {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  body.is-app .report-script-lede {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "label"
+      "title"
+      "note";
+    gap: 5px;
+  }
+
+  body.is-app .report-script-note {
+    align-self: start;
+    max-width: 48ch;
+  }
+
   body.is-app .script-workspace {
     grid-template-columns: 210px minmax(0, 1fr);
   }
@@ -13725,9 +13774,7 @@ body.is-app .dash-outreach-card {
 }
 
 body.is-app .report-script-sheet {
-  box-shadow:
-    inset 3px 0 0 var(--orange),
-    4px 4px 0 rgba(12, 22, 17, 0.05);
+  box-shadow: inset 0 3px 0 var(--orange);
 }
 
 body.is-app .app-bottom-nav {
