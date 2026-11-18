@@ -149,6 +149,13 @@ workspace view is deep-linkable — `#dashboard`, `#library`, `#setup`, `#report
 and `#progress` — and browser back/forward moves between them. On phones, a five-item
 bottom bar (Overview, Scan, Library, Data, More) keeps the main surfaces in thumb reach:
 
+A signed-in visit to the home page goes straight to `#dashboard`: a tiny `session-guard.js`
+runs in the `<head>` and replaces the marketing page before it paints. The workspace then
+shows the last dashboard snapshot cached in this browser and refreshes reports, counts,
+scripts, and the profile in parallel with Supabase, so saved totals and recent reports are
+visible immediately. The cache is account-scoped, versioned, validated, and removed on
+sign-out; a first visit or a cleared cache waits for the live reads as before.
+
 - **Overview** — saved-report and lead counts, reached-out and do-not-contact totals,
   today's reached clients, a 14-day day-by-day chart, this month's additions and calls by
   source (scraped, imported, or unfiled) with reached and to-call counts, recent reports,
@@ -210,7 +217,7 @@ same way you would: pull the newest commit and restart, in one click.
 - On page load — and every 5 minutes after that — the app asks the local server to compare
   its build with the tip of your repository's branch on GitHub.
 - When a newer commit exists, a **Update available** chip appears in the header. The footer
-  always shows the version and the build you are running (`Version 1.8.0`, then
+  always shows the version and the build you are running (`Version 1.9.0`, then
   `Build <sha> · <branch>` when the folder is a git clone).
 - Click the chip and the server **stashes any uncommitted local edits**, fetches and resets
   to the remote tip, runs `npm install` only if `package.json` or the lockfile changed, and
@@ -233,7 +240,7 @@ git clone and no process to restart. Ship changes with a commit and push, or wit
 ## Versioning
 
 The app version lives in the `version` field of `package.json` and is shown in the footer
-(`Version 1.8.0`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
+(`Version 1.9.0`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
 `GET /api/version`.
 
 The scheme is semver-like with one house rule — the minor part stops at 9:
@@ -528,6 +535,11 @@ the separate employee-level **business leads enrichment** add-on is intentionall
   account-scoped `leadAtlas.scripts.v1.<user-id>` key. Script text is never sent to the
   local server or Apify. The JSON script backup is a separate download from the lead
   report, and importing scripts does not touch the outreach ledger or report.
+- The last dashboard snapshot (recent reports, counts, outreach activity) is cached under
+  an account-scoped `leadAtlas.dashboardCache.v1.<user-id>` key, and the public server
+  config under `leadAtlas.config.v1`. Both are versioned and validated before use; the
+  dashboard copy is removed on sign-out. Clearing site data simply causes the next visit
+  to wait for Supabase.
 - There is no telemetry. External requests are Google Fonts (page styling), Apify (your
   scans), and your Supabase project (auth and library). Fonts can be removed from the
   `<link>` tags in the five HTML pages if you need a fully offline UI.
@@ -585,6 +597,9 @@ network access required. It covers:
   reattaching after a closed tab
 - Self-update helpers (repository URLs, commit/ls-remote parsing, dependency detection),
   update/apply flows with injected git and fetch runners, and the version/update routes
+- Boot-cache snapshots (versioning, per-account keys, caps, corrupt/outdated rejection) and
+  the signed-in home redirect through a `vm` sandbox with stored, missing and malformed
+  sessions
 - Supabase config validation, project-ref extraction, CSP `connect-src` wiring, and the
   public `/api/config` shape
 - Server routes, token handling, origin checks, live status, abort, and exports
@@ -605,8 +620,10 @@ lead-atlas/
 │   ├── styles.css        Design system and report layout
 │   ├── workspace.css     Public page, auth, workspace and bottom-nav styles
 │   ├── app.js            Workspace routing, UI state, library, polling, report, exports
+│   ├── session-guard.js  Signed-in home redirect before the marketing page paints
 │   ├── supabase-client.js Dependency-free GoTrue + PostgREST browser client
 │   ├── account-core.js   Account Apify-token precedence and schema-cache rules
+│   ├── boot-cache-core.js Dashboard/config snapshots for an instant first paint
 │   ├── active-run-core.js Active-scan pointer parsing and freshness rules
 │   ├── import-core.js    Browser-side CSV/JSON import parser and exports
 │   ├── outreach-core.js  Outreach states, keys, notes, dates and counts
@@ -642,6 +659,8 @@ lead-atlas/
     ├── outreach-core.test.js
     ├── scripts-core.test.js
     ├── active-run-core.test.js
+    ├── boot-cache-core.test.js
+    ├── session-guard.test.js
     ├── selfupdate.test.js
     ├── supabase.test.js
     ├── version.test.js
@@ -697,7 +716,7 @@ lead-atlas/
 | A confirmation or magic link returns to the wrong page | Add the exact origin (including `/auth.html`, or the local wildcard) to Supabase **Authentication** → **URL Configuration** → **Redirect URLs**, and open the link in the same browser that requested it. For Vercel, add `https://lead-atlas-ochre.vercel.app/auth.html` and `https://lead-atlas-ochre.vercel.app/**`, then request a fresh link. |
 | The deployed site redirects to `vercel.com/sso-api` | Deployment Protection is on. In Vercel, open the project → **Settings** → **Deployment Protection** and disable **Vercel Authentication**, or run `vercel project protection disable lead-atlas --sso`. |
 | Every deployed page and API hangs, but CSS loads | The deployment was built from an old `src/server.js` that default-exported the app factory. Deploy the current tree, where the default export is the lazy Express request handler. |
-| The Vercel deployment shows an old version | A CLI deploy uploads the current working tree; a Git deploy builds the pushed commit. Redeploy the intended source — `/api/version` should report `1.8.0`. |
+| The Vercel deployment shows an old version | A CLI deploy uploads the current working tree; a Git deploy builds the pushed commit. Redeploy the intended source — `/api/version` should report `1.9.0`. |
 | `/api/*` returns 404 on Vercel | Confirm the project uses the Express preset and the current `vercel.json`. API routes are handled by the single function, not by static output. |
 | “Confirm your email first” | Click the confirmation link Supabase sent, or turn off **Confirm email** for local testing. |
 | The library is empty after a scan | Saving is explicit: open the report and choose **Save to library**. A scan that was never saved is not in the library. |
