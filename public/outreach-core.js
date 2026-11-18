@@ -26,6 +26,17 @@ export const OUTREACH_STATUSES = Object.freeze([
 
 export const OUTREACH_NOTE_LIMIT = 280;
 
+/**
+ * The small marker shown beside a phone number. "open" is the green dot
+ * (not called yet), "called" is the green tick, and "blocked" keeps a
+ * do-not-contact lead from looking callable.
+ */
+export const CALL_MARK = Object.freeze({
+  OPEN: "open",
+  CALLED: "called",
+  BLOCKED: "blocked",
+});
+
 const DNC_PATTERNS = [
   /do\s*not\s*contact/,
   /dont\s*contact/,
@@ -118,6 +129,13 @@ export function normalizeOutreachStatus(value) {
 
 export function outreachStatusLabel(value) {
   return OUTREACH_LABELS[normalizeOutreachStatus(value)] || OUTREACH_LABELS[OUTREACH.TODO];
+}
+
+export function callMarkForStatus(value) {
+  const status = normalizeOutreachStatus(value) || OUTREACH.TODO;
+  if (status === OUTREACH.CONTACTED) return CALL_MARK.CALLED;
+  if (status === OUTREACH.DO_NOT_CONTACT) return CALL_MARK.BLOCKED;
+  return CALL_MARK.OPEN;
 }
 
 export function normalizeOutreachNote(value) {

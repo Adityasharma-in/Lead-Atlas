@@ -395,6 +395,141 @@ test("rejects empty files and JSON without a lead array", () => {
   );
 });
 
+test("assigns identity-derived ids and contiguous numbers after deduplication", () => {
+  const csv = [
+    "Business name,Phone,Email,Address,Place ID",
+    "Acme,5125550100,a@acme.example,1 Main St,",
+    "Acme,5125550100,a@acme.example,1 Main St,",
+    "Beta,,,2 Main St,",
+    "Gamma,5125550300,,3 Main St,gamma-place",
+  ].join("\n");
+
+  const result = parseImportContent({ name: "stable.csv", text: csv });
+
+  assert.equal(result.leads.length, 3);
+  assert.equal(result.duplicateCount, 1);
+  assert.deepEqual(
+    result.leads.map((lead) => [lead.name, lead.index]),
+    [
+      ["Acme", 1],
+      ["Beta", 2],
+      ["Gamma", 3],
+    ],
+  );
+  assert.equal(new Set(result.leads.map((lead) => lead.id)).size, 3);
+});
+
+test("re-importing the same file keeps each contact's id and index", () => {
+  const csv = [
+    "Business name,Phone,Address",
+    "Zulu,5125550101,1 Zed Rd",
+    "Alpha,5125550102,2 Alpha Rd",
+    "Echo,5125550103,3 Echo Rd",
+  ].join("\n");
+
+  const first = parseImportContent({ name: "first.csv", text: csv });
+  const second = parseImportContent({ name: "again.csv", text: csv });
+  const snapshot = (result) =>
+    result.leads.map((lead) => [lead.name, lead.id, lead.index]);
+
+  assert.deepEqual(snapshot(second), snapshot(first));
+});
+
+test("keeps ids stable when rows are reordered", () => {
+  const header = "Business name,Phone,Address";
+  const rows = [
+    "Zulu,5125550101,1 Zed Rd",
+    "Alpha,5125550102,2 Alpha Rd",
+    "Echo,5125550103,3 Echo Rd",
+  ];
+  const first = parseImportContent({
+    name: "first.csv",
+    text: [header, ...rows].join("\n"),
+  });
+  const reordered = parseImportContent({
+    name: "reordered.csv",
+    text: [header, ...rows.reverse()].join("\n"),
+  });
+  const idsByName = (result) =>
+    Object.fromEntries(result.leads.map((lead) => [lead.name, lead.id]));
+
+  assert.deepEqual(idsByName(reordered), idsByName(first));
+});
+
+test("bridges duplicates across phone, email and place id", () => {
+  const csv = [
+    "Business name,Phone,Email,Place ID",
+    "Bridge Co,5125550100,,",
+    'Bridge Co,+1 512 555 0100,shared@bridge.example,',
+    "Bridge Co,,SHARED@bridge.example,bridge-1",
+  ].join("\n");
+
+  const result = parseImportContent({ name: "bridge.csv", text: csv });
+
+  assert.equal(result.leads.length, 1);
+  assert.equal(result.duplicateCount, 2);
+  assert.equal(result.leads[0].placeId, "bridge-1");
+  assert.deepEqual(result.leads[0].phones, ["5125550100"]);
+  assert.deepEqual(result.leads[0].emails, ["shared@bridge.example"]);
+  assert.equal(result.leads[0].index, 1);
+});
+
+test("merges name and address duplicates but not same names at different addresses", () => {
+  const csv = [
+    "Business name,Phone,Address",
+    "Corner Cafe,5125550100,5 Main St",
+    "Corner Cafe,5125550199,5 Main St",
+    "Corner Cafe,5125550188,9 Other St",
+  ].join("\n");
+
+  const result = parseImportContent({ name: "addresses.csv", text: csv });
+
+  assert.equal(result.leads.length, 2);
+  assert.equal(result.duplicateCount, 1);
+  assert.deepEqual(result.leads[0].phones, ["5125550100", "5125550199"]);
+  assert.equal(result.leads[1].phones[0], "5125550188");
+});
+
+test("keeps rating and reviews as one fresh snapshot after a merge", () => {
+  const csv = [
+    "Business name,Place ID,Website,Rating,Reviews",
+    "Fresh Co,fresh-1,,4.2,10",
+    "Fresh Co,fresh-1,fresh.example,4.8,50",
+  ].join("\n");
+
+  const result = parseImportContent({ name: "fresh.csv", text: csv });
+  const lead = result.leads[0];
+
+  assert.equal(lead.rating, 4.8);
+  assert.equal(lead.reviewsCount, 50);
+  assert.equal(lead.website, "https://fresh.example/");
+  assert.equal(lead.domain, "fresh.example");
+  assert.equal(lead.hasWebsite, true);
+
+  const reversed = parseImportContent({
+    name: "reversed.csv",
+    text: [csv.split("\n")[0], csv.split("\n")[2], csv.split("\n")[1]].join("\n"),
+  });
+  assert.equal(reversed.leads[0].rating, 4.8);
+  assert.equal(reversed.leads[0].reviewsCount, 50);
+});
+
+test("never reuses a row position as a lead id", () => {
+  const first = parseImportContent({
+    name: "first.csv",
+    text: ["Business name,Phone", "First,5125550100", "Second,5125550101"].join("\n"),
+  });
+  const second = parseImportContent({
+    name: "second.csv",
+    text: ["Business name,Phone", "Second,5125550101", "First,5125550100"].join("\n"),
+  });
+
+  const byName = (result) =>
+    Object.fromEntries(result.leads.map((lead) => [lead.name, lead.id]));
+  assert.deepEqual(byName(second), byName(first));
+  assert.ok(first.leads.every((lead) => !lead.id.startsWith("import-")));
+});
+
 test("escapeCsvCell quotes separators, whitespace and doubles quotes", () => {
   assert.equal(escapeCsvCell("plain"), "plain");
   assert.equal(escapeCsvCell("with,comma"), '"with,comma"');

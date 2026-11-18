@@ -4472,6 +4472,268 @@ body.is-app .grain {
   font-weight: 600;
 }
 
+.dash-activity {
+  margin-bottom: 14px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: rgba(251, 247, 236, 0.72);
+}
+
+.dash-account-chip {
+  max-width: 44%;
+  margin: 0;
+  overflow: hidden;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.05em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dash-activity-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 17px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.dash-pulse {
+  min-width: 0;
+  padding: 15px 15px 14px;
+}
+
+.dash-pulse + .dash-pulse {
+  border-left: 1px solid var(--line);
+}
+
+.dash-pulse-label {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dash-pulse > strong {
+  display: block;
+  font-family: var(--serif);
+  font-size: clamp(1.7rem, 2.6vw, 2.35rem);
+  font-weight: 520;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+}
+
+.dash-pulse > p:last-child {
+  min-height: 26px;
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.dash-activity-lower {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.72fr);
+  gap: 22px;
+  margin-top: 18px;
+}
+
+.dash-day-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.dash-day-head h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 540;
+  letter-spacing: -0.03em;
+}
+
+.dash-day-head span {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dash-day-chart {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(20px, 1fr));
+  gap: 5px;
+  min-height: 142px;
+  overflow-x: auto;
+  padding: 0 1px;
+}
+
+.dash-day {
+  display: grid;
+  grid-template-rows: 13px minmax(70px, 1fr) auto auto;
+  gap: 3px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.dash-day-value {
+  color: var(--forest);
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.dash-day-track {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 100%;
+  min-height: 70px;
+  border-bottom: 1px solid var(--line);
+  background:
+    repeating-linear-gradient(
+      to top,
+      transparent 0,
+      transparent calc(25% - 1px),
+      rgba(24, 37, 29, 0.055) calc(25% - 1px),
+      rgba(24, 37, 29, 0.055) 25%
+    );
+}
+
+.dash-day-track i {
+  display: block;
+  width: 100%;
+  max-width: 22px;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(180deg, #4a8060, var(--forest));
+  transition: height 0.4s var(--ease);
+}
+
+.dash-day.is-today .dash-day-track i {
+  background: linear-gradient(180deg, #e87843, var(--orange));
+}
+
+.dash-day-label {
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dash-day-date {
+  overflow: hidden;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 6.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-day.is-today .dash-day-label {
+  color: var(--orange);
+}
+
+.dash-day-empty {
+  grid-column: 1 / -1;
+  margin: 24px 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.dash-source-panel {
+  min-width: 0;
+  padding-left: 22px;
+  border-left: 1px solid var(--line);
+}
+
+.dash-source-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--ink);
+  font-size: 10px;
+}
+
+.dash-source-table th,
+.dash-source-table td {
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+}
+
+.dash-source-table thead th {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dash-source-table thead th:first-child,
+.dash-source-table tbody th {
+  text-align: left;
+}
+
+.dash-source-table tbody th {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dash-source-table td {
+  font-family: var(--mono);
+  font-size: 9px;
+}
+
+.dash-source-table tbody tr:last-child th,
+.dash-source-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.source-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  vertical-align: 1px;
+}
+
+.source-dot.is-scan {
+  background: var(--forest);
+}
+
+.source-dot.is-import {
+  background: var(--orange);
+}
+
+.source-dot.is-unknown {
+  background: #b7b1a4;
+}
+
+.dash-source-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 8.5px;
+  line-height: 1.5;
+}
+
 .dash-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.58fr) minmax(280px, 0.72fr);
@@ -6379,6 +6641,93 @@ body.is-app .grain {
 
   .landing-page-hero::before {
     right: -320px;
+  }
+}
+
+@media (max-width: 940px) {
+  .dash-activity-lower {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dash-source-panel {
+    padding-top: 18px;
+    padding-left: 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .dash-activity {
+    padding: 17px;
+  }
+
+  .dash-activity-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dash-pulse:nth-child(3) {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .dash-pulse:nth-child(4) {
+    border-top: 1px solid var(--line);
+  }
+
+  .dash-account-chip {
+    max-width: 48%;
+  }
+}
+
+@media (max-width: 560px) {
+  .dash-activity {
+    padding: 14px;
+  }
+
+  .dash-activity-grid {
+    margin-top: 13px;
+  }
+
+  .dash-pulse {
+    padding: 12px 9px;
+  }
+
+  .dash-pulse > p:last-child {
+    min-height: 30px;
+    font-size: 8px;
+  }
+
+  .dash-activity-lower {
+    gap: 15px;
+    margin-top: 14px;
+  }
+
+  .dash-day-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .dash-day-chart {
+    gap: 3px;
+  }
+
+  .dash-day {
+    grid-template-rows: 12px minmax(62px, 1fr) auto;
+  }
+
+  .dash-day-track {
+    min-height: 62px;
+  }
+
+  .dash-day-date {
+    display: none;
+  }
+
+  .dash-source-table th,
+  .dash-source-table td {
+    padding: 7px 3px;
   }
 }
 

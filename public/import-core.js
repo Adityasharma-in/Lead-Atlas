@@ -14,6 +14,13 @@ import {
   outreachCounts,
   outreachStatusLabel,
 } from "./outreach-core.js";
+import {
+  assignLeadIndexes,
+  dedupeLeads,
+  emailIdentity,
+  phoneIdentity,
+  stableLeadId,
+} from "./lead-identity-core.js";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const URL_PROTOCOLS = new Set(["http:", "https:"]);
@@ -884,7 +891,7 @@ function parseOutreach(map) {
   };
 }
 
-function createLead(item, index, fallbackName = "") {
+function createLead(item, fallbackName = "") {
   const map = mapFor(item);
   let name = pickText(map, ALIASES.name);
   const nameFromFallback = !name && Boolean(fallbackName);
@@ -998,7 +1005,7 @@ function createLead(item, index, fallbackName = "") {
   if (!finalName) return null;
 
   const lead = {
-    id: placeId ? `place-${placeId}` : `import-${index}`,
+    id: "",
     placeId,
     name: finalName,
     category,
@@ -1035,6 +1042,9 @@ function createLead(item, index, fallbackName = "") {
     outreachNote: outreach.note,
     extraFields,
   };
+  // Identity-derived, not row-order-derived: re-importing the same file keeps
+  // the same ID even when duplicate rows move or the file is reordered.
+  lead.id = stableLeadId(lead);
 
   return {
     lead,
@@ -1044,20 +1054,28 @@ function createLead(item, index, fallbackName = "") {
   };
 }
 
-function dedupeKey(lead) {
-  if (lead.placeId) return `place:${lead.placeId.toLowerCase()}`;
-  if (lead.name && lead.name !== "Unnamed place") {
-    return `name:${lead.name.toLowerCase()}|${(lead.address || "").toLowerCase()}`;
+function mergeUnique(existing, incoming, keyFor) {
+  const values = Array.isArray(existing) ? [...existing] : [];
+  const seen = new Set(values.map(keyFor).filter(Boolean));
+  for (const value of Array.isArray(incoming) ? incoming : []) {
+    const key = keyFor(value);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    values.push(value);
   }
-  const phoneKey = lead.phones.map(phoneDigits).find((digits) => digits.length >= 6);
-  if (phoneKey) return `phone:${phoneKey}`;
-  const emailKey = lead.emails[0]?.toLowerCase();
-  if (emailKey) return `email:${emailKey}`;
-  return `id:${lead.id}`;
+  return values;
 }
 
 function mergeLead(existing, incoming) {
   const merged = { ...existing };
+
+  if (merged.name === "Unnamed place" && incoming.name !== "Unnamed place") {
+    merged.name = incoming.name;
+  }
+  if (merged.category === "Business" && incoming.category !== "Business") {
+    merged.category = incoming.category;
+  }
+
   for (const field of [
     "address",
     "city",
@@ -1065,7 +1083,6 @@ function mergeLead(existing, incoming) {
     "postalCode",
     "countryCode",
     "website",
-    "domain",
     "priceLevel",
     "placeId",
     "lat",
@@ -1075,8 +1092,7 @@ function mergeLead(existing, incoming) {
     "searchLocation",
     "runId",
     "claimed",
-    "reviewsCount",
-    "rating",
+    "mapsUrl",
   ]) {
     if (
       (merged[field] === null || merged[field] === undefined || merged[field] === "") &&
@@ -1087,39 +1103,48 @@ function mergeLead(existing, incoming) {
       merged[field] = incoming[field];
     }
   }
-  if (merged.category === "Business" && incoming.category && incoming.category !== "Business") {
-    merged.category = incoming.category;
-  }
-  if (merged.name === "Unnamed place" && incoming.name !== "Unnamed place") {
-    merged.name = incoming.name;
-  }
-  merged.hasWebsite = Boolean(merged.website);
-  if (merged.website && !merged.domain) merged.domain = domainOf(merged.website);
 
-  merged.emails = [...new Set([...existing.emails, ...incoming.emails])];
-  const phoneKeys = new Set(existing.phones.map(phoneDigits));
-  merged.phones = [...existing.phones];
-  for (const phone of incoming.phones) {
-    const digits = phoneDigits(phone);
-    if (digits && !phoneKeys.has(digits)) {
-      phoneKeys.add(digits);
-      merged.phones.push(phone);
+  // Keep rating and review count as one snapshot. The row with more reviews is
+  // the fresher record, so its rating wins instead of pairing an old rating
+  // with a newer review count.
+  const existingReviews = Number.isFinite(merged.reviewsCount) ? merged.reviewsCount : -1;
+  const incomingReviews = Number.isFinite(incoming.reviewsCount) ? incoming.reviewsCount : -1;
+  if (
+    (merged.rating === null || merged.rating === undefined) ||
+    incomingReviews > existingReviews
+  ) {
+    if (incoming.rating !== null && incoming.rating !== undefined) {
+      merged.rating = incoming.rating;
+      if (incoming.reviewsCount !== null && incoming.reviewsCount !== undefined) {
+        merged.reviewsCount = incoming.reviewsCount;
+      }
     }
   }
+  if (
+    (merged.reviewsCount === null || merged.reviewsCount === undefined) &&
+    incoming.reviewsCount !== null &&
+    incoming.reviewsCount !== undefined
+  ) {
+    merged.reviewsCount = incoming.reviewsCount;
+  }
+
+  merged.emails = mergeUnique(existing.emails, incoming.emails, emailIdentity);
+  merged.phones = mergeUnique(existing.phones, incoming.phones, phoneIdentity);
   merged.phone = merged.phones[0] || null;
+  merged.socials = mergeUnique(
+    existing.socials,
+    incoming.socials,
+    (social) => String(social?.url || "").replace(/\/+$/, "").toLowerCase(),
+  );
+  merged.categories = mergeUnique(
+    existing.categories,
+    incoming.categories,
+    (category) => String(category || "").trim().toLowerCase(),
+  ).slice(0, 12);
 
-  const socialKeys = new Set(existing.socials.map((social) => social.url));
-  merged.socials = [...existing.socials];
-  for (const social of incoming.socials) {
-    if (!socialKeys.has(social.url)) {
-      socialKeys.add(social.url);
-      merged.socials.push(social);
-    }
-  }
-
-  merged.categories = [
-    ...new Set([...(existing.categories || []), ...(incoming.categories || [])]),
-  ].slice(0, 12);
+  merged.website = merged.website || null;
+  merged.domain = merged.website ? domainOf(merged.website) : null;
+  merged.hasWebsite = Boolean(merged.website);
 
   const extras = new Map(
     (existing.extraFields || []).map((entry) => [entry.label.toLowerCase(), entry]),
@@ -1149,8 +1174,12 @@ function mergeLead(existing, incoming) {
     merged.outreachNote = incoming.outreachNote;
   }
 
-  merged.permanentlyClosed = existing.permanentlyClosed || incoming.permanentlyClosed;
-  merged.temporarilyClosed = existing.temporarilyClosed || incoming.temporarilyClosed;
+  merged.permanentlyClosed = Boolean(existing.permanentlyClosed || incoming.permanentlyClosed);
+  merged.temporarilyClosed = Boolean(existing.temporarilyClosed || incoming.temporarilyClosed);
+
+  // Recompute identity and derived fields after a merge so a row cannot carry a
+  // stale ID or claim "no website" while holding one.
+  merged.id = stableLeadId(merged);
   return merged;
 }
 
@@ -1196,8 +1225,7 @@ function mappedFieldList(leads) {
 }
 
 function normalizeItems(items, { rootMeta = {}, nameFallbackHeader = "" } = {}) {
-  const leads = [];
-  const byKey = new Map();
+  const created = [];
   const extraFieldNames = [];
   const extraFieldSeen = new Set();
   const warnings = [];
@@ -1206,18 +1234,16 @@ function normalizeItems(items, { rootMeta = {}, nameFallbackHeader = "" } = {}) 
     location: firstText(rootMeta.location),
   };
   let skippedRows = 0;
-  let duplicateCount = 0;
   let unnamedCount = 0;
   let ratingCappedCount = 0;
   let nameFallbackCount = 0;
 
-  items.forEach((item, index) => {
+  items.forEach((item) => {
     const fallbackName =
       nameFallbackHeader && item && typeof item === "object"
         ? text(item[nameFallbackHeader])
         : "";
-    const built =
-      item && typeof item === "object" ? createLead(item, index + 1, fallbackName) : null;
+    const built = item && typeof item === "object" ? createLead(item, fallbackName) : null;
     if (!built) {
       skippedRows += 1;
       return;
@@ -1237,17 +1263,16 @@ function normalizeItems(items, { rootMeta = {}, nameFallbackHeader = "" } = {}) 
         extraFieldNames.push(entry.label);
       }
     }
-
-    const key = dedupeKey(lead);
-    if (byKey.has(key)) {
-      duplicateCount += 1;
-      const existing = byKey.get(key);
-      Object.assign(existing, mergeLead(existing, lead));
-      return;
-    }
-    byKey.set(key, lead);
-    leads.push(lead);
+    created.push(lead);
   });
+
+  // Shared identity rules catch bridged duplicates (A matches B by phone and B
+  // matches C by place ID) instead of only comparing one preferred key.
+  const deduped = dedupeLeads(created, mergeLead);
+  const duplicateCount = deduped.duplicateCount;
+  // Numbers follow the contact, not the file row. They are assigned once after
+  // duplicates are merged and stay on the lead through sorting and paging.
+  const leads = assignLeadIndexes(deduped.leads);
 
   if (skippedRows) {
     warnings.push(`${plural(skippedRows, "row")} skipped — no usable business name or contact.`);

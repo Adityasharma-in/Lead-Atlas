@@ -271,7 +271,7 @@
             </button>
           </div>
           <p class="sidebar-version">
-            <span id="sidebarVersion">Version 1.6.1</span>
+            <span id="sidebarVersion">Version 1.7.0</span>
             <span>Supabase library</span>
           </p>
         </div>
@@ -384,6 +384,90 @@
               <p>Kept off future call lists</p>
             </article>
           </div>
+
+          <section class="dash-activity" aria-labelledby="dashActivityTitle">
+            <div class="dash-card-head">
+              <div>
+                <p class="mono-label">Outreach activity</p>
+                <h2 id="dashActivityTitle">Today at the desk</h2>
+              </div>
+              <p class="dash-account-chip" id="dashAnalyticsAccount">This account</p>
+            </div>
+
+            <div class="dash-activity-grid">
+              <article class="dash-pulse">
+                <p class="dash-pulse-label">Reached today</p>
+                <strong id="dashTodayReached">0</strong>
+                <p id="dashTodayDelta">No calls logged yet today.</p>
+              </article>
+              <article class="dash-pulse">
+                <p class="dash-pulse-label">Best day, last 14</p>
+                <strong id="dashBestDay">—</strong>
+                <p id="dashBestDayLabel">No calls logged yet.</p>
+              </article>
+              <article class="dash-pulse">
+                <p class="dash-pulse-label">Reached this month</p>
+                <strong id="dashMonthReached">0</strong>
+                <p><span id="dashMonthLeads">0</span> leads added this month</p>
+              </article>
+              <article class="dash-pulse">
+                <p class="dash-pulse-label">Added this month</p>
+                <strong id="dashMonthTotalLeads">0</strong>
+                <p><span id="dashMonthScans">0</span> scans · <span id="dashMonthImports">0</span> imports</p>
+              </article>
+            </div>
+
+            <div class="dash-activity-lower">
+              <div class="dash-day-panel">
+                <div class="dash-day-head">
+                  <h3>Day by day</h3>
+                  <span>Leads reached, last 14 days</span>
+                </div>
+                <div class="dash-day-chart" id="dashDayChart" aria-label="Daily leads reached over the last 14 days" role="img">
+                  <div class="dash-skeleton"><span></span><span></span><span></span></div>
+                </div>
+              </div>
+
+              <div class="dash-source-panel">
+                <div class="dash-day-head">
+                  <h3>This month by source</h3>
+                  <span>Leads and calls</span>
+                </div>
+                <table class="dash-source-table">
+                  <caption class="sr-only">Monthly leads and outreach by report source</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Source</th>
+                      <th scope="col">Leads</th>
+                      <th scope="col">Reached</th>
+                      <th scope="col">To call</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row"><span class="source-dot is-scan" aria-hidden="true"></span>Scraped</th>
+                      <td id="dashSourceScanLeads">0</td>
+                      <td id="dashSourceScanReached">0</td>
+                      <td id="dashSourceScanTodo">0</td>
+                    </tr>
+                    <tr>
+                      <th scope="row"><span class="source-dot is-import" aria-hidden="true"></span>Imported</th>
+                      <td id="dashSourceImportLeads">0</td>
+                      <td id="dashSourceImportReached">0</td>
+                      <td id="dashSourceImportTodo">0</td>
+                    </tr>
+                    <tr>
+                      <th scope="row"><span class="source-dot is-unknown" aria-hidden="true"></span>Unfiled</th>
+                      <td id="dashSourceUnknownLeads">0</td>
+                      <td id="dashSourceUnknownReached">0</td>
+                      <td id="dashSourceUnknownTodo">0</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p class="dash-source-note">Counts use leads added this month and calls logged this month.</p>
+              </div>
+            </div>
+          </section>
 
           <div class="dash-grid">
             <section class="dash-main-card">
@@ -898,10 +982,24 @@
                     </div>
                   </div>
 
+                  <div class="field">
+                    <label for="minReviews">
+                      <span class="field-index">G</span>
+                      Minimum reviews
+                    </label>
+                    <div class="select-wrap">
+                      <select id="minReviews" name="minReviews">
+                        <option value="10">10+ reviews</option>
+                      </select>
+                      <svg class="icon select-chevron" aria-hidden="true"><use href="#i-chevron"></use></svg>
+                    </div>
+                    <p class="hint">Applied after the scan — Apify has no review-count filter.</p>
+                  </div>
+
                   <div class="field toggle-field field-inline-toggle">
                     <div class="toggle-copy">
                       <label for="skipClosed">
-                        <span class="field-index">G</span>
+                        <span class="field-index">H</span>
                         Skip closed places
                       </label>
                       <p class="hint">Leave out permanently and temporarily closed listings.</p>
@@ -1458,19 +1556,6 @@
               </span>
             </label>
 
-            <label class="select-field" for="filterOutreach">
-              <span>Outreach</span>
-              <span class="select-wrap">
-                <select id="filterOutreach">
-                  <option value="all">Any mark</option>
-                  <option value="to-contact">To contact</option>
-                  <option value="contacted">Reached out</option>
-                  <option value="do-not-contact">Do not contact</option>
-                </select>
-                <svg class="icon select-chevron" aria-hidden="true"><use href="#i-chevron"></use></svg>
-              </span>
-            </label>
-
             <label class="select-field" for="filterRating">
               <span>Rating</span>
               <span class="select-wrap">
@@ -1484,6 +1569,21 @@
               </span>
             </label>
 
+            <label class="select-field" for="filterReviews">
+              <span>Reviews</span>
+              <span class="select-wrap">
+                <select id="filterReviews">
+                  <option value="all">Any</option>
+                  <option value="10">10+</option>
+                  <option value="50">50+</option>
+                  <option value="100">100+</option>
+                  <option value="250">250+</option>
+                  <option value="500">500+</option>
+                </select>
+                <svg class="icon select-chevron" aria-hidden="true"><use href="#i-chevron"></use></svg>
+              </span>
+            </label>
+
             <label class="select-field" for="sortBy">
               <span>Sort</span>
               <span class="select-wrap">
@@ -1492,8 +1592,6 @@
                   <option value="rating-asc">Lowest rated</option>
                   <option value="reviews">Most reviewed</option>
                   <option value="name">Name A–Z</option>
-                  <option value="contact">Contact first</option>
-                  <option value="outreach">Outreach status</option>
                   <option value="contacted">Last contacted</option>
                 </select>
                 <svg class="icon select-chevron" aria-hidden="true"><use href="#i-chevron"></use></svg>
@@ -1547,8 +1645,9 @@
 
           <div class="report-footer-row">
             <p class="report-footnote" id="reportFootnote">
-              Every lead links to Google Maps. Contact details can be incomplete or outdated —
-              verify before you reach out.
+              Every lead links to Google Maps. Tap a phone number to call — the lead is ticked as
+              reached out. Contact details can be incomplete or outdated — verify before you
+              reach out.
             </p>
             <nav class="pagination" id="pagination" aria-label="Report pages"></nav>
           </div>

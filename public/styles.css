@@ -3258,6 +3258,13 @@ hr {
   white-space: nowrap;
 }
 
+.contact-line-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .contact-line .icon {
   width: 11px;
   height: 11px;
@@ -3269,6 +3276,48 @@ a.contact-line:hover {
   color: var(--orange-deep);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.call-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.call-mark .icon {
+  width: 10px;
+  height: 10px;
+}
+
+.call-mark.is-open .call-mark-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--forest-2);
+  box-shadow: 0 0 0 2px rgba(43, 80, 60, 0.13);
+}
+
+.call-mark.is-called {
+  background: var(--forest);
+  color: var(--white);
+}
+
+.call-mark.is-called .icon {
+  color: var(--white);
+}
+
+.call-mark.is-blocked {
+  background: rgba(207, 85, 33, 0.1);
+  color: var(--orange-deep);
+}
+
+.call-mark.is-blocked .icon {
+  color: var(--orange-deep);
 }
 
 .contact-more {
@@ -4201,6 +4250,32 @@ a.contact-row:hover {
   text-align: left;
 }
 
+.contact-value-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.contact-value-line .contact-value {
+  min-width: 0;
+}
+
+.contact-value-line .call-mark {
+  width: 20px;
+  height: 20px;
+}
+
+.contact-value-line .call-mark .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.contact-value-line .call-mark.is-open .call-mark-dot {
+  width: 9px;
+  height: 9px;
+}
+
 .drawer-empty {
   padding: 13px;
   border: 1px dashed var(--line-dark);
@@ -4866,6 +4941,26 @@ a.contact-row:hover {
 
   .lead-address {
     white-space: normal;
+  }
+
+  .contact-line.is-phone {
+    min-height: 32px;
+    font-size: 11px;
+  }
+
+  .contact-line.is-phone .call-mark {
+    width: 16px;
+    height: 16px;
+  }
+
+  .contact-line.is-phone .call-mark .icon {
+    width: 11px;
+    height: 11px;
+  }
+
+  .contact-line.is-phone .call-mark.is-open .call-mark-dot {
+    width: 8px;
+    height: 8px;
   }
 
   .cell-contact::before,

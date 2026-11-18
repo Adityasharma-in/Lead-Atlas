@@ -1,10 +1,10 @@
 # MEMORY.md — Session state
 
-## Last Updated: 2026-11-05
+## Last Updated: 2026-11-13
 
 ## Current Phase: SHIP — live on Vercel at https://lead-atlas-ochre.vercel.app; Supabase email redirect allowlist pending
 
-## Last Completed Task: Vercel deployment (2026-11-05)
+## Last Completed Task: Outreach dashboard, accurate leads, stable indexes, review gate and filter repair (2026-11-13)
 
 ## Next Task: In Supabase **Authentication → URL Configuration**, set the Site URL to
 `https://lead-atlas-ochre.vercel.app` and add
@@ -12,6 +12,69 @@
 `https://lead-atlas-ochre.vercel.app/**` to Redirect URLs. Then test confirmation,
 magic-link, and password-recovery emails on the live domain. After that, commit and push
 the working tree so the GitHub-connected project can build future deploys from source.
+
+## Outreach dashboard, accurate leads, stable indexes, review gate and filter repair (2026-11-13)
+- Goal: show daily and monthly outreach performance, remove scrape/import mismatches and
+  duplicates, tie each lead number to its contact permanently, exclude low-review fluff at
+  setup, and reduce filtering/sorting to a tested, useful set.
+- Identity: `public/lead-identity-core.js` is now the single identity layer for the scrape
+  and import paths. It normalizes place IDs (case-insensitive), phones (North American
+  `+1` and trunk-zero variants), emails, and name + address (address required, placeholder
+  names ignored), then groups duplicates with union-find. Fixed-point passes catch rows
+  that only become duplicates after a merge fills a missing identity field. Stable IDs
+  prefer the lowercased place ID, otherwise a 64-bit content hash over contact fields,
+  postal code, coordinates and the prior id.
+- Numbering: each lead stores its own `index` after dedupe and quality filtering. The
+  report table, sorting, filtering, pagination, saved payloads and legacy rows all use
+  `lead.index`; row position is never the lead number.
+- Scrape/import: both paths share the identity and merge code. Merged leads fill missing
+  fields without mixing businesses, then recompute derived fields so phone, domain,
+  website flag and Maps URL cannot go stale. Rating and review count are taken as one
+  fresh snapshot from the winning row.
+- Quality gate: setup has a separate **Minimum reviews** control (`#minReviews`, default
+  10) beside **Minimum rating**. Apify has no review-count filter, so the server validates
+  the value, includes it in the brief, sends no unsupported Actor field, and filters after
+  normalization. Empty/`all`/`any` means no gate; omitted input gets 10; junk values are
+  rejected. The filtered count and reasons appear in the post-scan notice.
+- Analytics: `public/analytics-core.js` aggregates saved leads by local calendar day and
+  month. It reports reached today with a yesterday comparison, a 14-day series, monthly
+  leads/reached/to-call totals split by scan, import and unfiled, and the account label.
+  `contacted_at` drives day/month reached counts; status-only contacted rows count in the
+  lifetime total only. `public/app.js` fetches saved leads in pages and recomputes locally
+  when a lead is marked or a report is saved/deleted.
+- Filter repair: `public/report-core.js` owns search, website, contact, outreach, rating
+  and review filters plus five sorts (best rated, lowest rated, most reviewed, name A–Z,
+  last contacted), deterministic tie-breaks and clamped pagination. The duplicate outreach
+  select was removed; the tally chips are the outreach filter. Every change resets to page
+  one.
+- Verification: `npm test` 290/290. New `test/lead-identity-core.test.js`,
+  `test/report-core.test.js` and `test/analytics-core.test.js`; extended import, leads,
+  validation and server tests for stable IDs, reorder/import stability, bridged duplicates,
+  review gates and config shape. `node --check` green on all touched modules. Static
+  390 px and 1280 px iframe smoke found no horizontal overflow, analytics visible, review
+  controls present, and no `#filterOutreach`.
+- Version: 1.7.0 → 1.8.0. No Supabase schema, RLS, CSP or API-shape changes; the
+  call-status marker work is preserved.
+
+## Call-status markers on phone numbers (2026-11-13)
+- Goal: on a phone, tapping a lead's number opens the dialer; the operator needed to see
+  which lead had already been called when they returned to the site.
+- Model: reused the outreach ledger instead of adding a schema field. Tapping a `tel:`
+  phone link on a `To contact` lead writes `OUTREACH.CONTACTED` with a timestamp
+  synchronously, then refreshes the table/drawer after 120 ms so the native dialer handoff
+  is not interrupted. `visibilitychange` / `pageshow` refresh covers the return trip.
+- Marker: `CALL_MARK` in `public/outreach-core.js` maps `To contact` → green dot,
+  `Reached out` → green tick, and `Do not contact` → orange stop. DNC taps do not change
+  status; a second tap on a called lead does not replace `contactedAt`.
+- Surfaces: report table/cards and the drawer contact book both use `callMarkHtml()` with
+  `role="img"` plus `aria-label`/`title`, and phone links carry the call state in their
+  title. Phone rows get a 32 px tap target at mobile widths.
+- Persistence: ledger key `leadAtlas.outreach.v1`; saved reports continue to sync through
+  the existing `syncSavedLead()` path, and imports restore marks via `hydrateOutreach()`.
+- Verification: 390 px and 1280 px Playwright runs with a fake Supabase session/API covered
+  dot → tick, drawer taps, reload/re-import persistence, original timestamp preservation,
+  DNC blocking, no overflow, and no console/page errors. `npm test` 199/199.
+- Version: 1.6.1 → 1.7.0.
 
 ## Vercel deployment (2026-11-05)
 - Goal: deploy the working app — multipage public site, account-only workspace, Supabase
@@ -324,9 +387,10 @@ the working tree so the GitHub-connected project can build future deploys from s
   (scratch edit was disposable; recovery path itself covered by unit tests).
 
 ## Active Context
-- Current app version: `1.6.1` (account-backed call scripts, multipage public site,
-  account-only workspace/library, deep-linkable workspace routes and the account-bound
-  Apify key).
+- Current app version: `1.8.0` (outreach analytics, stable lead identity and numbering,
+  review quality gate, account-backed call scripts, multipage
+  public site, account-only workspace/library, deep-linkable workspace routes and the
+  account-bound Apify key).
 - Live deployment: `https://lead-atlas-ochre.vercel.app` (Vercel project `lead-atlas`,
   Express preset, one serverless function, `SELF_UPDATE=off`).
 - Repo: git clone of https://github.com/Adityasharma-in/Lead-Atlas.git (branch `main`),

@@ -58,7 +58,9 @@ Then fill in the brief:
 2. **Location** — a city, region, or country, e.g. `Austin, TX` or `Lisbon, Portugal`.
 3. **Website** — all places, only places with a website, or only places without one.
 4. **Contact enrichment** — scrape emails and extra phone numbers when available.
-5. **Minimum rating** and **skip closed places** — optional quality filters.
+5. **Minimum rating**, **Minimum reviews** (default 10), and **skip closed places** —
+   quality filters. Apify has no review-count filter, so the review gate is applied after
+   the scan; a place with 40 reviews is excluded when you ask for 50 or more.
 6. **Places** — 1 to 500 results.
 
 Press **Run the scan**. Progress is polled live; when the Actor finishes, the report opens
@@ -147,13 +149,10 @@ workspace view is deep-linkable — `#dashboard`, `#library`, `#setup`, `#report
 and `#progress` — and browser back/forward moves between them. On phones, a five-item
 bottom bar (Overview, Scan, Library, Data, More) keeps the main surfaces in thumb reach:
 
-- **Overview** — saved-report and lead counts, reached-out and do-not-contact totals, this
-  month's additions, recent reports, Apify key status, saved script count, and the outreach
-  ledger.
-
-- **Overview** — saved-report and lead counts, reached-out and do-not-contact totals, this
-  month's additions, recent reports, Apify key status, saved script count, and the outreach
-  ledger.
+- **Overview** — saved-report and lead counts, reached-out and do-not-contact totals,
+  today's reached clients, a 14-day day-by-day chart, this month's additions and calls by
+  source (scraped, imported, or unfiled) with reached and to-call counts, recent reports,
+  Apify key status, saved script count, and the outreach ledger.
 - **Lead library** — every saved scan and import, searchable by name, niche, or place and
   filterable by source. Each card shows lead count, reached count, average rating, progress,
   and CSV/JSON export buttons.
@@ -211,7 +210,7 @@ same way you would: pull the newest commit and restart, in one click.
 - On page load — and every 5 minutes after that — the app asks the local server to compare
   its build with the tip of your repository's branch on GitHub.
 - When a newer commit exists, a **Update available** chip appears in the header. The footer
-  always shows the version and the build you are running (`Version 1.6.1`, then
+  always shows the version and the build you are running (`Version 1.8.0`, then
   `Build <sha> · <branch>` when the folder is a git clone).
 - Click the chip and the server **stashes any uncommitted local edits**, fetches and resets
   to the remote tip, runs `npm install` only if `package.json` or the lockfile changed, and
@@ -234,7 +233,7 @@ git clone and no process to restart. Ship changes with a commit and push, or wit
 ## Versioning
 
 The app version lives in the `version` field of `package.json` and is shown in the footer
-(`Version 1.6.1`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
+(`Version 1.8.0`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
 `GET /api/version`.
 
 The scheme is semver-like with one house rule — the minor part stops at 9:
@@ -276,9 +275,12 @@ Imports support:
 - Up to 8 MB or 5,000 leads per file
 
 Extra columns are preserved in the lead drawer and included in imported CSV/JSON exports.
-Duplicate rows are merged by place ID, name + address, phone, or email. Outreach marks,
-contact dates, and notes are restored from the file, so a Lead Atlas CSV or JSON export is
-a complete backup of your call list. Imported exports are built in the browser, so they
+Duplicate rows are merged across place ID, phone, email, and name + address, including
+rows that only become duplicates after another merge fills in a missing field. Each
+contact keeps a deterministic ID and its own lead number, so re-importing the same file or
+sorting and filtering the report never renumbers it. Outreach marks, contact dates, and
+notes are restored from the file, so a Lead Atlas CSV or JSON export is a complete backup
+of your call list. Imported exports are built in the browser, so they
 work without an Apify key. Files are never uploaded to the local server. If you choose
 **Save to library**, the parsed report and its leads are written to your own Supabase
 project.
@@ -296,8 +298,15 @@ Each lead carries one exclusive outreach state:
 Mark a lead from the three check buttons in the **Outreach** table column, from the filter
 strip above the report, or from the **Outreach trail** section in the detail drawer. The
 drawer also takes a private note of up to 280 characters — who answered, the best time to
-call, or what you sent. Filter and sort by outreach state, and use the tally chips above
-the table to jump between the next call list and the leads you have already handled.
+call, or what you sent. Use the tally chips above the table to jump between the next call
+list and the leads you have already handled; sort by **Last contacted** to put the most
+recent calls first.
+
+On a phone, tap the number itself: the lead is marked **Reached out** and the green dot
+beside its phone number becomes a green tick, so you can see which call you just made when
+you come back from the dialer. A **Do not contact** lead keeps its orange stop mark, and
+tapping a number that is already ticked does not move its original call date. The same
+marker appears in the report table/cards and in the drawer's contact book.
 
 Marks are mirrored in `localStorage` under `leadAtlas.outreach.v1`, keyed by place ID, then
 phone, then email, then name + address, so unsaved reports keep their trail and a new scan
@@ -438,8 +447,9 @@ Browser (vanilla HTML/CSS/JS)
   RLS limits every row to the signed-in account; the local server never stores lead data.
 - Every run requests `scrapePlaceDetailPage: true` so website, contact, and detail fields
   are available.
-- Dataset rows are normalized, deduplicated by place ID (or name + address), and merged
-  when Apify returns the same place twice.
+- Dataset rows are normalized, then deduplicated across place ID, phone, email, and
+  name + address. Merges fill missing fields from the duplicate and recompute derived
+  fields, so the surviving lead never mixes two businesses or keeps stale contact data.
 - Only one search string and one location are sent per scan. Reviews and images are
   disabled to keep runs fast and inexpensive.
 - Run and dataset metadata are cached in memory. Restarting the server clears that cache;
@@ -687,7 +697,7 @@ lead-atlas/
 | A confirmation or magic link returns to the wrong page | Add the exact origin (including `/auth.html`, or the local wildcard) to Supabase **Authentication** → **URL Configuration** → **Redirect URLs**, and open the link in the same browser that requested it. For Vercel, add `https://lead-atlas-ochre.vercel.app/auth.html` and `https://lead-atlas-ochre.vercel.app/**`, then request a fresh link. |
 | The deployed site redirects to `vercel.com/sso-api` | Deployment Protection is on. In Vercel, open the project → **Settings** → **Deployment Protection** and disable **Vercel Authentication**, or run `vercel project protection disable lead-atlas --sso`. |
 | Every deployed page and API hangs, but CSS loads | The deployment was built from an old `src/server.js` that default-exported the app factory. Deploy the current tree, where the default export is the lazy Express request handler. |
-| The Vercel deployment shows an old version | A CLI deploy uploads the current working tree; a Git deploy builds the pushed commit. Redeploy the intended source — `/api/version` should report `1.6.1`. |
+| The Vercel deployment shows an old version | A CLI deploy uploads the current working tree; a Git deploy builds the pushed commit. Redeploy the intended source — `/api/version` should report `1.8.0`. |
 | `/api/*` returns 404 on Vercel | Confirm the project uses the Express preset and the current `vercel.json`. API routes are handled by the single function, not by static output. |
 | “Confirm your email first” | Click the confirmation link Supabase sent, or turn off **Confirm email** for local testing. |
 | The library is empty after a scan | Saving is explicit: open the report and choose **Save to library**. A scan that was never saved is not in the library. |

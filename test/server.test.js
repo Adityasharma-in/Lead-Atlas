@@ -237,6 +237,15 @@ describe('Lead Atlas server', () => {
       'url',
     ]);
     assert.ok(config.json.minStars.some((option) => option.value === 'fourAndHalf'));
+    assert.ok(Array.isArray(config.json.minReviews));
+    assert.equal(
+      config.json.minReviews.find((option) => option.value === '')?.label,
+      'Any reviews',
+    );
+    assert.deepEqual(
+      config.json.minReviews.filter((option) => option.selected).map((option) => option.value),
+      ['10'],
+    );
 
     const home = await request('/');
     assert.equal(home.status, 200);
@@ -392,7 +401,9 @@ describe('Lead Atlas server', () => {
     assert.equal(results.json.summary.withContact, 2);
     assert.equal(results.json.summary.avgRating, 4.4);
     assert.equal(results.json.cost.estimateUsd, 0.367);
-    assert.deepEqual(results.json.notices, []);
+    assert.deepEqual(results.json.notices, [
+      "Leads with fewer than 10 reviews are removed after the scan. Apify's actor has no review-count filter, so fewer places may come back than requested.",
+    ]);
 
     const acme = results.json.leads.find((lead) => lead.name === 'Acme Plumbing');
     assert.equal(acme.placeId, 'placeAcme1');

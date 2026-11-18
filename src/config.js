@@ -15,6 +15,7 @@ export const LIMITS = {
   maxLocationLength: 160,
   runTimeoutSecs: 3600,
   maxTotalItems: 2000,
+  defaultMinReviews: 10,
 };
 
 export const MIN_STARS = {
@@ -25,6 +26,19 @@ export const MIN_STARS = {
   threeAndHalf: '3.5+ stars',
   four: '4+ stars',
   fourAndHalf: '4.5+ stars',
+};
+
+// Apify's actor exposes placeMinimumStars but not a review-count minimum, so
+// this gate is enforced after the dataset is normalized. Defaults to 10 to
+// drop the 0-review / 5-review fluff without hiding established businesses.
+export const MIN_REVIEWS = {
+  '': 'Any reviews',
+  '10': '10+ reviews',
+  '25': '25+ reviews',
+  '50': '50+ reviews',
+  '100': '100+ reviews',
+  '250': '250+ reviews',
+  '500': '500+ reviews',
 };
 
 // Apify's public FREE-tier pay-per-event rates for this Actor, in USD.

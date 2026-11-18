@@ -7,6 +7,7 @@ import {
   BROWSER_HEADERS,
   buildContentSecurityPolicy,
   LIMITS,
+  MIN_REVIEWS,
   MIN_STARS,
   PRICING,
 } from './config.js';
@@ -328,6 +329,11 @@ export function createApp(options = {}) {
         defaultResults: LIMITS.defaultResults,
       },
       minStars: Object.entries(MIN_STARS).map(([value, label]) => ({ value, label })),
+      minReviews: Object.entries(MIN_REVIEWS).map(([value, label]) => ({
+        value,
+        label,
+        selected: value === String(LIMITS.defaultMinReviews),
+      })),
       pricing: {
         ...PRICING,
         currency: 'USD',

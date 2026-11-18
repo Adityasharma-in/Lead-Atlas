@@ -47,7 +47,9 @@ describe('normalizeLeads', () => {
 
     assert.equal(total, 1);
     assert.equal(duplicateCount, 0);
-    assert.equal(lead.id, 'place-ChIJabc123');
+    // Place IDs are lowercased for the internal stable ID; the display value
+    // keeps its original casing for Google Maps links.
+    assert.equal(lead.id, 'place-chijabc123');
     assert.equal(lead.placeId, 'ChIJabc123');
     assert.equal(lead.name, 'Acme Plumbing');
     assert.equal(lead.category, 'Plumber');
@@ -132,6 +134,174 @@ describe('normalizeLeads', () => {
 
     assert.equal(total, 2);
     assert.equal(duplicateCount, 1);
+  });
+
+  it('bridges duplicates across phone, email and place id', () => {
+    const { leads, total, duplicateCount } = normalize([
+      { title: 'Bridge Co', phone: '512-555-0100' },
+      {
+        title: 'Bridge Co',
+        phone: '(512) 555-0100',
+        emails: ['shared@bridge.example'],
+      },
+      { title: 'Bridge Co', emails: ['SHARED@bridge.example'], placeId: 'bridge-1' },
+    ]);
+
+    assert.equal(total, 1);
+    assert.equal(duplicateCount, 2);
+    assert.equal(leads[0].placeId, 'bridge-1');
+    assert.deepEqual(leads[0].phones, ['512-555-0100']);
+    assert.deepEqual(leads[0].emails, ['shared@bridge.example']);
+    assert.equal(leads[0].index, 1);
+  });
+
+  it('treats place ids as case-insensitive during deduplication', () => {
+    const { leads, total, duplicateCount } = normalize([
+      { title: 'Case Co', placeId: 'ChIJShared' },
+      { title: 'Case Co', placeId: 'chijshared', website: 'https://case.example' },
+    ]);
+
+    assert.equal(total, 1);
+    assert.equal(duplicateCount, 1);
+    assert.equal(leads[0].placeId, 'ChIJShared');
+    assert.equal(leads[0].id, 'place-chijshared');
+    assert.equal(leads[0].website, 'https://case.example/');
+    assert.equal(leads[0].domain, 'case.example');
+    assert.equal(leads[0].hasWebsite, true);
+  });
+
+  it('keeps a merged rating and review count as one fresh snapshot', () => {
+    const { leads } = normalize([
+      { title: 'Fresh Co', placeId: 'fresh-1', totalScore: 4.2, reviewsCount: 10 },
+      {
+        title: 'Fresh Co',
+        placeId: 'fresh-1',
+        totalScore: 4.8,
+        reviewsCount: 50,
+        website: 'fresh.example',
+      },
+    ]);
+
+    assert.equal(leads[0].rating, 4.8);
+    assert.equal(leads[0].reviewsCount, 50);
+    assert.equal(leads[0].website, 'https://fresh.example/');
+    assert.equal(leads[0].phone, null);
+  });
+
+  it('recomputes contact fields after a merge so nothing goes stale', () => {
+    const { leads } = normalize([
+      { title: 'Phone Co', placeId: 'phone-1', phone: '5125550100' },
+      {
+        title: 'Phone Co',
+        placeId: 'phone-1',
+        phone: '5125550199',
+        website: 'https://phone.example',
+      },
+    ]);
+
+    assert.deepEqual(leads[0].phones, ['5125550100', '5125550199']);
+    assert.equal(leads[0].phone, '5125550100');
+    assert.equal(leads[0].domain, 'phone.example');
+    assert.equal(leads[0].hasWebsite, true);
+  });
+
+  it('numbers remaining leads after duplicates and quality filtering', () => {
+    const { leads } = normalize(
+      [
+        { title: 'Alpha', placeId: 'alpha', reviewsCount: 100 },
+        { title: 'Duplicate Alpha', placeId: 'alpha', reviewsCount: 100 },
+        { title: 'Too Thin', placeId: 'thin', reviewsCount: 5 },
+        { title: 'Bravo', placeId: 'bravo', reviewsCount: 60 },
+      ],
+      { query: { ...QUERY, minReviews: 10 } },
+    );
+
+    assert.deepEqual(
+      leads.map((lead) => [lead.name, lead.index]),
+      [
+        ['Alpha', 1],
+        ['Bravo', 2],
+      ],
+    );
+    assert.equal(leads[0].id, 'place-alpha');
+    assert.equal(leads[1].id, 'place-bravo');
+  });
+
+  it('excludes leads below the configured minimum review count', () => {
+    const result = normalize(
+      [
+        { title: 'Established', placeId: 'good', totalScore: 4.6, reviewsCount: 50 },
+        { title: 'Forty Reviews', placeId: 'forty', totalScore: 4.8, reviewsCount: 40 },
+        { title: 'Zero Reviews', placeId: 'zero', totalScore: 0, reviewsCount: 0 },
+        { title: 'Five Reviews', placeId: 'five', totalScore: 5, reviewsCount: 5 },
+        { title: 'Missing Reviews', placeId: 'missing', totalScore: 4.9 },
+      ],
+      { query: { ...QUERY, minReviews: 50 } },
+    );
+
+    assert.equal(result.total, 1);
+    assert.equal(result.leads[0].name, 'Established');
+    assert.equal(result.leads[0].reviewsCount, 50);
+    assert.equal(result.filteredCount, 4);
+    assert.deepEqual(result.filteredReasons, { reviews: 4 });
+  });
+
+  it('uses the default minimum review gate when the server asks for it', () => {
+    const result = normalize(
+      [
+        { title: 'Real', placeId: 'real', reviewsCount: 10 },
+        { title: 'Fluff', placeId: 'fluff', reviewsCount: 5 },
+        { title: 'No Rating Fluff', placeId: 'fluff2', totalScore: 0, reviewsCount: 5 },
+      ],
+      { query: { ...QUERY, minReviews: 10 } },
+    );
+
+    assert.equal(result.total, 1);
+    assert.equal(result.leads[0].name, 'Real');
+    assert.equal(result.filteredReasons.reviews, 2);
+  });
+
+  it('applies the review gate after duplicate rows are merged', () => {
+    const result = normalize(
+      [
+        { title: 'Merged', placeId: 'merged', totalScore: 4.2, reviewsCount: 10 },
+        { title: 'Merged', placeId: 'merged', totalScore: 4.7, reviewsCount: 100 },
+      ],
+      { query: { ...QUERY, minReviews: 50 } },
+    );
+
+    assert.equal(result.total, 1);
+    assert.equal(result.duplicateCount, 1);
+    assert.equal(result.leads[0].rating, 4.7);
+    assert.equal(result.leads[0].reviewsCount, 100);
+  });
+
+  it('keeps every lead when the review gate is disabled', () => {
+    const result = normalize(
+      [
+        { title: 'New Place', placeId: 'new', reviewsCount: 0 },
+        { title: 'No Reviews', placeId: 'none' },
+      ],
+      { query: { ...QUERY, minReviews: 0 } },
+    );
+
+    assert.equal(result.total, 2);
+    assert.equal(result.filteredCount, 0);
+  });
+
+  it('reports closed and low-rated exclusions separately', () => {
+    const result = normalize(
+      [
+        { title: 'Closed', placeId: 'closed', permanentlyClosed: true, reviewsCount: 100 },
+        { title: 'Low Rated', placeId: 'low', totalScore: 3.2, reviewsCount: 100 },
+        { title: 'Keeper', placeId: 'keeper', totalScore: 4.4, reviewsCount: 100 },
+      ],
+      { query: { ...QUERY, skipClosed: true, minStars: 'four', minReviews: 10 } },
+    );
+
+    assert.equal(result.total, 1);
+    assert.equal(result.leads[0].name, 'Keeper');
+    assert.deepEqual(result.filteredReasons, { closed: 1, rating: 1 });
   });
 
   it('builds a Google Maps search link when Apify sends no place URL', () => {
