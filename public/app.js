@@ -59,6 +59,15 @@ import {
   serializeDashboardCache,
 } from "./boot-cache-core.js";
 import {
+  CALL_ACTIONS,
+  CALL_NOTE_PRESETS,
+  appendCallNote,
+  callProgress,
+  planCallSession,
+  resolveCallShortcut,
+  stepCallQueue,
+} from "./call-mode-core.js";
+import {
   REPORT_CONTACT_FILTERS,
   REPORT_REVIEW_FILTERS,
   REPORT_SORTS,
@@ -177,6 +186,18 @@ import {
       lead: null,
       scriptId: null,
       source: "report",
+    },
+    callMode: {
+      open: false,
+      queue: [],
+      index: -1,
+      leadId: null,
+      scriptId: null,
+      includeBlocked: false,
+      complete: false,
+      noteDirty: false,
+      returnFocus: null,
+      scriptSignature: "",
     },
     running: null,
     pendingRunBrief: null,
@@ -507,7 +528,7 @@ import {
     const email = user?.email || state.auth.profile?.email || "—";
     const initials = accountInitials(name);
     const firstName = name.split(/\s+/)[0] || "there";
-    const version = state.config?.appVersion || "1.9.0";
+    const version = state.config?.appVersion || "2.0.0";
 
     if (els.accountAvatar) els.accountAvatar.textContent = initials;
     if (els.topbarAvatar) els.topbarAvatar.textContent = initials;
@@ -881,7 +902,7 @@ import {
     return leads;
   }
 
-  function refreshOutreachViews({ table = true, drawer = false, syncNote = false } = {}) {
+  function refreshOutreachViews({ table = true, drawer = false, syncNote = false, callMode = true } = {}) {
     const leads = state.results?.leads || [];
     if (state.results) {
       const summary = state.results.summary || summarize(leads);
@@ -893,6 +914,7 @@ import {
       renderDrawerOutreach(state.drawerLead, { syncNote });
       renderDrawerContacts(state.drawerLead);
     }
+    if (callMode && state.callMode.open) renderCallMode();
   }
 
   function setOutreachStatus(lead, status, { note, announce = true, deferRender = false } = {}) {
@@ -1013,17 +1035,13 @@ import {
     }
   }
 
-  function saveDrawerOutreachNote({ notify = false } = {}) {
-    const lead = state.drawerLead;
-    if (!lead || !els.drawerOutreachNote) return false;
-    const note = normalizeOutreachNote(els.drawerOutreachNote.value);
-    const currentNote = normalizeOutreachNote(lead.outreachNote);
-    if (note === currentNote) {
-      updateDrawerNoteCount();
-      state.drawerNoteDirty = false;
-      return false;
-    }
-
+  // One ledger write for an outreach note, shared by the drawer and call mode.
+  // The status and call date are preserved; only the note and its stamp move.
+  // Returns the write timestamp, or null when nothing changed.
+  function writeOutreachNote(lead, value) {
+    if (!lead) return null;
+    const note = normalizeOutreachNote(value);
+    if (note === normalizeOutreachNote(lead.outreachNote)) return null;
     const key = outreachLeadKey(lead);
     const now = new Date().toISOString();
     const entry = {
@@ -1036,12 +1054,24 @@ import {
     lead.outreachSource = "local";
     state.outreach.entries[key] = entry;
     writeOutreachLedger();
+    syncSavedLead(lead);
+    return now;
+  }
+
+  function saveDrawerOutreachNote({ notify = false } = {}) {
+    const lead = state.drawerLead;
+    if (!lead || !els.drawerOutreachNote) return false;
+    const savedAt = writeOutreachNote(lead, els.drawerOutreachNote.value);
     state.drawerNoteDirty = false;
+    if (!savedAt) {
+      updateDrawerNoteCount();
+      return false;
+    }
+
     refreshOutreachViews({ drawer: false });
     updateDrawerNoteCount();
-    syncSavedLead(lead);
     if (els.drawerOutreachStamp) {
-      els.drawerOutreachStamp.textContent = `Updated ${formatDate(now, true)}`;
+      els.drawerOutreachStamp.textContent = `Updated ${formatDate(savedAt, true)}`;
     }
     if (notify) {
       showToast("Outreach note saved.", "success", { duration: 2200 });
@@ -1952,6 +1982,509 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     refreshCallSheetOutreach();
   }
 
+  /* ---------------- call mode ---------------- */
+
+  function callModeLead() {
+    const id = state.callMode.queue[state.callMode.index];
+    if (!id) return null;
+    return state.results?.leads?.find((entry) => entry.id === id) || null;
+  }
+
+  function callModeLeadStatus(lead) {
+    return normalizeOutreachStatus(lead?.outreachStatus) || OUTREACH.TODO;
+  }
+
+  // The drawer only links a number it can actually dial; the big call target
+  // must use the same rule so a "call us" string never becomes a dead tel:.
+  function callModePhoneHref(phone) {
+    const href = phoneHref(phone);
+    return href.replace(/\D/g, "").length >= 6 ? href : "";
+  }
+
+  function callModeScript() {
+    return (
+      findScript(state.scripts, state.callMode.scriptId) ||
+      activeScript(state.scripts) ||
+      state.scripts.scripts[0] ||
+      null
+    );
+  }
+
+  function callModeBlockedCount() {
+    if (!state.results) return 0;
+    return getFilteredLeads().filter(
+      (lead) => callModeLeadStatus(lead) === OUTREACH.DO_NOT_CONTACT,
+    ).length;
+  }
+
+  function updateCallModeNoteCount() {
+    const value = els.callModeNote?.value || "";
+    if (els.callModeNoteCount) {
+      els.callModeNoteCount.textContent = String(Math.min(value.length, OUTREACH_NOTE_LIMIT));
+    }
+  }
+
+  function setCallModeNoteState(text) {
+    if (els.callModeNoteState) els.callModeNoteState.textContent = text;
+  }
+
+  function renderCallModePresets() {
+    if (!els.callModeNotePresets || els.callModeNotePresets.childElementCount) return;
+    els.callModeNotePresets.innerHTML = CALL_NOTE_PRESETS.map(
+      (preset) =>
+        `<button type="button" class="call-mode-preset" data-call-preset="${escapeHtml(
+          preset.id,
+        )}">${escapeHtml(preset.label)}</button>`,
+    ).join("");
+  }
+
+  function renderCallMode() {
+    if (!state.callMode.open || !els.callModeDialog) return;
+
+    const total = state.callMode.queue.length;
+    const lead = callModeLead();
+    const complete = state.callMode.complete;
+    const empty = total === 0;
+
+    // A new report or a deleted lead can invalidate the snapshot mid-session.
+    if (!empty && !complete && !lead) {
+      closeCallMode({ reason: "The report changed, so the call session ended." });
+      return;
+    }
+
+    const progress = callProgress(state.callMode.index, total);
+    if (els.callModeKicker) {
+      els.callModeKicker.textContent = complete
+        ? "Call mode / Session complete"
+        : empty
+          ? "Call mode / No leads"
+          : `Call mode / ${progress.label}`;
+    }
+    if (els.callModeProgressBar) {
+      els.callModeProgressBar.setAttribute("aria-valuenow", String(complete ? 100 : progress.percent));
+      els.callModeProgressBar.setAttribute(
+        "aria-valuetext",
+        complete ? "Session complete" : progress.label,
+      );
+    }
+    if (els.callModeProgressFill) {
+      els.callModeProgressFill.style.width = `${complete ? 100 : progress.percent}%`;
+    }
+
+    if (els.callModeEmpty) els.callModeEmpty.hidden = !empty;
+    if (els.callModeGrid) els.callModeGrid.hidden = empty || complete;
+    if (els.callModeComplete) els.callModeComplete.hidden = !complete;
+    if (els.callModeFoot) els.callModeFoot.hidden = empty || complete;
+
+    if (empty) {
+      const blocked = state.callMode.includeBlocked ? 0 : callModeBlockedCount();
+      const anyLeads = (state.results?.leads?.length || 0) > 0;
+      if (els.callModeName) els.callModeName.textContent = "No one to call";
+      if (els.callModeSub) els.callModeSub.textContent = "The current view has nothing waiting.";
+      if (els.callModeAnnounce) {
+        els.callModeAnnounce.textContent = "No one to call in this view.";
+      }
+      if (els.callModeEmptyInclude) els.callModeEmptyInclude.hidden = blocked === 0;
+      if (els.callModeEmptyCopy) {
+        els.callModeEmptyCopy.textContent = blocked
+          ? `${pluralize(blocked, "lead")} in this view ${
+              blocked === 1 ? "is" : "are"
+            } marked do not contact. Nothing else is waiting.`
+          : anyLeads
+            ? "No leads match the current filters. Clear a filter, then open call mode again."
+            : "This report has no leads yet. Run a scan or import a file, then open call mode.";
+      }
+      return;
+    }
+
+    if (complete) {
+      const sessionLeads = state.callMode.queue
+        .map((id) => state.results?.leads?.find((entry) => entry.id === id))
+        .filter(Boolean);
+      const counts = outreachCounts(sessionLeads);
+      if (els.callModeName) els.callModeName.textContent = "Session complete";
+      if (els.callModeSub) {
+        els.callModeSub.textContent = "Every lead in this session has been worked.";
+      }
+      if (els.callModeCompleteCopy) {
+        els.callModeCompleteCopy.textContent = `You worked through ${pluralize(
+          total,
+          "lead",
+        )}: ${formatNumber(counts.contacted)} reached out, ${formatNumber(
+          counts.doNotContact,
+        )} do not contact, ${formatNumber(counts.toContact)} still open.`;
+      }
+      if (els.callModeCompleteStats) {
+        const stats = [
+          ["Reached", counts.contacted],
+          ["Do not contact", counts.doNotContact],
+          ["Still to contact", counts.toContact],
+        ];
+        els.callModeCompleteStats.innerHTML = stats
+          .map(
+            ([label, value]) =>
+              `<div><dt>${escapeHtml(label)}</dt><dd>${formatNumber(value)}</dd></div>`,
+          )
+          .join("");
+      }
+      return;
+    }
+
+    const leadChanged = state.callMode.leadId !== lead.id;
+    state.callMode.leadId = lead.id;
+    const status = callModeLeadStatus(lead);
+
+    if (leadChanged && els.callModeAnnounce) {
+      els.callModeAnnounce.textContent = `${lead.name || "Unnamed business"}. Lead ${
+        progress.position
+      } of ${total}.`;
+    }
+
+    if (els.callModeName) els.callModeName.textContent = lead.name || "Unnamed business";
+    if (els.callModeSub) {
+      const rating = typeof lead.rating === "number"
+        ? `${decimal(lead.rating)} / 5 · ${pluralize(lead.reviewsCount || 0, "review")}`
+        : "No rating yet";
+      els.callModeSub.textContent = [lead.category || "Business", lead.priceLevel, rating]
+        .filter(Boolean)
+        .join(" · ");
+    }
+    if (els.callModeStatus) {
+      els.callModeStatus.dataset.status = status;
+      els.callModeStatus.textContent =
+        status === OUTREACH.CONTACTED
+          ? lead.contactedAt
+            ? `Reached out · ${formatDate(lead.contactedAt, true)}`
+            : "Reached out"
+          : status === OUTREACH.DO_NOT_CONTACT
+            ? "Do not contact"
+            : "To contact";
+    }
+
+    // A blocked lead can be included for a review pass, but it must not keep
+    // the signal-green dial target: that would invite the call the mark exists
+    // to prevent. The reset action (U or "To contact") brings the number back.
+    const blocked = status === OUTREACH.DO_NOT_CONTACT;
+    const phones = [...new Set([...(lead.phones || []), lead.phone].filter(Boolean))]
+      .map((phone) => ({ phone, href: callModePhoneHref(phone) }))
+      .filter((entry) => entry.href);
+    const primaryPhone = phones[0] || null;
+    const extraPhones = phones.slice(1);
+    if (els.callModePhone) {
+      els.callModePhone.hidden = blocked || !primaryPhone;
+      if (primaryPhone) {
+        els.callModePhone.href = `tel:${primaryPhone.href}`;
+        els.callModePhone.setAttribute(
+          "aria-label",
+          `Call ${lead.name} at ${primaryPhone.phone}`,
+        );
+      }
+    }
+    if (els.callModePhoneLabel) {
+      els.callModePhoneLabel.textContent = primaryPhone?.phone || "No phone";
+    }
+    if (els.callModeNoPhone) {
+      els.callModeNoPhone.hidden = blocked ? false : Boolean(primaryPhone);
+      els.callModeNoPhone.textContent = blocked
+        ? "Marked do not contact. Choose To contact or press U before calling."
+        : "No dialable phone number on this listing. Use email or Google Maps instead.";
+    }
+    if (els.callModeExtraPhones) {
+      els.callModeExtraPhones.hidden = blocked || extraPhones.length === 0;
+      els.callModeExtraPhones.innerHTML = extraPhones
+        .map(
+          (entry) =>
+            `<a class="call-mode-extra-phone" href="tel:${escapeHtml(
+              entry.href,
+            )}">${escapeHtml(entry.phone)}</a>`,
+        )
+        .join("");
+    }
+    if (els.callModeAddress) {
+      els.callModeAddress.textContent = lead.address || "Address not listed on Google Maps";
+    }
+
+    const mapsUrl = safeUrl(lead.mapsUrl) || mapsFallback(lead);
+    if (els.callModeMaps) {
+      els.callModeMaps.href = mapsUrl;
+      els.callModeMaps.setAttribute("aria-label", `Open ${lead.name} in Google Maps`);
+    }
+    const email = (lead.emails || []).find((value) => isEmail(value)) || "";
+    if (els.callModeEmail) {
+      els.callModeEmail.hidden = !email;
+      if (email) els.callModeEmail.href = `mailto:${email}`;
+    }
+    const website = safeUrl(lead.website);
+    if (els.callModeWebsite) {
+      els.callModeWebsite.hidden = !website;
+      if (website) els.callModeWebsite.href = website;
+    }
+
+    const script = callModeScript();
+    if (els.callModeScriptPicker) {
+      els.callModeScriptPicker.hidden = state.scripts.scripts.length === 0;
+    }
+    if (els.callModeScriptSelect) {
+      // Rebuild options only when the library actually changed. A status write
+      // or a trip to the dialer re-renders the session, and rebuilding here
+      // would close an open picker under the operator's hands.
+      const signature = JSON.stringify(
+        state.scripts.scripts.map((entry) => [entry.id, entry.title]),
+      );
+      if (els.callModeScriptSelect.dataset.signature !== signature) {
+        els.callModeScriptSelect.dataset.signature = signature;
+        els.callModeScriptSelect.innerHTML = "";
+        for (const entry of state.scripts.scripts) {
+          const option = document.createElement("option");
+          option.value = entry.id;
+          option.textContent = entry.title;
+          els.callModeScriptSelect.appendChild(option);
+        }
+      }
+      els.callModeScriptSelect.value = script?.id || "";
+    }
+    if (els.callModeScriptEmpty) els.callModeScriptEmpty.hidden = Boolean(script);
+    if (els.callModeScriptBody) {
+      els.callModeScriptBody.hidden = !script;
+      // Replacing the text resets the panel's own scroll. Only rewrite it when
+      // the lead or the chosen script actually changes, so a status refresh or
+      // a return from the dialer keeps the reader's place.
+      const signature = `${lead.id}|${script?.id || ""}|${script?.updatedAt || ""}`;
+      if (state.callMode.scriptSignature !== signature) {
+        state.callMode.scriptSignature = signature;
+        const filled = script
+          ? fillScriptTemplate(script.body, scriptContextFor({ lead, query: currentReportQuery() }))
+          : "";
+        const blank = !filled.trim();
+        els.callModeScriptBody.textContent = script
+          ? blank
+            ? "This script has no words yet. Open the library and write your opening line."
+            : filled
+          : "";
+        els.callModeScriptBody.classList.toggle("is-empty", !script || blank);
+      }
+    }
+    state.callMode.scriptId = script?.id || null;
+
+    if (leadChanged && els.callModeNote) {
+      els.callModeNote.value = lead.outreachNote || "";
+      state.callMode.noteDirty = false;
+      setCallModeNoteState("Saved");
+    }
+    updateCallModeNoteCount();
+
+    for (const button of $$("[data-outreach-status]", els.callModeOutcomes)) {
+      const active = button.dataset.outreachStatus === status;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    }
+
+    const last = state.callMode.index >= total - 1;
+    if (els.callModePrev) els.callModePrev.disabled = state.callMode.index <= 0;
+    if (els.callModeSkip) els.callModeSkip.hidden = status !== OUTREACH.TODO;
+    if (els.callModeNext) {
+      els.callModeNext.innerHTML =
+        status === OUTREACH.TODO
+          ? `${icon("i-check")}<span>${last ? "Reached out & finish" : "Reached out & next"}</span>`
+          : `<span>${last ? "Finish session" : "Next lead"}</span>${icon("i-arrow-right")}`;
+    }
+  }
+
+  function startCallModeSession({ leadId = "", includeBlocked = false } = {}) {
+    const plan = planCallSession(getFilteredLeads(), { leadId, includeBlocked });
+    const script =
+      findScript(state.scripts, state.callMode.scriptId) ||
+      activeScript(state.scripts) ||
+      state.scripts.scripts[0] ||
+      null;
+    const returnFocus = state.callMode.returnFocus || null;
+    state.callMode = {
+      open: true,
+      queue: plan.ids,
+      index: plan.startIndex,
+      leadId: null,
+      scriptId: script?.id || null,
+      includeBlocked,
+      complete: false,
+      noteDirty: false,
+      returnFocus,
+      scriptSignature: "",
+    };
+  }
+
+  function openCallMode(lead = null, { includeBlocked = false } = {}) {
+    if (!state.results || !els.callModeDialog) return;
+    const trigger =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const requested = lead?.id
+      ? state.results.leads?.find((entry) => entry.id === lead.id) || null
+      : null;
+    if (requested && callModeLeadStatus(requested) === OUTREACH.DO_NOT_CONTACT) {
+      showToast("That lead is marked do not contact. Starting with the next open lead.", "info", {
+        iconName: "i-ban",
+      });
+    }
+    if (els.leadDialog?.open) els.leadDialog.close();
+    renderCallModePresets();
+    startCallModeSession({ leadId: requested?.id || "", includeBlocked });
+    state.callMode.returnFocus = trigger;
+    renderCallMode();
+    if (!els.callModeDialog.open) els.callModeDialog.showModal();
+    document.body.classList.add("has-dialog");
+    syncDialogState();
+    focusCallModeStart();
+  }
+
+  function focusCallModeLead() {
+    const target =
+      els.callModePhone && !els.callModePhone.hidden ? els.callModePhone : els.callModeNext;
+    target?.focus({ preventScroll: true });
+  }
+
+  function focusCallModeStart() {
+    window.setTimeout(() => {
+      const target =
+        els.callModeEmpty && !els.callModeEmpty.hidden
+          ? els.callModeEmpty
+          : els.callModeComplete && !els.callModeComplete.hidden
+            ? els.callModeComplete
+            : els.callModePhone && !els.callModePhone.hidden
+              ? els.callModePhone
+              : els.callModeNext;
+      target?.focus({ preventScroll: true });
+    }, 40);
+  }
+
+  function closeCallMode({ reason = "" } = {}) {
+    if (!els.callModeDialog?.open) {
+      state.callMode.open = false;
+      return;
+    }
+    if (state.callMode.noteDirty) saveCallModeNote();
+    state.callMode.open = false;
+    els.callModeDialog.close();
+    if (reason) showToast(reason, "info");
+    syncDialogState();
+  }
+
+  function saveCallModeNote({ notify = false } = {}) {
+    const lead = callModeLead();
+    if (!lead || !els.callModeNote) return false;
+    const savedAt = writeOutreachNote(lead, els.callModeNote.value);
+    state.callMode.noteDirty = false;
+    updateCallModeNoteCount();
+    if (!savedAt) {
+      setCallModeNoteState("Saved");
+      return false;
+    }
+    setCallModeNoteState("Saved");
+    // The report under the session owns the same trail, so refresh it now.
+    // Skipping the call-mode render keeps the note field and script picker
+    // untouched while the operator is still on this lead.
+    refreshOutreachViews({ callMode: false });
+    if (notify) showToast("Outreach note saved.", "success", { duration: 2200 });
+    return true;
+  }
+
+  function advanceCallMode(direction) {
+    if (!state.callMode.open) return;
+    if (state.callMode.noteDirty) saveCallModeNote();
+    const step = stepCallQueue(state.callMode.index, state.callMode.queue.length, direction);
+    if (direction > 0 && step.done) {
+      state.callMode.complete = true;
+      state.callMode.leadId = null;
+      renderCallMode();
+      window.setTimeout(
+        () => els.callModeComplete?.focus({ preventScroll: true }),
+        30,
+      );
+      return;
+    }
+    if (!step.moved) return;
+    const wasComplete = state.callMode.complete;
+    state.callMode.index = step.index;
+    state.callMode.complete = false;
+    state.callMode.leadId = null;
+    renderCallMode();
+    els.callModeSession?.scrollTo({ top: 0 });
+    // Stepping back out of the summary must land on something visible, or the
+    // keyboard map would keep working from a hidden panel.
+    if (wasComplete) focusCallModeLead();
+  }
+
+  function applyCallModeStatus(status, { advance = false } = {}) {
+    const lead = callModeLead();
+    if (!lead) return;
+    setOutreachStatus(lead, status, { note: els.callModeNote?.value });
+    state.callMode.noteDirty = false;
+    setCallModeNoteState("Saved");
+    updateCallModeNoteCount();
+    if (advance) advanceCallMode(1);
+  }
+
+  function handleCallModePrimary() {
+    const lead = callModeLead();
+    if (!lead) return;
+    if (callModeLeadStatus(lead) === OUTREACH.TODO) {
+      applyCallModeStatus(OUTREACH.CONTACTED, { advance: true });
+      return;
+    }
+    advanceCallMode(1);
+  }
+
+  function addCallModePreset(presetId) {
+    const preset = CALL_NOTE_PRESETS.find((entry) => entry.id === presetId);
+    if (!preset || !els.callModeNote) return;
+    const result = appendCallNote(els.callModeNote.value, preset.text, OUTREACH_NOTE_LIMIT);
+    if (result.added) {
+      els.callModeNote.value = result.note;
+      state.callMode.noteDirty = true;
+      updateCallModeNoteCount();
+      setCallModeNoteState("Unsaved");
+      return;
+    }
+    setCallModeNoteState(result.reason === "duplicate" ? "Already in the note" : "Note is full");
+  }
+
+  function isTypingTarget(target) {
+    const element = target instanceof Element ? target : null;
+    if (!element) return false;
+    return Boolean(element.closest("input, textarea, select, [contenteditable=\"true\"]"));
+  }
+
+  function handleCallModeShortcut(event) {
+    if (!state.callMode.open || event.defaultPrevented || event.isComposing) return;
+    if (!state.callMode.queue.length) return;
+    const action = resolveCallShortcut({
+      key: event.key,
+      typing: isTypingTarget(event.target),
+      repeat: event.repeat,
+      meta: event.metaKey,
+      ctrl: event.ctrlKey,
+      alt: event.altKey,
+    });
+    if (!action) return;
+    // On the summary only the backward step is meaningful; the panel owns
+    // forward movement, restart, and close.
+    if (state.callMode.complete && action !== CALL_ACTIONS.PREVIOUS) return;
+    event.preventDefault();
+    if (action === CALL_ACTIONS.NOTE) {
+      els.callModeNote?.focus();
+      return;
+    }
+    if (action === CALL_ACTIONS.NEXT) {
+      advanceCallMode(1);
+      return;
+    }
+    if (action === CALL_ACTIONS.PREVIOUS) {
+      advanceCallMode(-1);
+      return;
+    }
+    applyCallModeStatus(action, {
+      advance: action === OUTREACH.CONTACTED || action === OUTREACH.DO_NOT_CONTACT,
+    });
+  }
+
   /* ---------------- element cache ---------------- */
 
   function cacheElements() {
@@ -2254,6 +2787,50 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "markCallSheetContactedBtn",
       "markCallSheetContactedLabel",
       "closeCallSheetBtn",
+      "callModeBtn",
+      "drawerCallModeBtn",
+      "callModeDialog",
+      "closeCallMode",
+      "callModeKicker",
+      "callModeName",
+      "callModeSub",
+      "callModeAnnounce",
+      "callModeProgressBar",
+      "callModeProgressFill",
+      "callModeSession",
+      "callModeEmpty",
+      "callModeEmptyCopy",
+      "callModeEmptyInclude",
+      "callModeEmptyClose",
+      "callModeGrid",
+      "callModeStatus",
+      "callModePhone",
+      "callModePhoneLabel",
+      "callModeNoPhone",
+      "callModeExtraPhones",
+      "callModeAddress",
+      "callModeMaps",
+      "callModeEmail",
+      "callModeWebsite",
+      "callModeScriptPicker",
+      "callModeScriptSelect",
+      "callModeScriptEmpty",
+      "callModeWriteScript",
+      "callModeScriptBody",
+      "callModeOutcomes",
+      "callModeNotePresets",
+      "callModeNote",
+      "callModeNoteCount",
+      "callModeNoteState",
+      "callModePrev",
+      "callModeSkip",
+      "callModeNext",
+      "callModeComplete",
+      "callModeCompleteCopy",
+      "callModeCompleteStats",
+      "callModeRestart",
+      "callModeDone",
+      "callModeFoot",
     ];
     for (const id of ids) els[id] = byId(id);
   }
@@ -2452,6 +3029,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       data: els.viewData,
     };
     if (!views[name]) return;
+    if (state.callMode.open && name !== "report") closeCallMode();
     for (const [key, element] of Object.entries(views)) {
       if (!element) continue;
       element.hidden = key !== name;
@@ -4462,6 +5040,14 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       button.classList.toggle("is-active", isActive);
     }
 
+    if (els.drawerCallModeBtn) {
+      const blocked = status === OUTREACH.DO_NOT_CONTACT;
+      els.drawerCallModeBtn.disabled = blocked;
+      els.drawerCallModeBtn.title = blocked
+        ? "Marked do not contact. Reset the status before calling this lead."
+        : "Open call mode on this lead";
+    }
+
     if (els.drawerOutreachStamp) {
       const stamp = lead.outreachUpdatedAt || lead.contactedAt;
       if (stamp) {
@@ -4810,6 +5396,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
     document.addEventListener("keydown", (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "n" && isAuthed()) {
+        if ($$("dialog[open]").length) return;
         event.preventDefault();
         showView("setup", { scroll: true, focus: true });
       }
@@ -4930,6 +5517,98 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       );
     });
     els.markCallSheetContactedBtn?.addEventListener("click", markCallSheetContacted);
+
+    els.callModeBtn?.addEventListener("click", () => openCallMode());
+    els.drawerCallModeBtn?.addEventListener("click", () => openCallMode(state.drawerLead));
+    els.closeCallMode?.addEventListener("click", () => closeCallMode());
+    els.callModeDialog?.addEventListener("click", (event) => {
+      if (event.target === els.callModeDialog) closeCallMode();
+    });
+    els.callModeDialog?.addEventListener("close", () => {
+      if (state.callMode.noteDirty) saveCallModeNote();
+      const trigger = state.callMode.returnFocus;
+      state.callMode.open = false;
+      state.callMode.queue = [];
+      state.callMode.index = -1;
+      state.callMode.leadId = null;
+      state.callMode.includeBlocked = false;
+      state.callMode.complete = false;
+      state.callMode.noteDirty = false;
+      state.callMode.returnFocus = null;
+      syncDialogState();
+      // Return the keyboard to where the session started, unless another
+      // dialog (for example the script library) has already taken over.
+      if ($$("dialog[open]").length) return;
+      let target = null;
+      if (trigger && trigger.isConnected && trigger.offsetParent !== null) {
+        target = trigger;
+      } else if (els.callModeBtn && els.callModeBtn.offsetParent !== null) {
+        target = els.callModeBtn;
+      }
+      target?.focus({ preventScroll: true });
+    });
+    document.addEventListener("keydown", handleCallModeShortcut);
+    els.callModePrev?.addEventListener("click", () => advanceCallMode(-1));
+    els.callModeSkip?.addEventListener("click", () => advanceCallMode(1));
+    els.callModeNext?.addEventListener("click", handleCallModePrimary);
+    els.callModeOutcomes?.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-outreach-status]");
+      if (button) applyCallModeStatus(button.dataset.outreachStatus);
+    });
+    els.callModePhone?.addEventListener("click", () => {
+      const lead = callModeLead();
+      if (lead) markLeadCalled(lead);
+    });
+    els.callModeExtraPhones?.addEventListener("click", (event) => {
+      if (!event.target.closest('a[href^="tel:"]')) return;
+      const lead = callModeLead();
+      if (lead) markLeadCalled(lead);
+    });
+    els.callModeScriptSelect?.addEventListener("change", () => {
+      const id = els.callModeScriptSelect.value;
+      if (!findScript(state.scripts, id)) return;
+      state.callMode.scriptId = id;
+      renderCallMode();
+    });
+    els.callModeWriteScript?.addEventListener("click", () => {
+      closeCallMode();
+      openScriptLibrary({ createIfEmpty: true, focusTitle: true });
+    });
+    els.callModeNotePresets?.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-call-preset]");
+      if (button) addCallModePreset(button.dataset.callPreset);
+    });
+    els.callModeNote?.addEventListener("input", () => {
+      const lead = callModeLead();
+      state.callMode.noteDirty = lead
+        ? normalizeOutreachNote(els.callModeNote.value) !==
+          normalizeOutreachNote(lead.outreachNote)
+        : false;
+      updateCallModeNoteCount();
+      setCallModeNoteState(state.callMode.noteDirty ? "Unsaved" : "Saved");
+    });
+    els.callModeNote?.addEventListener("blur", () => {
+      if (state.callMode.noteDirty) saveCallModeNote();
+    });
+    els.callModeNote?.addEventListener("keydown", (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
+        saveCallModeNote({ notify: true });
+        els.callModeNote.blur();
+      }
+    });
+    els.callModeEmptyInclude?.addEventListener("click", () => {
+      startCallModeSession({ includeBlocked: true });
+      renderCallMode();
+      focusCallModeStart();
+    });
+    els.callModeEmptyClose?.addEventListener("click", () => closeCallMode());
+    els.callModeRestart?.addEventListener("click", () => {
+      startCallModeSession({ includeBlocked: state.callMode.includeBlocked });
+      renderCallMode();
+      focusCallModeStart();
+    });
+    els.callModeDone?.addEventListener("click", () => closeCallMode());
 
     els.keyDialog?.addEventListener("click", (event) => {
       if (event.target === els.keyDialog) closeKeyDialog();
@@ -5209,6 +5888,9 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState !== "visible" || !state.results) return;
+      // A dirty call-mode note is saved before the refresh so a dialer return
+      // can never replace typed text with the last stored note.
+      if (state.callMode.open && state.callMode.noteDirty) saveCallModeNote();
       refreshOutreachViews({ drawer: Boolean(state.drawerLead) });
     });
     window.addEventListener("pageshow", (event) => {
@@ -6291,7 +6973,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     }
     renderFooterVersion(config.appVersion);
     if (els.sidebarVersion) {
-      els.sidebarVersion.textContent = `Version ${config.appVersion || "1.9.0"}`;
+      els.sidebarVersion.textContent = `Version ${config.appVersion || "2.0.0"}`;
     }
     populateMinStars();
     populateMinReviews();

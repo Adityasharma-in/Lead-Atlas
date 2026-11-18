@@ -1,15 +1,18 @@
 # MEMORY.md — Session state
 
-## Last Updated: 2026-11-13
+## Last Updated: 2026-11-17
 
 ## Current Phase: SHIP — live on Vercel at https://lead-atlas-ochre.vercel.app; Supabase email redirect allowlist pending
 
-## Last Completed Task: Instant workspace boot and signed-in home redirect (2026-11-13)
+## Last Completed Task: Call mode — one lead at a time (2026-11-17)
 
-## Next Task: Merge PR #1 (`feat/outreach-dashboard-stable-leads`), then PR #2
-(`feat/instant-dashboard-session`, stacked on PR #1), and let the GitHub-connected Vercel
-project build `main`. In Supabase **Authentication → URL Configuration**, set the Site URL
-to `https://lead-atlas-ochre.vercel.app` and add
+## Next Task: Review and merge the stack once its previews look right: PR #1
+(`feat/outreach-dashboard-stable-leads`) into `main`, then PR #2
+(`feat/instant-dashboard-session`), then PR #3 (`feat/survey-signal-ui`), then PR #4
+(`feat/call-mode`, https://github.com/Adityasharma-in/Lead-Atlas/pull/4). Run the
+account-gated browser smoke listed in `docs/CALL-MODE.md` before merging #4. Let the
+GitHub-connected Vercel project build `main`. In Supabase **Authentication → URL
+Configuration**, set the Site URL to `https://lead-atlas-ochre.vercel.app` and add
 `https://lead-atlas-ochre.vercel.app/auth.html` plus
 `https://lead-atlas-ochre.vercel.app/**` to Redirect URLs, then test confirmation,
 magic-link, and password-recovery emails on the live domain.
@@ -418,14 +421,15 @@ magic-link, and password-recovery emails on the live domain.
   (scratch edit was disposable; recovery path itself covered by unit tests).
 
 ## Active Context
-- Current app version: `1.9.0` (instant dashboard boot from an account-scoped cache,
-  signed-in home redirect, outreach analytics, stable lead identity and numbering, review
-  quality gate, account-backed call scripts, multipage public site, account-only
+- Current app version: `2.0.0` (call mode, instant dashboard boot from an account-scoped
+  cache, signed-in home redirect, outreach analytics, stable lead identity and numbering,
+  review quality gate, account-backed call scripts, multipage public site, account-only
   workspace/library, deep-linkable workspace routes and the account-bound Apify key).
 - Live deployment: `https://lead-atlas-ochre.vercel.app` (Vercel project `lead-atlas`,
   Express preset, one serverless function, `SELF_UPDATE=off`).
-- Repo: git clone of https://github.com/Adityasharma-in/Lead-Atlas.git (branch `main`),
-  identity `Adityasharma-in` / `Adityasharma-in@users.noreply.github.com`.
+- Repo: git clone of https://github.com/Adityasharma-in/Lead-Atlas.git (current branch
+  `feat/survey-signal-ui`), identity `Adityasharma-in` /
+  `Adityasharma-in@users.noreply.github.com`.
 - Node ≥ 20 (global fetch), Express 4, zero new dependencies.
 - Test harness: `node --test` (`npm test`), mock Apify HTTP server; routes tested via
   real app instances on ephemeral ports. Rate limiters are scoped per `createApp`.
@@ -615,3 +619,39 @@ magic-link, and password-recovery emails on the live domain.
 - Verification: desktop/mobile screenshots of library toolbar, report toolbar, scan form,
   dashboard grid and script dialog; computed heights 42/40/34 as intended; `npm test`
   310/310. Changes remain local and uncommitted.
+## Call mode - one lead at a time (2026-11-17)
+- Goal: collapse the dial loop (find row, open drawer, scroll to script, dial, return,
+  mark, note, find next) into one full-screen session opened from the report hero or a
+  lead drawer.
+- Shape: a native `<dialog>` inside the workspace, not a new hash route. `state.callMode`
+  holds a frozen queue of lead ids, an index, the session's script choice, `complete`,
+  `noteDirty`, `returnFocus` and a script-render signature. The queue is built from
+  `getFilteredLeads()`, so it follows the report's current filters and sort, skips
+  do-not-contact by default, and starts on the requested lead, else the first lead not
+  reached out to, else the first lead. It never wraps; stepping past the end shows the
+  session summary with **Start over** / **Back to report**.
+- Rules live in `public/call-mode-core.js` (pure): `planCallSession`, `stepCallQueue`,
+  `resolveCallShortcut`, `appendCallNote`, `callProgress`, plus the preset list. The
+  workspace controller only renders and wires events.
+- Data: outcomes call the existing `setOutreachStatus()`; note-only saves share a new
+  `writeOutreachNote()` helper with the drawer. No schema, export, API or CSP change.
+  A durable callback date/type ("next action") is deliberately deferred because it needs
+  new columns and an import/export path; the forward footer action is this release's next
+  step.
+- Keyboard/focus: document-level `J`/`ArrowRight`, `K`/`ArrowLeft`, `C`, `X`, `U`, `N`;
+  ignored while typing, with modifiers, and on repeat. On the summary only `K`/`ArrowLeft`
+  steps back. Focus opens on the dial link (or note) and returns to the opener on close.
+- Blocked leads: excluded by default; the empty state can include them for a review pass,
+  but their dial target is replaced by an explanation until **To contact** / `U` restores
+  it, matching the drawer's disabled call button.
+- Notes save on blur, advance, outcome, tab return and close; a save refreshes the report
+  without re-rendering the session, and the script body is only rewritten when the
+  lead/script pair changes so scroll position survives.
+- Responsive: two-column desktop stage; ≤760px the dialog fills the viewport, the body
+  stacks, the footer becomes a thumb row above the safe area, and inputs stay at 16px;
+  ≤560px tightens the type scale.
+- Verification: `npm test` 333/333 including 23 new core tests; `node --check` green on
+  `app.js` and `call-mode-core.js`; duplicate-id, id-reference, CSS brace and token
+  checks clean. The account-gated browser smoke list is in `docs/CALL-MODE.md`. Version
+  1.9.0 → 2.0.0. Committed on `feat/call-mode` and opened as PR #4
+  (https://github.com/Adityasharma-in/Lead-Atlas/pull/4), stacked on PR #3.

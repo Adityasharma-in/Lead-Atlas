@@ -64,7 +64,8 @@ Then fill in the brief:
 6. **Places** — 1 to 500 results.
 
 Press **Run the scan**. Progress is polled live; when the Actor finishes, the report opens
-with filters, search, sorting, a detail drawer, outreach tracking, and CSV/JSON downloads.
+with filters, search, sorting, a detail drawer, outreach tracking, call mode, and CSV/JSON
+downloads.
 
 Open the **Data desk** from the header, report toolbar, or hero card to import an existing
 lead file. Drop a CSV/TSV, JSON, or JSONL file — including a Lead Atlas export, an Apify
@@ -168,7 +169,8 @@ sign-out; a first visit or a cleared cache waits for the live reads as before.
   the existing report instead of creating a duplicate.
 - **Open a saved report** — the full report is reconstructed from the stored lead payload,
   including contacts, socials, map links, outreach marks, dates, and notes. Search, sort,
-  filters, the detail drawer, exports, and call scripts all work as they do on a live scan.
+  filters, the detail drawer, exports, call scripts, and call mode all work as they do on a
+  live scan.
 
 Saved reports live in your own Supabase project:
 
@@ -217,7 +219,7 @@ same way you would: pull the newest commit and restart, in one click.
 - On page load — and every 5 minutes after that — the app asks the local server to compare
   its build with the tip of your repository's branch on GitHub.
 - When a newer commit exists, a **Update available** chip appears in the header. The footer
-  always shows the version and the build you are running (`Version 1.9.0`, then
+  always shows the version and the build you are running (`Version 2.0.0`, then
   `Build <sha> · <branch>` when the folder is a git clone).
 - Click the chip and the server **stashes any uncommitted local edits**, fetches and resets
   to the remote tip, runs `npm install` only if `package.json` or the lockfile changed, and
@@ -240,7 +242,7 @@ git clone and no process to restart. Ship changes with a commit and push, or wit
 ## Versioning
 
 The app version lives in the `version` field of `package.json` and is shown in the footer
-(`Version 1.9.0`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
+(`Version 2.0.0`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
 `GET /api/version`.
 
 The scheme is semver-like with one house rule — the minor part stops at 9:
@@ -366,6 +368,53 @@ the cloud write succeeds and **Local only** if it could not. Limits are 60 scrip
 80-character titles, 12,000-character bodies, and 2 MB per import. If the browser cannot
 save (quota, private mode, or storage disabled), the editor says **Not saved** and tells you
 to export a backup before retrying.
+
+## Call mode: one lead at a time
+
+When it is time to dial, open **Call mode** from the report hero or **Call this lead** in a lead
+drawer. It takes over the screen with the one lead in front of you: the business name, a large
+phone link, the address, the active script filled with that lead's details, the three outreach
+outcomes, and a private note with one-tap presets.
+
+The queue is the report you are looking at — the current filters, the current sort, and every
+lead except the ones marked **Do not contact**. Opening from a drawer starts on that lead;
+otherwise the session starts on the first lead you have not reached out to yet, and falls back
+to the first lead when the whole view is done. Marking a lead during the session never
+reshuffles the queue under your hands; **Start over** rebuilds it from the current view. When
+every remaining lead is blocked, the empty state offers **Include do-not-contact** for a review
+pass; those leads stay readable but lose the dial target until you return them to the list.
+
+- **One key between leads.** `J` / `ArrowRight` moves next, `K` / `ArrowLeft` previous, `C`
+  marks reached out and advances, `X` marks do not contact and advances, `U` puts the lead back
+  on the contact list, and `N` jumps to the note. Shortcuts are ignored while you are typing,
+  while a modifier is held, and on key repeat.
+- **Mark without leaving.** The outcome buttons write through the same outreach ledger as the
+  table and the drawer, so the report, the saved-report copy, the Undo toast, and the CSV/JSON
+  fields all stay in step. Dialing the large phone link marks a to-contact lead reached out.
+- **Notes that survive.** The five presets append a sentence without duplicating one or
+  crossing the 280-character limit. The note saves when you leave the field, move on, mark an
+  outcome, return to the tab, or close the session.
+- **No wrap, no lost place.** Stepping past the last lead shows a session summary with what was
+  reached, blocked, and left open, plus **Start over** and **Back to report**. A trip to the
+  phone app and back re-renders the same lead without resetting the queue or the note.
+- **Built for a phone call, not a spreadsheet.** On a phone the dialog is the viewport, the
+  body stacks, the footer becomes a thumb row above the safe area, and inputs stay at 16px so
+  iOS does not zoom. On desktop it is a two-column stage with a persistent footer.
+
+| Key | Action |
+| --- | --- |
+| `J`, `ArrowRight` | Next lead |
+| `K`, `ArrowLeft` | Previous lead |
+| `C` | Reached out, then next |
+| `X` | Do not contact, then next |
+| `U` | Back to the contact list |
+| `N` | Focus the note |
+
+Call mode uses the device's normal `tel:` handler: there is no dialer integration, recording,
+telephony, or campaign automation behind it. A durable follow-up task — a callback date and
+type stored on the lead — is not part of this release because it needs new schema columns and
+an export/import path. The session's forward action is the next step: record the outcome and
+open the next lead, with the next business named before you press it.
 
 ## What you get
 
@@ -586,6 +635,8 @@ network access required. It covers:
 - Request validation, website/rating aliases, Actor input, and cost estimates
 - Lead normalization, contact/social extraction, deduplication, and summaries
 - Outreach normalization, stable lead keys, counts, note limits, and date handling
+- Call-mode queue planning (report order, duplicate ids, blocked filtering, requested-lead
+  fallback), stepping and clamping, shortcut guards, note-preset appending, and progress
 - Cold-call script normalization, limits, store operations, placeholder filling,
   import/export merging, and backup round-trips
 - Account-level Apify token precedence, trimming, missing-column detection, and the
@@ -619,6 +670,7 @@ lead-atlas/
 │   ├── auth-page.js      Auth controller, mode tabs and return-path handoff
 │   ├── styles.css        Design system and report layout
 │   ├── workspace.css     Public page, auth, workspace and bottom-nav styles
+│   ├── atlas.css         Survey Signal layer for the workspace and call mode
 │   ├── app.js            Workspace routing, UI state, library, polling, report, exports
 │   ├── session-guard.js  Signed-in home redirect before the marketing page paints
 │   ├── supabase-client.js Dependency-free GoTrue + PostgREST browser client
@@ -628,6 +680,7 @@ lead-atlas/
 │   ├── import-core.js    Browser-side CSV/JSON import parser and exports
 │   ├── outreach-core.js  Outreach states, keys, notes, dates and counts
 │   ├── scripts-core.js   Script normalization, store, placeholders, import/export
+│   ├── call-mode-core.js Queue, stepping, shortcuts and note presets for call mode
 │   └── favicon.svg
 ├── src/
 │   ├── server.js         Express app and API routes
@@ -645,7 +698,8 @@ lead-atlas/
 │   └── schema.sql        Tables, indexes, triggers and RLS policies
 ├── docs/
 │   ├── SUPABASE-SETUP.md Project, schema, redirect URL and verification guide
-│   └── CALL-SCRIPTS.md   Script-library design record
+│   ├── CALL-SCRIPTS.md   Script-library design record
+│   └── CALL-MODE.md      Call-mode design record and acceptance criteria
 ├── vercel.json           Vercel root rewrite and security/CSP headers
 ├── .vercelignore         Keeps env files, tests, docs and deps out of uploads
 ├── scripts/
@@ -664,6 +718,7 @@ lead-atlas/
     ├── selfupdate.test.js
     ├── supabase.test.js
     ├── version.test.js
+    ├── call-mode-core.test.js
     └── server.test.js
 ```
 
@@ -716,7 +771,7 @@ lead-atlas/
 | A confirmation or magic link returns to the wrong page | Add the exact origin (including `/auth.html`, or the local wildcard) to Supabase **Authentication** → **URL Configuration** → **Redirect URLs**, and open the link in the same browser that requested it. For Vercel, add `https://lead-atlas-ochre.vercel.app/auth.html` and `https://lead-atlas-ochre.vercel.app/**`, then request a fresh link. |
 | The deployed site redirects to `vercel.com/sso-api` | Deployment Protection is on. In Vercel, open the project → **Settings** → **Deployment Protection** and disable **Vercel Authentication**, or run `vercel project protection disable lead-atlas --sso`. |
 | Every deployed page and API hangs, but CSS loads | The deployment was built from an old `src/server.js` that default-exported the app factory. Deploy the current tree, where the default export is the lazy Express request handler. |
-| The Vercel deployment shows an old version | A CLI deploy uploads the current working tree; a Git deploy builds the pushed commit. Redeploy the intended source — `/api/version` should report `1.9.0`. |
+| The Vercel deployment shows an old version | A CLI deploy uploads the current working tree; a Git deploy builds the pushed commit. Redeploy the intended source — `/api/version` should report `2.0.0`. |
 | `/api/*` returns 404 on Vercel | Confirm the project uses the Express preset and the current `vercel.json`. API routes are handled by the single function, not by static output. |
 | “Confirm your email first” | Click the confirmation link Supabase sent, or turn off **Confirm email** for local testing. |
 | The library is empty after a scan | Saving is explicit: open the report and choose **Save to library**. A scan that was never saved is not in the library. |
