@@ -3,18 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f4eee0" />
+    <meta name="theme-color" content="#F2F3EB" />
     <title>Workspace — Lead Atlas</title>
     <meta name="description" content="Your Lead Atlas workspace: scan a territory, read the field report, and keep every saved lead in one library." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=Spline+Sans+Mono:ital,wght@0,300..700;1,300..700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/workspace.css" />
+    <link rel="stylesheet" href="/atlas.css" />
   </head>
   <body class="is-app">
     <a class="skip-link" href="#main">Skip to the workspace</a>
@@ -23,7 +24,7 @@
       <symbol id="i-compass" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.4" />
         <path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1 5.1-2.1Z" fill="currentColor" />
-        <circle cx="12" cy="12" r="1.1" fill="var(--paper, #f4eee0)" />
+        <circle cx="12" cy="12" r="1.1" fill="var(--paper, #F2F3EB)" />
       </symbol>
       <symbol id="i-arrow" viewBox="0 0 24 24">
         <path d="M5 19 19 5M8 5h11v11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
@@ -490,23 +491,30 @@
                 <p>Run a scan or import a file, then save it to your library. It will show up here.</p>
                 <button type="button" class="btn btn-primary" data-app-view="setup">Run your first scan</button>
               </div>
+              <p class="dash-guide">
+                <svg class="icon" aria-hidden="true"><use href="#i-cloud-check"></use></svg>
+                Saved reports stay in your own Supabase library.
+              </p>
             </section>
 
-            <aside class="dash-side">
-              <section class="dash-quick-card dash-quick-scan">
+            <section class="dash-quick-card dash-quick-scan">
                 <div class="dash-quick-map" aria-hidden="true">
-                  <svg viewBox="0 0 360 150">
+                  <svg viewBox="0 0 360 150" preserveAspectRatio="xMidYMid slice">
                     <defs>
                       <pattern id="dashMapGrid" width="26" height="26" patternUnits="userSpaceOnUse">
-                        <path d="M26 0H0v26" fill="none" stroke="#7e927e" stroke-width=".5" opacity=".35" />
+                        <path d="M26 0H0v26" fill="none" stroke="#0c1611" stroke-width=".5" opacity=".28" />
                       </pattern>
                     </defs>
                     <rect width="360" height="150" fill="url(#dashMapGrid)" />
-                    <path d="M-10 100c70-30 100 10 170-10s90-50 170-30" fill="none" stroke="#cf5521" stroke-width="1.5" stroke-dasharray="5 7" opacity=".75" />
-                    <g fill="#cf5521"><circle cx="42" cy="112" r="3.5" /><circle cx="292" cy="56" r="3.5" /></g>
-                    <g transform="translate(170 78)" fill="#f4eee0">
+                    <g fill="none" stroke="#0c1611" stroke-width="1" opacity=".22">
+                      <path d="M-10 40c60-20 90 10 150-4s80-30 140-14 70 12 110 4" />
+                      <path d="M-10 118c70-18 110 16 180-2s90-28 170-10" />
+                    </g>
+                    <path d="M-10 100c70-30 100 10 170-10s90-50 170-30" fill="none" stroke="#0c1611" stroke-width="1.5" stroke-dasharray="5 7" opacity=".85" />
+                    <g fill="#0c1611"><circle cx="42" cy="112" r="3.5" /><circle cx="292" cy="56" r="3.5" /></g>
+                    <g transform="translate(170 78)" fill="#0c1611">
                       <path d="M0-13c-5.5 0-10 4.5-10 10 0 7.5 10 17 10 17S10 4.5 10-3c0-5.5-4.5-10-10-10Z" />
-                      <circle cy="-3" r="3.2" fill="#1e3a2c" />
+                      <circle cy="-3" r="3.2" fill="#c8f14a" />
                     </g>
                   </svg>
                 </div>
@@ -520,7 +528,9 @@
                   </button>
                 </div>
               </section>
+            </div>
 
+            <div class="dash-tools-grid">
               <section class="dash-quick-card dash-key-card">
                 <div class="dash-card-head">
                   <div>
@@ -550,8 +560,7 @@
                   <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
                 </button>
               </section>
-            </aside>
-          </div>
+            </div>
 
           <section class="dash-outreach-card">
             <div class="dash-outreach-copy">
@@ -681,13 +690,13 @@
                     <path d="M36 0H0v36" fill="none" stroke="#c4b8a1" stroke-width=".55" />
                   </pattern>
                   <pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                    <line x1="0" y1="0" x2="0" y2="7" stroke="#b9ad96" stroke-width=".7" opacity=".55" />
+                    <line x1="0" y1="0" x2="0" y2="7" stroke="#b49ed2" stroke-width=".7" opacity=".55" />
                   </pattern>
                 </defs>
-                <rect width="560" height="620" fill="#e9e0cc" />
+                <rect width="560" height="620" fill="#e9e1f8" />
                 <rect width="560" height="620" fill="url(#mapGrid)" opacity=".62" />
 
-                <g fill="none" stroke="#bdb29c" stroke-width="1.05" opacity=".9">
+                <g fill="none" stroke="#b49ed2" stroke-width="1.05" opacity=".9">
                   <path d="M-30 96C50 60 100 136 174 118S296 50 374 74s124 0 218 34" />
                   <path d="M-32 150C42 116 96 188 164 176s122-64 206-38 132 10 224 38" />
                   <path d="M-40 496c86-34 146 24 216 2s124-72 200-54 116 32 200 2" />
@@ -698,20 +707,20 @@
                 <path
                   d="M398-30c-58 108-14 188-42 274s-68 144-28 242 42 96 26 154"
                   fill="none"
-                  stroke="#b5c6b6"
+                  stroke="#cbb5ea"
                   stroke-width="42"
                   opacity=".82"
                 />
                 <path
                   d="M398-30c-58 108-14 188-42 274s-68 144-28 242 42 96 26 154"
                   fill="none"
-                  stroke="#eef0e2"
+                  stroke="#fdfbff"
                   stroke-width="1.2"
                   stroke-dasharray="3 7"
                   opacity=".9"
                 />
 
-                <g fill="#d9ceb8" opacity=".8">
+                <g fill="#d8c9ef" opacity=".8">
                   <rect x="52" y="206" width="76" height="48" transform="rotate(-4 52 206)" />
                   <rect x="144" y="194" width="48" height="34" transform="rotate(2 144 194)" />
                   <rect x="228" y="248" width="60" height="52" transform="rotate(-2 228 248)" />
@@ -727,13 +736,13 @@
                   <rect x="422" y="272" width="62" height="50" transform="rotate(-2 422 272)" />
                 </g>
 
-                <g fill="none" stroke="#f7f0e1" stroke-width="13" opacity=".95">
+                <g fill="none" stroke="#fdfbff" stroke-width="13" opacity=".95">
                   <path d="M-20 238c104 8 156-14 246-8s132 22 234 4 68-8 130 4" />
                   <path d="M96-20c-4 106 18 204 8 310s-34 164-18 350" />
                   <path d="M322-20c-8 110 18 190 4 300s-28 170-10 360" />
                   <path d="M-20 452c96 8 180-10 260 0s166 16 340-2" />
                 </g>
-                <g fill="none" stroke="#a99d87" stroke-width=".8">
+                <g fill="none" stroke="#9d4edd" stroke-width=".8">
                   <path d="M-20 238c104 8 156-14 246-8s132 22 234 4 68-8 130 4" stroke-dasharray="4 8" />
                   <path d="M96-20c-4 106 18 204 8 310s-34 164-18 350" />
                   <path d="M322-20c-8 110 18 190 4 300s-28 170-10 360" stroke-dasharray="2 6" />
@@ -743,32 +752,32 @@
                 <path
                   d="M60 560c54-72 86-102 156-128s104-72 190-70"
                   fill="none"
-                  stroke="#c95521"
+                  stroke="#ff6d00"
                   stroke-width="2"
                   stroke-dasharray="6 8"
                 />
-                <circle cx="60" cy="560" r="4.5" fill="#c95521" />
-                <circle cx="406" cy="362" r="4.5" fill="#c95521" />
+                <circle cx="60" cy="560" r="4.5" fill="#ff6d00" />
+                <circle cx="406" cy="362" r="4.5" fill="#ff6d00" />
 
-                <g transform="translate(92 138)" fill="#c95521">
+                <g transform="translate(92 138)" fill="#ff6d00">
                   <path d="M0-15c-6.6 0-12 5.4-12 12 0 8.4 12 20 12 20S12 5.4 12-3c0-6.6-5.4-12-12-12Z" />
-                  <circle cy="-3" r="4" fill="#f3ecdc" />
+                  <circle cy="-3" r="4" fill="#fdfbff" />
                 </g>
-                <g transform="translate(394 206)" fill="#1e3a2c">
+                <g transform="translate(394 206)" fill="#240046">
                   <path d="M0-15c-6.6 0-12 5.4-12 12 0 8.4 12 20 12 20S12 5.4 12-3c0-6.6-5.4-12-12-12Z" />
-                  <circle cy="-3" r="4" fill="#f3ecdc" />
+                  <circle cy="-3" r="4" fill="#fdfbff" />
                 </g>
-                <g transform="translate(218 438)" fill="#1e3a2c">
+                <g transform="translate(218 438)" fill="#240046">
                   <path d="M0-15c-6.6 0-12 5.4-12 12 0 8.4 12 20 12 20S12 5.4 12-3c0-6.6-5.4-12-12-12Z" />
-                  <circle cy="-3" r="4" fill="#f3ecdc" />
+                  <circle cy="-3" r="4" fill="#fdfbff" />
                 </g>
 
                 <g transform="translate(468 512)" opacity=".85">
-                  <circle r="34" fill="none" stroke="#1e3a2c" stroke-width=".9" />
-                  <circle r="25" fill="none" stroke="#1e3a2c" stroke-width=".6" stroke-dasharray="2 4" />
-                  <path d="M0-31 6-5 0 4-6-5Z" fill="#c95521" />
-                  <path d="M0 31 6 5 0-4-6 5Z" fill="#1e3a2c" />
-                  <text x="0" y="-40" text-anchor="middle" fill="#1e3a2c" font-family="DM Mono, monospace" font-size="9">N</text>
+                  <circle r="34" fill="none" stroke="#240046" stroke-width=".9" />
+                  <circle r="25" fill="none" stroke="#240046" stroke-width=".6" stroke-dasharray="2 4" />
+                  <path d="M0-31 6-5 0 4-6-5Z" fill="#ff6d00" />
+                  <path d="M0 31 6 5 0-4-6 5Z" fill="#240046" />
+                  <text x="0" y="-40" text-anchor="middle" fill="#240046" font-family="DM Mono, monospace" font-size="9">N</text>
                 </g>
 
                 <g font-family="DM Mono, monospace" fill="#7e7462" font-size="7" letter-spacing="1">
@@ -1705,12 +1714,12 @@
               <dl class="data-stats">
                 <div>
                   <dt>Leads</dt>
-                  <dd id="dataLeadCount">—</dd>
+                  <dd id="dataLeadCount">0</dd>
                   <small>in this file</small>
                 </div>
                 <div>
                   <dt>Fields</dt>
-                  <dd id="dataFieldCount">—</dd>
+                  <dd id="dataFieldCount">0</dd>
                   <small>recognised</small>
                 </div>
                 <div>

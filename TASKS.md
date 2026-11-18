@@ -358,3 +358,34 @@
       `feat/outreach-dashboard-stable-leads` with `PR-1.9.0.md` as the description —
       https://github.com/Adityasharma-in/Lead-Atlas/pull/2.
 
+
+## UI redesign: Survey Signal + drawer polish (2026-11-14)
+- [x] U1: Replace the lavender "Atlas After Dark" skin with the Survey Signal system in
+      `public/atlas.css` — chalk/forest ground, hi-vis lime signal, ultramarine links,
+      oxide danger, Archivo + Spline Sans Mono, compact field-instrument shapes, and
+      reduced-motion-safe entrance motion.
+- [x] U2: Recolor every visible map SVG (landing hero, shared final CTA, auth mini-map,
+      dashboard quick scan) and rebuild the report table for compact mobile cards.
+- [x] U3: Keep the existing no-build JS contracts intact — IDs, `is-*` state classes,
+      `hidden`, hash routes, dialogs and data flows. `styles.css` / `workspace.css` remain
+      layout scaffolding under the new skin.
+- [x] U4: Rebuild the setup result slider as a thin instrument track with a circular lime
+      handle; remove the legacy ultramarine 4px track and the rounded-square blob thumb.
+- [x] U5: Fix the lead drawer "At a glance" grid — remove the legacy table border/line
+      background that showed an olive empty cell and vertical divider; add `<wbr>` break
+      points after commas in long lead names so credentials no longer split mid-word.
+- [x] U6: QA — desktop and mobile screenshots across all pages and dialogs; computed-color
+      audit clean for legacy lavender/orange values; `npm test` 310/310; `node --check`
+      green; CSS braces balanced. No commit or deploy yet.
+## UI polish: search bars, control heights, dashboard quick card (2026-11-14)
+- [x] Report and library search bars are now single clean fields (40px) with transparent
+      inner inputs; the script-dialog search is 34px. The global form-control rule no longer
+      paints a second bordered input inside the search label.
+- [x] App buttons are 42px tall (small buttons 34px), with 22px/18px primary icon tiles.
+      The library "New scan" and setup "Run the scan" buttons no longer sit at 52-54px.
+- [x] Setup text inputs and rating/review selects are 42px tall with clear right-side
+      chevron space; the legacy 50px field height no longer leaks through.
+- [x] Dashboard quick-scan card now uses a full-bleed map behind bottom-aligned content,
+      with a lime gradient for readability instead of a 130px strip and empty lime block.
+- [x] QA on desktop and mobile; `npm test` 310/310; CSS braces 1845/1845; no functional,
+      API, schema or dependency changes.
