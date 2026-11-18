@@ -11,7 +11,7 @@ being called.
 - Save, edit, duplicate, delete, and search multiple plain-text cold-call scripts.
 - Save the library to the signed-in account in Supabase and keep an account-scoped
   browser cache for instant edits and offline fallback.
-- Open a readable **call sheet** from the report, header, or a lead drawer.
+- Open a readable **call sheet** from a lead drawer.
 - Show the active script as plain text at the bottom of the extracted-leads report and at
   the bottom of each lead drawer, so reading it never requires opening a dialog.
 - Fill script placeholders from the current lead: business, category, city, address,
@@ -29,16 +29,17 @@ being called.
 - No changes to `/api/config`, `/api/runs`, the rate limiter, or security headers.
 
 ## Acceptance Criteria
-- [x] AC1: The header **Scripts** chip opens the library on every screen and at every
-      breakpoint; the library also opens from the report toolbar and empty state.
+- [x] AC1: The sidebar **Call scripts** entry and the dashboard call-scripts card open the
+      library on every screen and at every breakpoint; the library also opens from the
+      drawer empty state and from **Edit script** inside a call sheet.
 - [x] AC2: A script can be created, renamed, edited, duplicated, deleted (with undo),
       searched, and marked as the script that opens by default.
 - [x] AC3: Edits save locally under an account-scoped key and write through to
       `public.script_libraries`; closing the dialog or switching scripts never loses a
       pending edit. A failed cloud write leaves the local copy marked **Local only**.
-- [x] AC4: The lead drawer has a **Call script** action. The call sheet shows the
-      chosen script filled with that lead's details; the report-level action shows a
-      filled preview using the report query.
+- [x] AC4: The lead drawer has a **Read call script** action. The call sheet shows the
+      chosen script filled with that lead's details, and the report ends with an inline
+      preview of the same script filled from the report query.
 - [x] AC5: The call sheet can copy the filled script and mark the lead reached out;
       both results are announced with a toast.
 - [x] AC6: JSON export/import round-trips; a `.txt`/`.md` file imports as one script.

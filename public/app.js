@@ -185,7 +185,6 @@ import {
     callSheet: {
       lead: null,
       scriptId: null,
-      source: "report",
     },
     callMode: {
       open: false,
@@ -528,7 +527,7 @@ import {
     const email = user?.email || state.auth.profile?.email || "—";
     const initials = accountInitials(name);
     const firstName = name.split(/\s+/)[0] || "there";
-    const version = state.config?.appVersion || "2.0.0";
+    const version = state.config?.appVersion || "2.0.1";
 
     if (els.accountAvatar) els.accountAvatar.textContent = initials;
     if (els.topbarAvatar) els.topbarAvatar.textContent = initials;
@@ -1158,7 +1157,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
   function adoptScriptStore(store) {
     state.scripts = serializeScriptStore(store);
     state.scriptUi.selectedId = activeScript(state.scripts)?.id || null;
-    renderScriptChip();
+    renderScriptSurfaces();
     if (els.scriptDialog?.open) renderScriptLibrary({ syncFields: true });
   }
 
@@ -1182,7 +1181,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     } catch {
       /* storage may be unavailable */
     }
-    renderScriptChip();
+    renderScriptSurfaces();
     if (els.scriptDialog?.open) renderScriptLibrary({ syncFields: true });
   }
 
@@ -1378,10 +1377,6 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     }
   }
 
-  function scriptCountLabel(count) {
-    return `${formatNumber(count)} ${count === 1 ? "script" : "scripts"}`;
-  }
-
   function selectedScript() {
     return findScript(state.scripts, state.scriptUi.selectedId) || activeScript(state.scripts);
   }
@@ -1398,18 +1393,8 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     return { script, body, empty: !body.trim() };
   }
 
-  function renderScriptChip() {
+  function renderScriptSurfaces() {
     const count = state.scripts.scripts.length;
-    if (els.scriptChipCount) {
-      els.scriptChipCount.textContent = String(count);
-      els.scriptChipCount.hidden = count === 0;
-    }
-    els.scriptChip?.classList.toggle("has-scripts", count > 0);
-    if (els.scriptChip) {
-      els.scriptChip.title = count
-        ? `${scriptCountLabel(count)} saved - open the call library`
-        : "Save a cold-call script for your next call";
-    }
     if (els.dashScriptCount) els.dashScriptCount.textContent = `${formatNumber(count)} saved`;
     if (els.sidebarScriptCount) els.sidebarScriptCount.textContent = formatNumber(count);
     renderDrawerScriptAction();
@@ -1439,7 +1424,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       els.drawerScriptTitle.textContent = script ? script.title : "No script saved";
     }
     els.drawerScriptBody.textContent = !script
-      ? "No call script saved yet. Add one from Scripts in the top bar."
+      ? "No call script saved yet. Add one from Call scripts in the menu."
       : empty
         ? "This script has no words yet. Open the library and write your opening line."
         : body;
@@ -1611,7 +1596,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
   function renderScriptLibrary({ syncFields = true } = {}) {
     renderScriptList();
     renderScriptEditor({ syncFields });
-    renderScriptChip();
+    renderScriptSurfaces();
   }
 
   function scriptLimitToast() {
@@ -1674,7 +1659,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     renderScriptList();
     updateScriptEditorMeta();
     scheduleScriptSave();
-    renderScriptChip();
+    renderScriptSurfaces();
   }
 
   function insertScriptToken(token) {
@@ -1952,11 +1937,9 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     refreshCallSheetOutreach();
   }
 
-  function openCallSheet(lead = null, { source = "report", scriptId = null } = {}) {
+  function openCallSheet(lead = null) {
     state.callSheet.lead = lead || null;
-    state.callSheet.source = source;
     const script =
-      findScript(state.scripts, scriptId) ||
       activeScript(state.scripts) ||
       state.scripts.scripts[0] ||
       null;
@@ -2581,8 +2564,6 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "updateChip",
       "updateChipText",
       "updateChipVer",
-      "scriptChip",
-      "scriptChipCount",
       "keyChip",
       "keyDot",
       "keyChipText",
@@ -2654,7 +2635,6 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "reportLocation",
       "reportInWord",
       "reportSub",
-      "reportScriptBtn",
       "exportCsvBtn",
       "exportJsonBtn",
       "dataCardBtn",
@@ -2715,7 +2695,6 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "dataWarnings",
       "dataOpenReport",
       "dataReplaceBtn",
-      "reportDataLabel",
       "reportNavDataLabel",
       "leadDialog",
       "closeLeadDialog",
@@ -4357,7 +4336,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     }
     if (els.reportScriptNote) {
       els.reportScriptNote.textContent = !script
-        ? "Add one from Scripts in the top bar and it will appear here."
+        ? "Add one from Call scripts in the menu and it will appear here."
         : hasReport
           ? "Filled from this report’s search. Open a lead for its details."
           : "Your default script. It will appear here after a scan.";
@@ -4770,7 +4749,6 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
 
   function updateReportImportLabels(imported) {
     const label = imported ? "Import another" : "Data desk";
-    if (els.reportDataLabel) els.reportDataLabel.textContent = label;
     if (els.reportNavDataLabel) els.reportNavDataLabel.textContent = label;
   }
 
@@ -5426,16 +5404,12 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     );
     els.dataCardBtn?.addEventListener("click", openDataDesk);
 
-    els.scriptChip?.addEventListener("click", () => openScriptLibrary());
-    els.reportScriptBtn?.addEventListener("click", () =>
-      openCallSheet(null, { source: "report" }),
-    );
     els.drawerScriptBtn?.addEventListener("click", () => {
       if (!state.scripts.scripts.length) {
         openScriptLibrary({ createIfEmpty: true, focusTitle: true });
         return;
       }
-      openCallSheet(state.drawerLead, { source: "drawer" });
+      openCallSheet(state.drawerLead);
     });
 
     els.closeScriptDialog?.addEventListener("click", closeScriptLibrary);
@@ -6973,7 +6947,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     }
     renderFooterVersion(config.appVersion);
     if (els.sidebarVersion) {
-      els.sidebarVersion.textContent = `Version ${config.appVersion || "2.0.0"}`;
+      els.sidebarVersion.textContent = `Version ${config.appVersion || "2.0.1"}`;
     }
     populateMinStars();
     populateMinReviews();
@@ -7025,7 +6999,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       state.scripts = readScriptStore();
       state.scriptUi.selectedId = activeScript(state.scripts)?.id || null;
       renderScriptPlaceholders();
-      renderScriptChip();
+      renderScriptSurfaces();
       // Paint from the last config immediately; refresh it in the background.
       // Without a cache (first visit), wait for the server as before.
       const cachedConfig = readCachedConfig();

@@ -422,3 +422,19 @@
       coverage and deferred follow-up note; TASKS/MEMORY updated; version 1.9.0 to 2.0.0
       under the house minor-cap rule. Shipped on `feat/call-mode` as PR #4, stacked on
       PR #3.
+
+
+## Feature: report page polish from the call-mode preview (2026-11-17)
+- [x] P1: Remove the report hero **Call sheet** button. The drawer **Read call script**
+      action is the single call-sheet entry point; the inline script card stays.
+- [x] P2: Remove the report hero **Data desk** button. The report nav link and the
+      header/hero entries remain, so the desk is still reachable from the report.
+- [x] P3: Rebuild the inline script card as one column - compact dark header above a
+      full-width paper reading surface, inherited padding/gap/inner border reset, signal
+      stripe on the top edge, 72ch measure, header stacked at 980px.
+- [x] P4: Docs and version - README and CALL-SCRIPTS wording, version 2.0.0 -> 2.0.1,
+      `npm test` 333/333, `node --check`, structural checks.
+- [x] P5: Remove the global top-bar **Scripts** chip and its CSS/JS. Sidebar **Call
+      scripts** and the dashboard card stay as the library entry points; drop the dead
+      cache ids, click binding and count/title logic; rename `renderScriptChip()` to
+      `renderScriptSurfaces()`; point empty-state copy at the menu; `npm test` 333/333.
