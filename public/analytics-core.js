@@ -142,7 +142,8 @@ export function buildOutreachAnalytics({
     const status = normalizeOutreachStatus(lead?.outreach_status ?? lead?.outreachStatus) || "to-contact";
     const created = dateValue(lead?.created_at);
     const contacted = dateValue(lead?.contacted_at ?? lead?.contactedAt);
-    const wasReached = Boolean(contacted) || status === "contacted";
+    const wasReached =
+      Boolean(contacted) || status === "contacted" || status === "follow-up";
 
     lifetime.leads += 1;
     if (wasReached) lifetime.reached += 1;

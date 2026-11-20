@@ -17,7 +17,7 @@ import {
   outreachStatusLabel,
 } from "../public/outreach-core.js";
 
-test("normalizes human and machine outreach values onto three states", () => {
+test("normalizes human and machine outreach values onto four states", () => {
   for (const value of ["Reached out", "contacted", "YES", "called", "already contacted", "true"]) {
     assert.equal(normalizeOutreachStatus(value), OUTREACH.CONTACTED, String(value));
   }
@@ -27,15 +27,28 @@ test("normalizes human and machine outreach values onto three states", () => {
   for (const value of ["To contact", "todo", "pending", "not yet", "false"]) {
     assert.equal(normalizeOutreachStatus(value), OUTREACH.TODO, String(value));
   }
+  for (const value of [
+    "Follow up",
+    "follow-up",
+    "Follow UP",
+    "followup",
+    "needs follow up",
+    "Callback",
+  ]) {
+    assert.equal(normalizeOutreachStatus(value), OUTREACH.FOLLOW_UP, String(value));
+  }
   assert.equal(normalizeOutreachStatus(""), null);
   assert.equal(normalizeOutreachStatus("maybe later"), null);
   assert.equal(outreachStatusLabel("reached out"), "Reached out");
+  assert.equal(outreachStatusLabel("follow up"), "Follow up");
   assert.equal(outreachStatusLabel("unknown"), "To contact");
 });
 
 test("maps outreach status onto the call marker", () => {
   assert.equal(callMarkForStatus("reached out"), CALL_MARK.CALLED);
   assert.equal(callMarkForStatus("contacted"), CALL_MARK.CALLED);
+  assert.equal(callMarkForStatus("follow up"), CALL_MARK.FOLLOW_UP);
+  assert.equal(callMarkForStatus("follow-up"), CALL_MARK.FOLLOW_UP);
   assert.equal(callMarkForStatus("do not contact"), CALL_MARK.BLOCKED);
   assert.equal(callMarkForStatus("DNC"), CALL_MARK.BLOCKED);
   assert.equal(callMarkForStatus("to contact"), CALL_MARK.OPEN);
@@ -129,6 +142,7 @@ test("normalizes, applies and counts outreach entries", () => {
     total: 5,
     toContact: 2,
     contacted: 2,
+    followUp: 0,
     doNotContact: 1,
     marked: 3,
     rate: 40,
@@ -138,8 +152,21 @@ test("normalizes, applies and counts outreach entries", () => {
     total: 0,
     toContact: 0,
     contacted: 0,
+    followUp: 0,
     doNotContact: 0,
     marked: 0,
     rate: 0,
   });
+
+  const withFollowUp = outreachCounts([
+    { outreachStatus: OUTREACH.CONTACTED },
+    { outreachStatus: OUTREACH.FOLLOW_UP },
+    { outreachStatus: OUTREACH.FOLLOW_UP },
+    { outreachStatus: OUTREACH.DO_NOT_CONTACT },
+    {},
+  ]);
+  assert.equal(withFollowUp.followUp, 2);
+  assert.equal(withFollowUp.marked, 4);
+  assert.equal(withFollowUp.rate, 60);
+  assert.equal(outreachStatusLabel(OUTREACH.FOLLOW_UP), "Follow up");
 });

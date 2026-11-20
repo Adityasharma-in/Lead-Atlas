@@ -62,7 +62,7 @@ create table if not exists public.leads (
   rating numeric(3, 1),
   review_count integer,
   outreach_status text not null default 'to-contact'
-    check (outreach_status in ('to-contact', 'contacted', 'do-not-contact')),
+    check (outreach_status in ('to-contact', 'contacted', 'follow-up', 'do-not-contact')),
   outreach_note text check (outreach_note is null or char_length(outreach_note) <= 280),
   contacted_at timestamptz,
   payload jsonb not null default '{}'::jsonb,
@@ -79,6 +79,14 @@ create index if not exists leads_outreach_idx
   on public.leads (user_id, outreach_status);
 create index if not exists leads_business_name_idx
   on public.leads (user_id, business_name);
+
+-- Fourth outreach state: reached before, another touch is due. Re-running this
+-- file replaces the old three-value check so existing projects pick it up.
+alter table public.leads
+  drop constraint if exists leads_outreach_status_check;
+alter table public.leads
+  add constraint leads_outreach_status_check
+  check (outreach_status in ('to-contact', 'contacted', 'follow-up', 'do-not-contact'));
 
 -- ------------------------------------------------------------
 -- Call-script library (one row per account)

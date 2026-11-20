@@ -5256,13 +5256,13 @@ body.is-app .app-page {
 }
 
 body.is-app .view.is-entering {
-  animation: viewEnter 0.5s var(--ease-out);
+  animation: viewEnter 0.42s var(--ease-out);
 }
 
 @keyframes viewEnter {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -7544,12 +7544,23 @@ body.is-app .view-progress {
   position: relative;
   min-height: calc(100vh - var(--app-topbar));
   overflow: hidden;
-  background-color: var(--ink);
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+body.is-app .view-progress::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 1;
   background-image:
-    linear-gradient(rgba(242, 243, 235, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(242, 243, 235, 0.04) 1px, transparent 1px);
-  background-size: 56px 56px;
-  color: var(--paper);
+    linear-gradient(rgba(12, 22, 17, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(12, 22, 17, 0.05) 1px, transparent 1px);
+  background-size: 72px 72px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 26% 0%, #000 8%, transparent 74%);
+  mask-image: radial-gradient(ellipse 90% 70% at 26% 0%, #000 8%, transparent 74%);
+  pointer-events: none;
 }
 
 body.is-app .progress-shell {
@@ -7558,26 +7569,37 @@ body.is-app .progress-shell {
   width: 100%;
   max-width: 1400px;
   margin-inline: auto;
-  padding: clamp(28px, 4vw, 48px) clamp(18px, 3.2vw, 40px) clamp(52px, 7vw, 84px);
+  padding: clamp(30px, 4vw, 52px) clamp(18px, 3.2vw, 40px) clamp(52px, 7vw, 84px);
 }
 
 body.is-app .progress-head {
-  margin-bottom: 26px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 26px;
+  max-width: none;
+  margin-bottom: 30px;
+}
+
+body.is-app .progress-head-copy {
+  min-width: 0;
 }
 
 body.is-app .progress-head .eyebrow {
-  color: var(--signal);
+  margin-bottom: 15px;
+  color: var(--muted);
 }
 
 body.is-app .progress-head .eyebrow-rule {
   background: var(--signal);
+  box-shadow: 0 0 0 1px var(--ink) inset;
 }
 
 body.is-app .progress-head h1 {
   margin: 0;
-  color: var(--paper);
+  color: var(--ink);
   font-family: var(--serif);
-  font-size: clamp(2.8rem, 5vw, 4.6rem);
+  font-size: clamp(2.9rem, 5vw, 4.7rem);
   font-stretch: 114%;
   font-weight: 810;
   letter-spacing: -0.055em;
@@ -7585,7 +7607,15 @@ body.is-app .progress-head h1 {
 }
 
 body.is-app .progress-head h1 em {
-  color: var(--signal);
+  padding: 0 0.05em;
+  background: linear-gradient(
+    180deg,
+    transparent 73%,
+    var(--signal) 73%,
+    var(--signal) 95%,
+    transparent 95%
+  );
+  color: var(--ink);
   font-style: italic;
   font-weight: 680;
 }
@@ -7593,334 +7623,400 @@ body.is-app .progress-head h1 em {
 body.is-app .progress-sub {
   max-width: 56ch;
   margin: 16px 0 0;
-  color: rgba(242, 243, 235, 0.6);
-  font-size: 13px;
+  color: var(--muted);
+  font-size: 13.5px;
   line-height: 1.65;
+}
+
+body.is-app .progress-live-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  margin-top: 2px;
+  margin-bottom: 0;
+  padding: 9px 13px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-pill);
+  background: var(--white);
+  box-shadow: 3px 3px 0 rgba(12, 22, 17, 0.1);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+body.is-app .progress-live-chip i {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  background: var(--signal);
 }
 
 body.is-app .progress-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  align-items: start;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) 386px;
+  align-items: stretch;
+  gap: 16px;
+  margin-top: 0;
 }
 
-/* radar plot ------------------------------------------------------- */
+/* survey sheet ------------------------------------------------------ */
 
 body.is-app .progress-map {
   position: relative;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  aspect-ratio: 1 / 0.82;
-  min-height: 420px;
-  border: 1px solid rgba(242, 243, 235, 0.18);
+  min-width: 0;
+  min-height: 470px;
+  border: 1px solid var(--ink);
   border-radius: 14px;
-  background: #101d16;
+  background: var(--white);
+  box-shadow: 10px 10px 0 rgba(12, 22, 17, 0.09);
 }
 
 body.is-app .progress-map::before,
 body.is-app .progress-map::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  border: 1px solid rgba(200, 241, 74, 0.13);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
+  content: none;
 }
 
-body.is-app .progress-map::before {
-  width: 56%;
-  aspect-ratio: 1;
+body.is-app .plot-bar,
+body.is-app .plot-foot {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 14px;
+  background: var(--white);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
 }
 
-body.is-app .progress-map::after {
-  width: 82%;
-  aspect-ratio: 1;
-  border-color: rgba(242, 243, 235, 0.08);
-  border-style: dashed;
+body.is-app .plot-bar {
+  border-bottom: 1px solid var(--line);
 }
 
-body.is-app .progress-map-grid {
+body.is-app .plot-foot {
+  border-top: 1px solid var(--line);
+  font-size: 7.5px;
+}
+
+body.is-app .plot-bar-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+body.is-app .plot-bar-title i {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  background: var(--signal);
+}
+
+body.is-app .plot-bar-coord {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-soft);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.is-app .plot-canvas {
+  position: relative;
+  flex: 1 1 auto;
+  background: var(--paper-2);
+}
+
+body.is-app .plot-svg {
   position: absolute;
   inset: 0;
-  background-image:
-    linear-gradient(rgba(242, 243, 235, 0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(242, 243, 235, 0.055) 1px, transparent 1px);
-  background-size: 48px 48px;
-  -webkit-mask-image: radial-gradient(circle at center, #000 30%, transparent 82%);
-  mask-image: radial-gradient(circle at center, #000 30%, transparent 82%);
-  pointer-events: none;
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
-body.is-app .radar-sweep {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 150%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(200, 241, 74, 0.22),
-    rgba(200, 241, 74, 0.06) 22%,
-    transparent 36%
-  );
-  transform: translate(-50%, -50%);
-  animation: radarSpin 7s linear infinite;
-  pointer-events: none;
+body.is-app .plot-route-line {
+  animation: plotRouteIn 0.9s 0.2s var(--ease-out) both;
 }
 
-@keyframes radarSpin {
-  to {
-    transform: translate(-50%, -50%) rotate(360deg);
+@keyframes plotRouteIn {
+  from {
+    opacity: 0;
   }
+  to {
+    opacity: 0.85;
+  }
+}
+
+body.is-app .plot-pins {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
 }
 
 body.is-app .plot-pin {
   position: absolute;
-  z-index: 2;
-  width: 8px;
-  height: 8px;
+  top: var(--pin-y, 50%);
+  left: var(--pin-x, 50%);
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
   border: 1px solid var(--ink);
   border-radius: 2px;
   background: var(--signal);
-  box-shadow: 0 0 0 1px rgba(200, 241, 74, 0.3);
-  animation: plotPing 3.2s var(--ease-out) infinite;
+  box-shadow: 2px 2px 0 rgba(12, 22, 17, 0.16);
+  animation: plotPinIn 0.42s var(--ease-spring) both;
+  animation-delay: var(--pin-delay, 0ms);
 }
 
 body.is-app .plot-pin::after {
   content: "";
   position: absolute;
-  inset: -7px;
-  border: 1px solid rgba(200, 241, 74, 0.55);
-  border-radius: 4px;
-  animation: plotRing 3.2s var(--ease-out) infinite;
+  inset: -5px;
+  border: 1px solid rgba(12, 22, 17, 0.28);
+  border-radius: 3px;
 }
 
-@keyframes plotPing {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-3px);
-  }
-}
-
-@keyframes plotRing {
-  0% {
-    opacity: 0.8;
+@keyframes plotPinIn {
+  from {
+    opacity: 0;
     transform: scale(0.4);
   }
-  70%,
-  100% {
-    opacity: 0;
-    transform: scale(2.4);
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
-}
-
-body.is-app .pin-1 {
-  top: 27%;
-  left: 24%;
-}
-
-body.is-app .pin-2 {
-  top: 40%;
-  left: 63%;
-  animation-delay: 0.4s;
-}
-
-body.is-app .pin-2::after {
-  animation-delay: 0.4s;
-}
-
-body.is-app .pin-3 {
-  top: 63%;
-  left: 34%;
-  animation-delay: 0.9s;
-}
-
-body.is-app .pin-3::after {
-  animation-delay: 0.9s;
-}
-
-body.is-app .pin-4 {
-  top: 71%;
-  left: 70%;
-  animation-delay: 1.4s;
-}
-
-body.is-app .pin-4::after {
-  animation-delay: 1.4s;
-}
-
-body.is-app .pin-5 {
-  top: 20%;
-  left: 55%;
-  animation-delay: 1.9s;
-}
-
-body.is-app .pin-5::after {
-  animation-delay: 1.9s;
-}
-
-body.is-app .pin-6 {
-  top: 54%;
-  left: 82%;
-  animation-delay: 2.3s;
-}
-
-body.is-app .pin-6::after {
-  animation-delay: 2.3s;
-}
-
-body.is-app .plot-route {
-  position: absolute;
-  top: 34%;
-  left: 22%;
-  width: 58%;
-  height: 42%;
-  border: 1px dashed rgba(200, 241, 74, 0.28);
-  border-radius: 50%;
-  transform: rotate(-14deg);
-  pointer-events: none;
-}
-
-body.is-app .plot-compass {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 3;
-  display: grid;
-  place-items: center;
-  width: 62px;
-  height: 62px;
-  color: rgba(242, 243, 235, 0.55);
-}
-
-body.is-app .plot-compass svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-body.is-app .plot-compass span {
-  position: relative;
-  z-index: 1;
-  margin-top: -3px;
-  color: var(--signal);
-  font-family: var(--mono);
-  font-size: 7px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
 }
 
 body.is-app .progress-count {
   position: absolute;
   top: 50%;
+  right: auto;
+  bottom: auto;
   left: 50%;
-  z-index: 3;
-  text-align: center;
+  z-index: 4;
+  display: grid;
+  width: clamp(146px, 20%, 186px);
+  aspect-ratio: 1;
+  place-content: center;
+  justify-items: center;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: var(--white);
+  box-shadow: 5px 5px 0 rgba(12, 22, 17, 0.12);
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
 
+body.is-app .progress-count::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border: 1px dashed rgba(12, 22, 17, 0.22);
+  border-radius: 50%;
+}
+
 body.is-app .progress-count span {
-  display: block;
-  color: var(--signal);
+  position: relative;
+  z-index: 1;
+  color: var(--ink);
   font-family: var(--serif);
-  font-size: clamp(3.6rem, 7vw, 5.6rem);
+  font-size: clamp(3.1rem, 5.6vw, 4.5rem);
   font-stretch: 120%;
   font-weight: 800;
   letter-spacing: -0.06em;
-  line-height: 0.9;
+  line-height: 0.85;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 32px rgba(200, 241, 74, 0.18);
+}
+
+body.is-app .progress-count span.is-ticked {
+  animation: countTick 0.3s var(--ease-out);
+}
+
+@keyframes countTick {
+  from {
+    opacity: 0.4;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 body.is-app .progress-count small {
-  display: block;
+  position: relative;
+  z-index: 1;
   margin-top: 6px;
-  color: rgba(242, 243, 235, 0.45);
+  color: var(--muted);
   font-family: var(--mono);
-  font-size: 7px;
-  letter-spacing: 0.13em;
+  font-size: 7.5px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
-body.is-app .plot-readout {
+body.is-app .plot-compass {
   position: absolute;
-  top: 16px;
-  left: 16px;
-  z-index: 3;
+  top: auto;
+  right: 16px;
+  bottom: 16px;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: rgba(252, 252, 247, 0.94);
+  box-shadow: 3px 3px 0 rgba(12, 22, 17, 0.11);
+  color: var(--ink);
+}
+
+body.is-app .plot-compass svg {
+  position: absolute;
+  inset: 6px;
+  width: calc(100% - 12px);
+  height: calc(100% - 12px);
+}
+
+body.is-app .plot-scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+body.is-app .plot-scale i {
+  width: 46px;
+  height: 5px;
+  border: 1px solid var(--ink);
+  border-top: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--ink) 0 1px,
+    transparent 1px 25%
+  );
+}
+
+/* readout console --------------------------------------------------- */
+
+body.is-app .progress-console {
+  display: block;
+  min-height: 0;
+  padding: 18px;
+  border: 1px solid var(--ink);
+  border-radius: 14px;
+  background: var(--white);
+  box-shadow: 8px 8px 0 rgba(12, 22, 17, 0.07);
+}
+
+body.is-app .console-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 7px 9px;
-  border: 1px solid rgba(242, 243, 235, 0.14);
-  border-radius: 5px;
-  background: rgba(12, 22, 17, 0.5);
-  color: rgba(242, 243, 235, 0.45);
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--line);
+}
+
+body.is-app .console-kicker {
+  color: var(--ink);
   font-family: var(--mono);
-  font-size: 7px;
-  letter-spacing: 0.07em;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
   line-height: 1.4;
   text-transform: uppercase;
 }
 
-body.is-app .plot-readout span + span {
-  color: var(--signal);
+body.is-app .console-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 7.5px;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
 }
 
-body.is-app .plot-readout span + span::before {
-  content: "/";
-  margin-right: 12px;
-  color: rgba(242, 243, 235, 0.2);
-}
-
-/* console ---------------------------------------------------------- */
-
-body.is-app .progress-console {
-  padding: 20px;
-  border: 1px solid rgba(242, 243, 235, 0.16);
-  border-radius: 14px;
-  background: rgba(242, 243, 235, 0.035);
+body.is-app .console-live i {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  background: var(--signal);
 }
 
 body.is-app .run-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 16px;
+  gap: 0 18px;
   margin: 0;
+  border: 0;
+  background: transparent;
 }
 
 body.is-app .run-facts > div {
-  padding: 9px 0;
-  border-top: 1px solid rgba(242, 243, 235, 0.13);
+  min-width: 0;
+  padding: 11px 0 12px;
+  border-top: 1px solid var(--line);
+  background: transparent;
+}
+
+body.is-app .run-facts > div:nth-child(1),
+body.is-app .run-facts > div:nth-child(2) {
+  border-top: 0;
 }
 
 body.is-app .run-facts dt {
-  color: rgba(242, 243, 235, 0.4);
+  color: var(--muted);
   font-family: var(--mono);
-  font-size: 7px;
+  font-size: 8.5px;
   letter-spacing: 0.08em;
   line-height: 1.4;
   text-transform: uppercase;
 }
 
 body.is-app .run-facts dd {
-  margin: 3px 0 0;
-  color: var(--paper);
+  margin: 4px 0 0;
+  color: var(--ink);
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 12.5px;
   font-weight: 500;
-  line-height: 1.4;
+  letter-spacing: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 body.is-app .progress-meter {
-  margin: 18px 0 0;
+  margin: 8px 0 0;
+  padding-top: 15px;
+  border-top: 1px solid var(--line);
 }
 
 body.is-app .progress-meter-labels {
@@ -7928,29 +8024,48 @@ body.is-app .progress-meter-labels {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 7px;
+  margin-bottom: 8px;
   font-family: var(--mono);
-  font-size: 8px;
+  font-size: 8.5px;
   letter-spacing: 0.03em;
   line-height: 1.4;
 }
 
 body.is-app .progress-meter-labels span:first-child {
-  color: rgba(242, 243, 235, 0.68);
+  color: var(--ink-soft);
 }
 
 body.is-app .progress-meter-labels span:last-child {
-  color: var(--signal);
+  padding: 4px 6px;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--signal);
+  color: var(--ink);
+  font-size: 7.5px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 body.is-app .progress-track {
-  height: 8px;
+  position: relative;
+  height: 10px;
   overflow: hidden;
-  border: 1px solid rgba(242, 243, 235, 0.2);
+  border: 1px solid var(--ink);
   border-radius: 999px;
-  background: rgba(242, 243, 235, 0.08);
+  background: var(--paper-2);
+}
+
+body.is-app .progress-track::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 calc(10% - 1px),
+    rgba(12, 22, 17, 0.18) calc(10% - 1px) 10%
+  );
+  pointer-events: none;
 }
 
 body.is-app .progress-fill {
@@ -7959,65 +8074,96 @@ body.is-app .progress-fill {
   border-right: 1px solid var(--ink);
   border-radius: inherit;
   background: var(--signal);
-  transition: width 0.5s var(--ease);
+  box-shadow: inset 0 -3px 0 rgba(12, 22, 17, 0.14);
+  transition: width 0.65s var(--ease-out);
 }
 
 body.is-app .run-steps {
-  margin: 17px 0 0;
+  margin: 18px 0 0;
   padding: 0;
+  border-top: 1px solid var(--line);
   list-style: none;
+  counter-reset: step;
 }
 
 body.is-app .run-steps li {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 0;
-  border-top: 1px solid rgba(242, 243, 235, 0.11);
-  color: rgba(242, 243, 235, 0.36);
-  font-size: 10.5px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(12, 22, 17, 0.08);
+  color: var(--muted-2);
+  font-size: 12px;
   line-height: 1.4;
   transition: color 0.2s var(--ease);
+  counter-increment: step;
+}
+
+body.is-app .run-steps li:first-child {
+  border-top: 0;
+}
+
+body.is-app .run-steps li::after {
+  content: "0" counter(step);
+  margin-left: auto;
+  color: var(--line-dark);
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.06em;
 }
 
 body.is-app .step-dot {
   position: relative;
-  width: 10px;
-  height: 10px;
+  display: block;
+  width: 14px;
+  height: 14px;
   flex: none;
-  border: 1px solid rgba(242, 243, 235, 0.25);
+  border: 1px solid var(--line-dark);
   border-radius: 50%;
-  background: transparent;
+  background: var(--white);
+  font-size: 0;
   transition:
     border-color 0.2s var(--ease),
     background 0.2s var(--ease);
 }
 
 body.is-app .run-steps li.is-active {
-  color: var(--paper);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+body.is-app .run-steps li.is-active::after {
+  color: var(--ink);
 }
 
 body.is-app .run-steps li.is-active .step-dot {
-  border-color: var(--signal);
+  border-color: var(--ink);
   background: var(--signal);
-  box-shadow: 0 0 0 3px rgba(200, 241, 74, 0.14);
-  animation: signalPulse 2.2s ease-out infinite;
+  box-shadow: 0 0 0 3px rgba(200, 241, 74, 0.26);
+}
+
+body.is-app .run-steps li.is-active .step-dot::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--ink);
 }
 
 body.is-app .run-steps li.is-done {
-  color: rgba(242, 243, 235, 0.66);
+  color: var(--ink-soft);
 }
 
 body.is-app .run-steps li.is-done .step-dot {
-  border-color: var(--signal);
-  background: rgba(200, 241, 74, 0.22);
+  border-color: var(--ink);
+  background: var(--ink);
 }
 
 body.is-app .run-steps li.is-done .step-dot::after {
   content: "";
   position: absolute;
-  top: 2px;
-  left: 2.5px;
+  top: 3px;
+  left: 4.5px;
   width: 3px;
   height: 5px;
   border-right: 1.5px solid var(--signal);
@@ -8030,47 +8176,34 @@ body.is-app .progress-actions {
   flex-wrap: wrap;
   align-items: center;
   gap: 14px;
-  margin-top: 18px;
+  margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid rgba(242, 243, 235, 0.13);
+  border-top: 1px solid var(--line);
 }
 
-body.is-app .btn-outline-light {
-  border-color: rgba(242, 243, 235, 0.24);
-  background: transparent;
-  color: var(--paper);
-  box-shadow: none;
+body.is-app .progress-actions .btn-outline {
+  background: var(--white);
 }
 
-body.is-app .btn-outline-light:hover {
-  border-color: var(--signal);
-  background: rgba(200, 241, 74, 0.06);
-  color: var(--signal);
-}
-
-body.is-app .progress-actions .text-link.light {
-  color: rgba(242, 243, 235, 0.62);
-  border-color: rgba(242, 243, 235, 0.22);
-}
-
-body.is-app .progress-actions .text-link.light:hover {
-  border-color: var(--signal);
-  color: var(--signal);
+body.is-app .progress-actions .text-link {
+  font-size: 9px;
 }
 
 body.is-app .progress-note {
-  margin: 13px 0 0;
-  color: rgba(242, 243, 235, 0.3);
-  font-size: 8px;
-  line-height: 1.55;
+  margin: 14px 0 0;
+  color: var(--muted-2);
+  font-size: 9.5px;
+  line-height: 1.6;
 }
 
 body.is-app .progress-error {
-  margin-top: 20px;
-  padding: 20px;
+  display: block;
+  margin-top: 18px;
+  padding: 18px;
   border: 1px solid rgba(201, 42, 63, 0.45);
   border-radius: 12px;
-  background: rgba(201, 42, 63, 0.1);
+  background: #fbeff0;
+  color: var(--ink);
 }
 
 body.is-app .progress-error-head {
@@ -8084,12 +8217,12 @@ body.is-app .progress-error-head > .icon {
   height: 20px;
   flex: none;
   margin-top: 2px;
-  color: #ff8394;
+  color: var(--danger);
 }
 
 body.is-app .progress-error-head h2 {
   margin: 0;
-  color: var(--paper);
+  color: var(--ink);
   font-family: var(--serif);
   font-size: 21px;
   font-stretch: 108%;
@@ -8099,8 +8232,9 @@ body.is-app .progress-error-head h2 {
 }
 
 body.is-app .progress-error-head p {
+  max-width: 70ch;
   margin: 5px 0 0;
-  color: rgba(242, 243, 235, 0.6);
+  color: var(--muted);
   font-size: 11.5px;
   line-height: 1.55;
 }
@@ -8110,6 +8244,7 @@ body.is-app .progress-error-actions {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 14px;
+  padding-left: 0;
 }
 
 /* ==================================================================
@@ -8434,6 +8569,10 @@ body.is-app .outreach-progress-fill.is-contacted {
   background: var(--signal);
 }
 
+body.is-app .outreach-progress-fill.is-follow-up {
+  background: var(--ok);
+}
+
 body.is-app .outreach-progress-fill.is-dnc {
   background: var(--danger);
 }
@@ -8455,6 +8594,11 @@ body.is-app .outreach-tallies {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
+}
+
+/* "All leads" owns the full first row so the four states sit in a clean 2x2. */
+body.is-app .outreach-tallies .outreach-tally:first-child {
+  grid-column: 1 / -1;
 }
 
 body.is-app .outreach-tally {
@@ -8507,6 +8651,10 @@ body.is-app .outreach-tally-dot.is-to-contact {
 
 body.is-app .outreach-tally-dot.is-contacted {
   background: var(--signal);
+}
+
+body.is-app .outreach-tally-dot.is-follow-up {
+  background: var(--ok);
 }
 
 body.is-app .outreach-tally-dot.is-do-not-contact {
@@ -8888,6 +9036,12 @@ body.is-app .call-mark.is-called {
   color: var(--ink);
 }
 
+body.is-app .call-mark.is-follow-up {
+  border-color: var(--ok);
+  background: var(--white);
+  color: var(--ok);
+}
+
 body.is-app .call-mark.is-blocked {
   border-color: rgba(201, 42, 63, 0.4);
   background: #fbf1f2;
@@ -8945,6 +9099,13 @@ body.is-app .outreach-mini-btn.is-contacted[aria-pressed="true"] {
   color: var(--ink);
 }
 
+body.is-app .outreach-mini-btn.is-follow-up:hover,
+body.is-app .outreach-mini-btn.is-follow-up[aria-pressed="true"] {
+  border-color: var(--ok);
+  background: var(--white);
+  color: var(--ok);
+}
+
 body.is-app .outreach-mini-btn.is-do-not-contact:hover,
 body.is-app .outreach-mini-btn.is-do-not-contact[aria-pressed="true"] {
   border-color: rgba(201, 42, 63, 0.45);
@@ -8967,6 +9128,10 @@ body.is-app .outreach-row-state.is-todo {
 }
 
 body.is-app .outreach-row-state.is-contacted {
+  color: var(--ok);
+}
+
+body.is-app .outreach-row-state.is-follow-up {
   color: var(--ok);
 }
 
@@ -10719,6 +10884,17 @@ body.is-app .outreach-choice.is-contacted.is-active .outreach-choice-mark {
   color: var(--ink);
 }
 
+body.is-app .outreach-choice.is-follow-up.is-active {
+  border-color: var(--ok);
+  background: var(--white);
+}
+
+body.is-app .outreach-choice.is-follow-up.is-active .outreach-choice-mark {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: var(--white);
+}
+
 body.is-app .outreach-choice.is-do-not-contact.is-active {
   border-color: rgba(201, 42, 63, 0.4);
   background: #fbf1f2;
@@ -11890,6 +12066,7 @@ body.is-app .boot-error strong {
   }
 
   body.is-app .progress-map {
+    width: 100%;
     aspect-ratio: 16 / 10;
     min-height: 360px;
   }
@@ -12716,20 +12893,58 @@ body.is-app .boot-error strong {
   }
 
   body.is-app .progress-shell {
-    padding: 24px 15px 44px;
+    padding: 22px 15px 44px;
+  }
+
+  body.is-app .progress-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 22px;
+  }
+
+  body.is-app .progress-live-chip {
+    order: -1;
+    margin: 0 0 16px;
   }
 
   body.is-app .progress-head h1 {
     font-size: clamp(2.4rem, 10vw, 3.2rem);
   }
 
+  body.is-app .progress-grid {
+    gap: 12px;
+  }
+
   body.is-app .progress-map {
-    min-height: 300px;
-    aspect-ratio: 1 / 0.95;
+    width: 100%;
+    min-height: 340px;
+    aspect-ratio: 4 / 3;
+    border-radius: 12px;
+    box-shadow: 6px 6px 0 rgba(12, 22, 17, 0.09);
+  }
+
+  body.is-app .progress-count {
+    width: 128px;
+  }
+
+  body.is-app .progress-count span {
+    font-size: 2.9rem;
+  }
+
+  body.is-app .plot-compass {
+    width: 44px;
+    height: 44px;
   }
 
   body.is-app .progress-console {
     padding: 16px;
+    border-radius: 12px;
+    box-shadow: 6px 6px 0 rgba(12, 22, 17, 0.07);
+  }
+
+  body.is-app .progress-actions {
+    align-items: flex-start;
   }
 
   body.is-app .report-hero > .shell {
@@ -13236,11 +13451,9 @@ body.is-app .boot-error strong {
   body.is-landing .floating-lead-card,
   body.is-landing .floating-library-card,
   body.is-landing .floating-scan-chip .live-dot,
-  body.is-app .radar-sweep,
   body.is-app .plot-pin,
   body.is-app .plot-pin::after,
-  body.is-app .live-pill > span,
-  body.is-app .run-steps li.is-active .step-dot {
+  body.is-app .live-pill > span {
     animation: none !important;
   }
 
@@ -13956,6 +14169,12 @@ body.is-app .call-mode-status[data-status="contacted"] {
   color: var(--ink);
 }
 
+body.is-app .call-mode-status[data-status="follow-up"] {
+  border-color: var(--ok);
+  background: var(--white);
+  color: var(--ok);
+}
+
 body.is-app .call-mode-status[data-status="do-not-contact"] {
   border-color: var(--ink);
   background: var(--ink);
@@ -14410,7 +14629,7 @@ body.is-app .call-mode-complete-actions {
 
 body.is-app .call-mode-complete-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   width: 100%;
   margin: 6px 0 0;
   border: 1px solid var(--line);
@@ -14644,6 +14863,19 @@ body.is-app .call-mode .toast-region {
 
   body.is-app .call-mode-links {
     gap: 9px;
+  }
+
+  body.is-app .call-mode-complete-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.is-app .call-mode-complete-stats > div:nth-child(3) {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  body.is-app .call-mode-complete-stats > div:nth-child(4) {
+    border-top: 1px solid var(--line);
   }
 
   body.is-app .call-mode-complete-stats dt {

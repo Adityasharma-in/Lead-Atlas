@@ -9,18 +9,21 @@
 export const OUTREACH = Object.freeze({
   TODO: "to-contact",
   CONTACTED: "contacted",
+  FOLLOW_UP: "follow-up",
   DO_NOT_CONTACT: "do-not-contact",
 });
 
 export const OUTREACH_LABELS = Object.freeze({
   [OUTREACH.TODO]: "To contact",
   [OUTREACH.CONTACTED]: "Reached out",
+  [OUTREACH.FOLLOW_UP]: "Follow up",
   [OUTREACH.DO_NOT_CONTACT]: "Do not contact",
 });
 
 export const OUTREACH_STATUSES = Object.freeze([
   OUTREACH.TODO,
   OUTREACH.CONTACTED,
+  OUTREACH.FOLLOW_UP,
   OUTREACH.DO_NOT_CONTACT,
 ]);
 
@@ -28,12 +31,14 @@ export const OUTREACH_NOTE_LIMIT = 280;
 
 /**
  * The small marker shown beside a phone number. "open" is the green dot
- * (not called yet), "called" is the green tick, and "blocked" keeps a
- * do-not-contact lead from looking callable.
+ * (not called yet), "called" is the green tick, "follow-up" is the clock
+ * for another touch, and "blocked" keeps a do-not-contact lead from
+ * looking callable.
  */
 export const CALL_MARK = Object.freeze({
   OPEN: "open",
   CALLED: "called",
+  FOLLOW_UP: "follow-up",
   BLOCKED: "blocked",
 });
 
@@ -89,6 +94,17 @@ const CONTACTED_PATTERNS = [
   /^1$/,
 ];
 
+const FOLLOW_UP_PATTERNS = [
+  /^follow\s*up(?:\s*(?:due|needed|required|scheduled|later|again))?$/,
+  /^followup(?:\s*(?:due|needed|required|scheduled|later|again))?$/,
+  /^following\s*up$/,
+  /^to\s*follow\s*up$/,
+  /^needs?\s*follow\s*up$/,
+  /^call\s*back$/,
+  /^callback$/,
+  /^fu$/,
+];
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function text(value) {
@@ -115,7 +131,7 @@ function isEmail(value) {
 }
 
 /**
- * Map a human or machine value onto one of the three outreach states.
+ * Map a human or machine value onto one of the four outreach states.
  * Returns null when the value is empty or not recognised.
  */
 export function normalizeOutreachStatus(value) {
@@ -124,6 +140,7 @@ export function normalizeOutreachStatus(value) {
   if (DNC_PATTERNS.some((pattern) => pattern.test(key))) return OUTREACH.DO_NOT_CONTACT;
   if (TODO_PATTERNS.some((pattern) => pattern.test(key))) return OUTREACH.TODO;
   if (CONTACTED_PATTERNS.some((pattern) => pattern.test(key))) return OUTREACH.CONTACTED;
+  if (FOLLOW_UP_PATTERNS.some((pattern) => pattern.test(key))) return OUTREACH.FOLLOW_UP;
   return null;
 }
 
@@ -134,6 +151,7 @@ export function outreachStatusLabel(value) {
 export function callMarkForStatus(value) {
   const status = normalizeOutreachStatus(value) || OUTREACH.TODO;
   if (status === OUTREACH.CONTACTED) return CALL_MARK.CALLED;
+  if (status === OUTREACH.FOLLOW_UP) return CALL_MARK.FOLLOW_UP;
   if (status === OUTREACH.DO_NOT_CONTACT) return CALL_MARK.BLOCKED;
   return CALL_MARK.OPEN;
 }
@@ -233,6 +251,7 @@ export function outreachCounts(leads = []) {
     total: leads.length,
     toContact: 0,
     contacted: 0,
+    followUp: 0,
     doNotContact: 0,
     marked: 0,
     rate: 0,
@@ -241,11 +260,15 @@ export function outreachCounts(leads = []) {
   for (const lead of leads) {
     const status = normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO;
     if (status === OUTREACH.CONTACTED) counts.contacted += 1;
+    else if (status === OUTREACH.FOLLOW_UP) counts.followUp += 1;
     else if (status === OUTREACH.DO_NOT_CONTACT) counts.doNotContact += 1;
     else counts.toContact += 1;
   }
 
-  counts.marked = counts.contacted + counts.doNotContact;
-  counts.rate = counts.total ? Math.round((counts.contacted / counts.total) * 100) : 0;
+  counts.marked = counts.contacted + counts.followUp + counts.doNotContact;
+  // A follow-up is another touch after contact, so it still counts as reached.
+  counts.rate = counts.total
+    ? Math.round(((counts.contacted + counts.followUp) / counts.total) * 100)
+    : 0;
   return counts;
 }

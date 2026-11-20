@@ -450,6 +450,7 @@ describe('summarizeLeads', () => {
         total: 3,
         toContact: 3,
         contacted: 0,
+        followUp: 0,
         doNotContact: 0,
         marked: 0,
         rate: 0,

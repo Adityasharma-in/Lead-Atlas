@@ -938,7 +938,7 @@ import {
       : null;
     const now = new Date().toISOString();
     const contactedAt =
-      nextStatus === OUTREACH.CONTACTED
+      nextStatus === OUTREACH.CONTACTED || nextStatus === OUTREACH.FOLLOW_UP
         ? lead.contactedAt || now
         : nextStatus === OUTREACH.DO_NOT_CONTACT
           ? lead.contactedAt || null
@@ -972,6 +972,13 @@ import {
 
       if (nextStatus === OUTREACH.CONTACTED) {
         showToast(`${lead.name} marked as reached out.`, "success", {
+          actionLabel: "Undo",
+          onAction: undo,
+          duration: 7000,
+        });
+      } else if (nextStatus === OUTREACH.FOLLOW_UP) {
+        showToast(`${lead.name} marked for follow up.`, "success", {
+          iconName: "i-clock",
           actionLabel: "Undo",
           onAction: undo,
           duration: 7000,
@@ -2094,12 +2101,15 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
           total,
           "lead",
         )}: ${formatNumber(counts.contacted)} reached out, ${formatNumber(
-          counts.doNotContact,
-        )} do not contact, ${formatNumber(counts.toContact)} still open.`;
+          counts.followUp,
+        )} follow up, ${formatNumber(counts.doNotContact)} do not contact, ${formatNumber(
+          counts.toContact,
+        )} still open.`;
       }
       if (els.callModeCompleteStats) {
         const stats = [
           ["Reached", counts.contacted],
+          ["Follow up", counts.followUp],
           ["Do not contact", counts.doNotContact],
           ["Still to contact", counts.toContact],
         ];
@@ -2139,9 +2149,13 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
           ? lead.contactedAt
             ? `Reached out · ${formatDate(lead.contactedAt, true)}`
             : "Reached out"
-          : status === OUTREACH.DO_NOT_CONTACT
-            ? "Do not contact"
-            : "To contact";
+          : status === OUTREACH.FOLLOW_UP
+            ? lead.contactedAt
+              ? `Follow up · ${formatDate(lead.contactedAt, true)}`
+              : "Follow up"
+            : status === OUTREACH.DO_NOT_CONTACT
+              ? "Do not contact"
+              : "To contact";
     }
 
     // A blocked lead can be included for a review pass, but it must not keep
@@ -2464,7 +2478,10 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       return;
     }
     applyCallModeStatus(action, {
-      advance: action === OUTREACH.CONTACTED || action === OUTREACH.DO_NOT_CONTACT,
+      advance:
+        action === OUTREACH.CONTACTED ||
+        action === OUTREACH.FOLLOW_UP ||
+        action === OUTREACH.DO_NOT_CONTACT,
     });
   }
 
@@ -2613,6 +2630,8 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "progressCount",
       "progressLive",
       "progressStamp",
+      "plotPins",
+      "plotMore",
       "runStatus",
       "runElapsed",
       "runTarget",
@@ -2654,6 +2673,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "outreachRate",
       "outreachProgress",
       "outreachProgressContacted",
+      "outreachProgressFollowUp",
       "outreachProgressDnc",
       "tableWrap",
       "leadsTable",
@@ -3716,6 +3736,56 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     }
   }
 
+  const PLOT_PIN_SPOTS = [
+    [18, 24],
+    [58, 19],
+    [79, 38],
+    [25, 57],
+    [49, 84],
+    [84, 69],
+    [72, 15],
+    [12, 45],
+    [18, 82],
+    [39, 73],
+    [67, 87],
+    [33, 31],
+  ];
+
+  function setPlotCount(count) {
+    const total = Math.max(0, Number(count) || 0);
+    const label = formatNumber(total);
+    if (els.progressCount.textContent !== label) {
+      els.progressCount.textContent = label;
+      if (!reduceMotion) {
+        els.progressCount.classList.remove("is-ticked");
+        void els.progressCount.offsetWidth;
+        els.progressCount.classList.add("is-ticked");
+      }
+    }
+    const shown = Math.min(total, PLOT_PIN_SPOTS.length);
+    if (els.plotPins) {
+      while (els.plotPins.childElementCount > shown) {
+        els.plotPins.lastElementChild.remove();
+      }
+      const start = els.plotPins.childElementCount;
+      for (let index = start; index < shown; index += 1) {
+        const [x, y] = PLOT_PIN_SPOTS[index];
+        const pin = document.createElement("span");
+        pin.className = "plot-pin";
+        pin.style.setProperty("--pin-x", `${x}%`);
+        pin.style.setProperty("--pin-y", `${y}%`);
+        pin.style.setProperty("--pin-delay", `${(index - start) * 60}ms`);
+        els.plotPins.append(pin);
+      }
+    }
+    if (els.plotMore) {
+      els.plotMore.textContent =
+        total > shown
+          ? `${formatNumber(shown)} of ${formatNumber(total)} plotted`
+          : `${formatNumber(total)} plotted`;
+    }
+  }
+
   function resetProgressUI(run) {
     els.progressError.hidden = true;
     els.progressTitle.innerHTML = "Charting the<br /><em>territory.</em>";
@@ -3723,6 +3793,9 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "Apify is reading Google Maps. Keep this tab open — progress checks happen right here in your browser.";
     els.progressRunId.textContent = "PREPARING";
     els.progressCount.textContent = "0";
+    els.progressCount.classList.remove("is-ticked");
+    if (els.plotPins) els.plotPins.replaceChildren();
+    if (els.plotMore) els.plotMore.textContent = "0 plotted";
     if (els.progressLive) els.progressLive.textContent = "";
     els.progressStamp.textContent = "Locating…";
     els.runStatus.textContent = "Sending";
@@ -3808,7 +3881,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     els.runStatus.textContent = statusLabel(status);
     els.runTarget.textContent = `${formatNumber(run.target)} places`;
     els.runCap.textContent = money(run.cap);
-    els.progressCount.textContent = formatNumber(run.itemCount || 0);
+    setPlotCount(run.itemCount || 0);
     if (els.progressLive && (run.itemCount || 0) !== previousCount) {
       els.progressLive.textContent = `${pluralize(run.itemCount || 0, "place")} found so far.`;
     }
@@ -4290,6 +4363,11 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
         ? `${(counts.contacted / counts.total) * 100}%`
         : "0%";
     }
+    if (els.outreachProgressFollowUp) {
+      els.outreachProgressFollowUp.style.width = counts.total
+        ? `${(counts.followUp / counts.total) * 100}%`
+        : "0%";
+    }
     if (els.outreachProgressDnc) {
       els.outreachProgressDnc.style.width = counts.total
         ? `${(counts.doNotContact / counts.total) * 100}%`
@@ -4300,6 +4378,9 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       els.outreachProgress.setAttribute(
         "aria-valuetext",
         `${pluralize(counts.contacted, "lead")} reached out, ${pluralize(
+          counts.followUp,
+          "lead",
+        )} marked follow up, ${pluralize(
           counts.doNotContact,
           "lead",
         )} marked do not contact, out of ${pluralize(counts.total, "lead")}.`,
@@ -4310,6 +4391,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       total: counts.total,
       toContact: counts.toContact,
       contacted: counts.contacted,
+      followUp: counts.followUp,
       doNotContact: counts.doNotContact,
       marked: counts.marked,
     };
@@ -4459,6 +4541,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
   const OUTREACH_ICONS = {
     [OUTREACH.TODO]: "i-circle",
     [OUTREACH.CONTACTED]: "i-check",
+    [OUTREACH.FOLLOW_UP]: "i-clock",
     [OUTREACH.DO_NOT_CONTACT]: "i-ban",
   };
 
@@ -4466,6 +4549,9 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     const mark = callMarkForStatus(lead?.outreachStatus);
     if (mark === CALL_MARK.CALLED) {
       return lead?.contactedAt ? `Called ${formatDate(lead.contactedAt, true)}` : "Called";
+    }
+    if (mark === CALL_MARK.FOLLOW_UP) {
+      return lead?.contactedAt ? `Follow up · ${formatDate(lead.contactedAt, true)}` : "Follow up";
     }
     if (mark === CALL_MARK.BLOCKED) return "Do not contact";
     return "Not called yet";
@@ -4478,6 +4564,11 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       return `<span class="call-mark is-called" data-call-mark role="img" aria-label="${escapeHtml(
         label,
       )}" title="${escapeHtml(label)}">${icon("i-check")}</span>`;
+    }
+    if (mark === CALL_MARK.FOLLOW_UP) {
+      return `<span class="call-mark is-follow-up" data-call-mark role="img" aria-label="${escapeHtml(
+        label,
+      )}" title="${escapeHtml(label)}">${icon("i-clock")}</span>`;
     }
     if (mark === CALL_MARK.BLOCKED) {
       return `<span class="call-mark is-blocked" data-call-mark role="img" aria-label="${escapeHtml(
@@ -6140,7 +6231,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
             limit: 200,
           }),
           sb.count("leads"),
-          sb.count("leads", { outreach_status: "eq.contacted" }),
+          sb.count("leads", { outreach_status: "in.(contacted,follow-up)" }),
           sb.count("leads", { outreach_status: "eq.do-not-contact" }),
           fetchLeadActivity(sb),
         ]);

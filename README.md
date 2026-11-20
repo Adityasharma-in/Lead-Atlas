@@ -219,7 +219,7 @@ same way you would: pull the newest commit and restart, in one click.
 - On page load — and every 5 minutes after that — the app asks the local server to compare
   its build with the tip of your repository's branch on GitHub.
 - When a newer commit exists, a **Update available** chip appears in the header. The footer
-  always shows the version and the build you are running (`Version 2.0.1`, then
+  always shows the version and the build you are running (`Version 2.0.2`, then
   `Build <sha> · <branch>` when the folder is a git clone).
 - Click the chip and the server **stashes any uncommitted local edits**, fetches and resets
   to the remote tip, runs `npm install` only if `package.json` or the lockfile changed, and
@@ -242,7 +242,7 @@ git clone and no process to restart. Ship changes with a commit and push, or wit
 ## Versioning
 
 The app version lives in the `version` field of `package.json` and is shown in the footer
-(`Version 2.0.1`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
+(`Version 2.0.2`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
 `GET /api/version`.
 
 The scheme is semver-like with one house rule — the minor part stops at 9:
@@ -302,9 +302,10 @@ Each lead carries one exclusive outreach state:
 | --- | --- |
 | **To contact** | Still on the call list (the default) |
 | **Reached out** | You have already made contact; the first mark is dated |
+| **Follow up** | You reached them before and another touch is due |
 | **Do not contact** | Keep this business off future outreach |
 
-Mark a lead from the three check buttons in the **Outreach** table column, from the filter
+Mark a lead from the four check buttons in the **Outreach** table column, from the filter
 strip above the report, or from the **Outreach trail** section in the detail drawer. The
 drawer also takes a private note of up to 280 characters — who answered, the best time to
 call, or what you sent. Use the tally chips above the table to jump between the next call
@@ -374,8 +375,8 @@ to export a backup before retrying.
 
 When it is time to dial, open **Call mode** from the report hero or **Call this lead** in a lead
 drawer. It takes over the screen with the one lead in front of you: the business name, a large
-phone link, the address, the active script filled with that lead's details, the three outreach
-outcomes, and a private note with one-tap presets.
+phone link, the address, the active script filled with that lead's details, the four outreach
+outcomes (including **Follow up**), and a private note with one-tap presets.
 
 The queue is the report you are looking at — the current filters, the current sort, and every
 lead except the ones marked **Do not contact**. Opening from a drawer starts on that lead;
@@ -386,9 +387,9 @@ every remaining lead is blocked, the empty state offers **Include do-not-contact
 pass; those leads stay readable but lose the dial target until you return them to the list.
 
 - **One key between leads.** `J` / `ArrowRight` moves next, `K` / `ArrowLeft` previous, `C`
-  marks reached out and advances, `X` marks do not contact and advances, `U` puts the lead back
-  on the contact list, and `N` jumps to the note. Shortcuts are ignored while you are typing,
-  while a modifier is held, and on key repeat.
+  marks reached out and advances, `F` marks follow up and advances, `X` marks do not contact
+  and advances, `U` puts the lead back on the contact list, and `N` jumps to the note.
+  Shortcuts are ignored while you are typing, while a modifier is held, and on key repeat.
 - **Mark without leaving.** The outcome buttons write through the same outreach ledger as the
   table and the drawer, so the report, the saved-report copy, the Undo toast, and the CSV/JSON
   fields all stay in step. Dialing the large phone link marks a to-contact lead reached out.
@@ -407,15 +408,17 @@ pass; those leads stay readable but lose the dial target until you return them t
 | `J`, `ArrowRight` | Next lead |
 | `K`, `ArrowLeft` | Previous lead |
 | `C` | Reached out, then next |
+| `F` | Follow up, then next |
 | `X` | Do not contact, then next |
 | `U` | Back to the contact list |
 | `N` | Focus the note |
 
 Call mode uses the device's normal `tel:` handler: there is no dialer integration, recording,
-telephony, or campaign automation behind it. A durable follow-up task — a callback date and
-type stored on the lead — is not part of this release because it needs new schema columns and
-an export/import path. The session's forward action is the next step: record the outcome and
-open the next lead, with the next business named before you press it.
+telephony, or campaign automation behind it. **Follow up** is a working state in the ledger;
+a durable callback schedule — a reminder date and type stored on the lead — is still not part
+of this release because it needs new schema columns and an export/import path. The session's
+forward action is the next step: record the outcome and open the next lead, with the next
+business named before you press it.
 
 ## What you get
 
@@ -772,7 +775,7 @@ lead-atlas/
 | A confirmation or magic link returns to the wrong page | Add the exact origin (including `/auth.html`, or the local wildcard) to Supabase **Authentication** → **URL Configuration** → **Redirect URLs**, and open the link in the same browser that requested it. For Vercel, add `https://lead-atlas-ochre.vercel.app/auth.html` and `https://lead-atlas-ochre.vercel.app/**`, then request a fresh link. |
 | The deployed site redirects to `vercel.com/sso-api` | Deployment Protection is on. In Vercel, open the project → **Settings** → **Deployment Protection** and disable **Vercel Authentication**, or run `vercel project protection disable lead-atlas --sso`. |
 | Every deployed page and API hangs, but CSS loads | The deployment was built from an old `src/server.js` that default-exported the app factory. Deploy the current tree, where the default export is the lazy Express request handler. |
-| The Vercel deployment shows an old version | A CLI deploy uploads the current working tree; a Git deploy builds the pushed commit. Redeploy the intended source - `/api/version` should report `2.0.1`. |
+| The Vercel deployment shows an old version | A CLI deploy uploads the current working tree; a Git deploy builds the pushed commit. Redeploy the intended source - `/api/version` should report `2.0.2`. |
 | `/api/*` returns 404 on Vercel | Confirm the project uses the Express preset and the current `vercel.json`. API routes are handled by the single function, not by static output. |
 | “Confirm your email first” | Click the confirmation link Supabase sent, or turn off **Confirm email** for local testing. |
 | The library is empty after a scan | Saving is explicit: open the report and choose **Save to library**. A scan that was never saved is not in the library. |
