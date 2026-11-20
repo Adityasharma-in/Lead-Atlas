@@ -438,3 +438,20 @@
       scripts** and the dashboard card stay as the library entry points; drop the dead
       cache ids, click binding and count/title logic; rename `renderScriptChip()` to
       `renderScriptSurfaces()`; point empty-state copy at the menu; `npm test` 333/333.
+
+## Feature: scan progress page rebuild (2026-11-19)
+- [x] G1: Replace the dark radar progress view with a chalk survey sheet in
+      `public/app.html` + `public/atlas.css`: ink header with lime highlighter, live-survey
+      chip, bordered map with roads/blocks/park hatch, blueprint route, count plate and
+      scale bar, plus a white "Run readout" console with ticked track and numbered steps.
+- [x] G2: Motion is event-driven only - removed the radar sweep, pin ping and active-step
+      pulse; the route fades in once, pins pop in as leads arrive, the count ticks on
+      change, and the progress bar animates width. Reduced motion still disables it.
+- [x] G3: Pins are generated from the run's item count (12 fixed spots) by `setPlotCount()`
+      in `public/app.js`; reset clears them and the map foot reports "N plotted" or
+      "N of M plotted".
+- [x] G4: Fixed the single-column map overflow at 390-1080px by pinning its width before
+      the aspect ratio (Chrome derived a 453px width from the 340px min-height); removed
+      the dead compass "N" label.
+- [x] G5: Verified at 1440, 820 and 390px; `npm test` 333/333; no API, schema, CSP or
+      dependency changes.

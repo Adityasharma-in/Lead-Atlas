@@ -1,10 +1,10 @@
 # MEMORY.md — Session state
 
-## Last Updated: 2026-11-17
+## Last Updated: 2026-11-19
 
-## Current Phase: SHIP — live on Vercel at https://lead-atlas-ochre.vercel.app; Supabase email redirect allowlist pending
+## Current Phase: SHIP - live on Vercel at https://lead-atlas-ochre.vercel.app; Supabase email redirect allowlist pending
 
-## Last Completed Task: Report page polish — redundant actions removed, script card rebuilt (2026-11-17)
+## Last Completed Task: Scan progress page rebuilt as a chalk survey sheet (2026-11-19)
 
 ## Next Task: Review and merge the stack once its previews look right: PR #1
 (`feat/outreach-dashboard-stable-leads`) into `main`, then PR #2
@@ -17,6 +17,20 @@ Configuration**, set the Site URL to `https://lead-atlas-ochre.vercel.app` and a
 `https://lead-atlas-ochre.vercel.app/auth.html` plus
 `https://lead-atlas-ochre.vercel.app/**` to Redirect URLs, then test confirmation,
 magic-link, and password-recovery emails on the live domain.
+
+## Scan progress page rebuild (2026-11-19)
+- `#progress` now uses the chalk/paper system instead of the old dark forest radar page:
+  survey-sheet map (roads, blocks, park hatch, blueprint route, count plate, scale bar)
+  and a white "Run readout" console.
+- Motion is event-driven only: the route fades in once, pins appear with each lead, the
+  count ticks on change and the progress width transitions; `prefers-reduced-motion`
+  turns the rest off.
+- `setPlotCount()` renders up to 12 pins from the run's item count and the map foot
+  reports "N plotted" or "N of M plotted". Reset clears the pins.
+- Mobile fix: `width: 100%` before `aspect-ratio` at the single-column breakpoints;
+  Chrome had derived a 453px map width from the 340px min-height at 390px.
+- Verification: screenshots at 1440/820/390 and `npm test` 333/333. No data, API, schema
+  or dependency changes; changes are uncommitted on `fix/report-page-polish`.
 
 ## Instant workspace boot and signed-in home redirect (2026-11-13)
 - Goal: a signed-in visit must not flash the marketing home page, and the dashboard must
