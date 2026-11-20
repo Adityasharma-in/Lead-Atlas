@@ -131,6 +131,7 @@ export function resolveCallShortcut({
   if (lower === "j" || name === "ArrowRight") return CALL_ACTIONS.NEXT;
   if (lower === "k" || name === "ArrowLeft") return CALL_ACTIONS.PREVIOUS;
   if (lower === "c") return OUTREACH.CONTACTED;
+  if (lower === "f") return OUTREACH.FOLLOW_UP;
   if (lower === "x") return OUTREACH.DO_NOT_CONTACT;
   if (lower === "u") return OUTREACH.TODO;
   if (lower === "n") return CALL_ACTIONS.NOTE;

@@ -8569,6 +8569,10 @@ body.is-app .outreach-progress-fill.is-contacted {
   background: var(--signal);
 }
 
+body.is-app .outreach-progress-fill.is-follow-up {
+  background: var(--ok);
+}
+
 body.is-app .outreach-progress-fill.is-dnc {
   background: var(--danger);
 }
@@ -8590,6 +8594,11 @@ body.is-app .outreach-tallies {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
+}
+
+/* "All leads" owns the full first row so the four states sit in a clean 2x2. */
+body.is-app .outreach-tallies .outreach-tally:first-child {
+  grid-column: 1 / -1;
 }
 
 body.is-app .outreach-tally {
@@ -8642,6 +8651,10 @@ body.is-app .outreach-tally-dot.is-to-contact {
 
 body.is-app .outreach-tally-dot.is-contacted {
   background: var(--signal);
+}
+
+body.is-app .outreach-tally-dot.is-follow-up {
+  background: var(--ok);
 }
 
 body.is-app .outreach-tally-dot.is-do-not-contact {
@@ -9023,6 +9036,12 @@ body.is-app .call-mark.is-called {
   color: var(--ink);
 }
 
+body.is-app .call-mark.is-follow-up {
+  border-color: var(--ok);
+  background: var(--white);
+  color: var(--ok);
+}
+
 body.is-app .call-mark.is-blocked {
   border-color: rgba(201, 42, 63, 0.4);
   background: #fbf1f2;
@@ -9080,6 +9099,13 @@ body.is-app .outreach-mini-btn.is-contacted[aria-pressed="true"] {
   color: var(--ink);
 }
 
+body.is-app .outreach-mini-btn.is-follow-up:hover,
+body.is-app .outreach-mini-btn.is-follow-up[aria-pressed="true"] {
+  border-color: var(--ok);
+  background: var(--white);
+  color: var(--ok);
+}
+
 body.is-app .outreach-mini-btn.is-do-not-contact:hover,
 body.is-app .outreach-mini-btn.is-do-not-contact[aria-pressed="true"] {
   border-color: rgba(201, 42, 63, 0.45);
@@ -9102,6 +9128,10 @@ body.is-app .outreach-row-state.is-todo {
 }
 
 body.is-app .outreach-row-state.is-contacted {
+  color: var(--ok);
+}
+
+body.is-app .outreach-row-state.is-follow-up {
   color: var(--ok);
 }
 
@@ -10852,6 +10882,17 @@ body.is-app .outreach-choice.is-contacted.is-active .outreach-choice-mark {
   border-color: var(--ink);
   background: var(--signal);
   color: var(--ink);
+}
+
+body.is-app .outreach-choice.is-follow-up.is-active {
+  border-color: var(--ok);
+  background: var(--white);
+}
+
+body.is-app .outreach-choice.is-follow-up.is-active .outreach-choice-mark {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: var(--white);
 }
 
 body.is-app .outreach-choice.is-do-not-contact.is-active {
@@ -14128,6 +14169,12 @@ body.is-app .call-mode-status[data-status="contacted"] {
   color: var(--ink);
 }
 
+body.is-app .call-mode-status[data-status="follow-up"] {
+  border-color: var(--ok);
+  background: var(--white);
+  color: var(--ok);
+}
+
 body.is-app .call-mode-status[data-status="do-not-contact"] {
   border-color: var(--ink);
   background: var(--ink);
@@ -14582,7 +14629,7 @@ body.is-app .call-mode-complete-actions {
 
 body.is-app .call-mode-complete-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   width: 100%;
   margin: 6px 0 0;
   border: 1px solid var(--line);
@@ -14816,6 +14863,19 @@ body.is-app .call-mode .toast-region {
 
   body.is-app .call-mode-links {
     gap: 9px;
+  }
+
+  body.is-app .call-mode-complete-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.is-app .call-mode-complete-stats > div:nth-child(3) {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  body.is-app .call-mode-complete-stats > div:nth-child(4) {
+    border-top: 1px solid var(--line);
   }
 
   body.is-app .call-mode-complete-stats dt {

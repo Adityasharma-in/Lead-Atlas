@@ -18,8 +18,8 @@ and the outcome should all be in one place, with one key between leads.
   link for every lead in the queue that is not blocked.
 - Show the active cold-call script filled with that lead's placeholders, with a
   script picker inside the session.
-- Let the operator mark **Reached out**, **Do not contact**, or **To contact**
-  without leaving the session, reusing the existing outreach ledger.
+- Let the operator mark **Reached out**, **Follow up**, **Do not contact**, or
+  **To contact** without leaving the session, reusing the existing outreach ledger.
 - Offer note presets, a private note field, and a visible save state.
 - Move with **Next** / **Previous**, finish the queue without wrapping, and show
   a session summary with **Start over** and **Back to report**.
@@ -29,15 +29,16 @@ and the outcome should all be in one place, with one key between leads.
 
 ## Non-Goals (Out of Scope)
 
-- **No schema change.** `supabase/schema.sql`, RLS policies, and the outreach row
-  shape stay exactly as they are. This feature writes the existing
-  `outreach_status`, `outreach_note`, and `contacted_at` fields.
-- **No saved follow-up task.** A durable “next action” (a callback date, a type,
-  and its own note) needs new columns, export/import fields, and a dashboard
-  queue. That is a data-model feature and stays deferred rather than half-built.
-  In this release “next action” means the session's forward step: the primary
-  footer action records the outcome and opens the next lead, and the next
-  business is named before you press it.
+- **One schema constraint.** `supabase/schema.sql` extends the
+  `outreach_status` check to accept `follow-up`. There are no new columns,
+  tables, policies, or export/import fields; the existing
+  `outreach_status`, `outreach_note`, and `contacted_at` fields carry the mark.
+- **No saved follow-up schedule.** A durable “next action” (a callback date, a
+  type, and its own note) needs new columns, export/import fields, and a
+  dashboard queue. That is a data-model feature and stays deferred rather than
+  half-built. In this release **Follow up** is a status on the ledger, and the
+  session's forward step records the outcome and opens the next lead, with the
+  next business named before you press it.
 - No dialer integration beyond `tel:` links, no call recording, no telephony,
   no background timers, no campaign automation.
 - No changes to `/api/config`, `/api/runs`, the rate limiter, security headers,
@@ -63,16 +64,17 @@ and the outcome should all be in one place, with one key between leads.
 - [x] AC5: The script is filled from that lead through `scriptContextFor()` and
       `fillScriptTemplate()`. Switching scripts inside the session re-fills
       without leaving the lead. A missing script offers a way to write one.
-- [x] AC6: Outcome buttons write through `setOutreachStatus()`; the note is
-      saved in the same write. Marks sync to a saved report through
+- [x] AC6: The four outcome buttons write through `setOutreachStatus()`; the
+      note is saved in the same write. Marks sync to a saved report through
       `syncSavedLead()` exactly like the table and drawer.
 - [x] AC7: Note presets append without duplicating text and never exceed the
       280-character limit. The note saves on blur, on advance, on outcome, on
       a visibility change, and when the session closes.
 - [x] AC8: `J` / `ArrowRight` moves next, `K` / `ArrowLeft` previous, `C` marks
-      reached out and advances, `X` marks do not contact and advances, `U`
-      returns the lead to the contact list, and `N` focuses the note. Shortcuts
-      are ignored while typing, with modifiers held, and on key repeat.
+      reached out and advances, `F` marks follow up and advances, `X` marks do
+      not contact and advances, `U` returns the lead to the contact list, and
+      `N` focuses the note. Shortcuts are ignored while typing, with modifiers
+      held, and on key repeat.
 - [x] AC9: Reaching past the last lead shows a summary of the session and does
       not wrap. **Start over** rebuilds from the current report view.
 - [x] AC10: Call mode survives a trip to the phone app: returning to the tab
@@ -172,6 +174,7 @@ status is shown in place. **Start over** rebuilds from the current view.
 | `J`, `ArrowRight` | Next lead |
 | `K`, `ArrowLeft` | Previous lead |
 | `C` | Mark reached out, then next |
+| `F` | Mark follow up, then next |
 | `X` | Mark do not contact, then next |
 | `U` | Return to the contact list (stay) |
 | `N` | Focus the note |

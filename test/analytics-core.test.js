@@ -60,6 +60,20 @@ describe("buildOutreachAnalytics", () => {
     assert.equal(analytics.generatedAt, NOW.toISOString());
   });
 
+  it("counts a follow-up mark as reached", () => {
+    const analytics = buildOutreachAnalytics({
+      now: NOW,
+      leads: [
+        { created_at: TODAY(8), outreach_status: "follow-up" },
+        { created_at: TODAY(9), outreach_status: "do-not-contact" },
+      ],
+    });
+
+    assert.equal(analytics.lifetime.reached, 1);
+    assert.equal(analytics.lifetime.doNotContact, 1);
+    assert.equal(analytics.lifetime.toContact, 0);
+  });
+
   it("builds a complete day series ending today", () => {
     const analytics = buildOutreachAnalytics({ now: NOW });
 

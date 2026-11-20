@@ -938,7 +938,7 @@ import {
       : null;
     const now = new Date().toISOString();
     const contactedAt =
-      nextStatus === OUTREACH.CONTACTED
+      nextStatus === OUTREACH.CONTACTED || nextStatus === OUTREACH.FOLLOW_UP
         ? lead.contactedAt || now
         : nextStatus === OUTREACH.DO_NOT_CONTACT
           ? lead.contactedAt || null
@@ -972,6 +972,13 @@ import {
 
       if (nextStatus === OUTREACH.CONTACTED) {
         showToast(`${lead.name} marked as reached out.`, "success", {
+          actionLabel: "Undo",
+          onAction: undo,
+          duration: 7000,
+        });
+      } else if (nextStatus === OUTREACH.FOLLOW_UP) {
+        showToast(`${lead.name} marked for follow up.`, "success", {
+          iconName: "i-clock",
           actionLabel: "Undo",
           onAction: undo,
           duration: 7000,
@@ -2094,12 +2101,15 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
           total,
           "lead",
         )}: ${formatNumber(counts.contacted)} reached out, ${formatNumber(
-          counts.doNotContact,
-        )} do not contact, ${formatNumber(counts.toContact)} still open.`;
+          counts.followUp,
+        )} follow up, ${formatNumber(counts.doNotContact)} do not contact, ${formatNumber(
+          counts.toContact,
+        )} still open.`;
       }
       if (els.callModeCompleteStats) {
         const stats = [
           ["Reached", counts.contacted],
+          ["Follow up", counts.followUp],
           ["Do not contact", counts.doNotContact],
           ["Still to contact", counts.toContact],
         ];
@@ -2139,9 +2149,13 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
           ? lead.contactedAt
             ? `Reached out · ${formatDate(lead.contactedAt, true)}`
             : "Reached out"
-          : status === OUTREACH.DO_NOT_CONTACT
-            ? "Do not contact"
-            : "To contact";
+          : status === OUTREACH.FOLLOW_UP
+            ? lead.contactedAt
+              ? `Follow up · ${formatDate(lead.contactedAt, true)}`
+              : "Follow up"
+            : status === OUTREACH.DO_NOT_CONTACT
+              ? "Do not contact"
+              : "To contact";
     }
 
     // A blocked lead can be included for a review pass, but it must not keep
@@ -2464,7 +2478,10 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       return;
     }
     applyCallModeStatus(action, {
-      advance: action === OUTREACH.CONTACTED || action === OUTREACH.DO_NOT_CONTACT,
+      advance:
+        action === OUTREACH.CONTACTED ||
+        action === OUTREACH.FOLLOW_UP ||
+        action === OUTREACH.DO_NOT_CONTACT,
     });
   }
 
@@ -2656,6 +2673,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       "outreachRate",
       "outreachProgress",
       "outreachProgressContacted",
+      "outreachProgressFollowUp",
       "outreachProgressDnc",
       "tableWrap",
       "leadsTable",
@@ -4345,6 +4363,11 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
         ? `${(counts.contacted / counts.total) * 100}%`
         : "0%";
     }
+    if (els.outreachProgressFollowUp) {
+      els.outreachProgressFollowUp.style.width = counts.total
+        ? `${(counts.followUp / counts.total) * 100}%`
+        : "0%";
+    }
     if (els.outreachProgressDnc) {
       els.outreachProgressDnc.style.width = counts.total
         ? `${(counts.doNotContact / counts.total) * 100}%`
@@ -4355,6 +4378,9 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       els.outreachProgress.setAttribute(
         "aria-valuetext",
         `${pluralize(counts.contacted, "lead")} reached out, ${pluralize(
+          counts.followUp,
+          "lead",
+        )} marked follow up, ${pluralize(
           counts.doNotContact,
           "lead",
         )} marked do not contact, out of ${pluralize(counts.total, "lead")}.`,
@@ -4365,6 +4391,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       total: counts.total,
       toContact: counts.toContact,
       contacted: counts.contacted,
+      followUp: counts.followUp,
       doNotContact: counts.doNotContact,
       marked: counts.marked,
     };
@@ -4514,6 +4541,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
   const OUTREACH_ICONS = {
     [OUTREACH.TODO]: "i-circle",
     [OUTREACH.CONTACTED]: "i-check",
+    [OUTREACH.FOLLOW_UP]: "i-clock",
     [OUTREACH.DO_NOT_CONTACT]: "i-ban",
   };
 
@@ -4521,6 +4549,9 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     const mark = callMarkForStatus(lead?.outreachStatus);
     if (mark === CALL_MARK.CALLED) {
       return lead?.contactedAt ? `Called ${formatDate(lead.contactedAt, true)}` : "Called";
+    }
+    if (mark === CALL_MARK.FOLLOW_UP) {
+      return lead?.contactedAt ? `Follow up · ${formatDate(lead.contactedAt, true)}` : "Follow up";
     }
     if (mark === CALL_MARK.BLOCKED) return "Do not contact";
     return "Not called yet";
@@ -4533,6 +4564,11 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       return `<span class="call-mark is-called" data-call-mark role="img" aria-label="${escapeHtml(
         label,
       )}" title="${escapeHtml(label)}">${icon("i-check")}</span>`;
+    }
+    if (mark === CALL_MARK.FOLLOW_UP) {
+      return `<span class="call-mark is-follow-up" data-call-mark role="img" aria-label="${escapeHtml(
+        label,
+      )}" title="${escapeHtml(label)}">${icon("i-clock")}</span>`;
     }
     if (mark === CALL_MARK.BLOCKED) {
       return `<span class="call-mark is-blocked" data-call-mark role="img" aria-label="${escapeHtml(
@@ -6195,7 +6231,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
             limit: 200,
           }),
           sb.count("leads"),
-          sb.count("leads", { outreach_status: "eq.contacted" }),
+          sb.count("leads", { outreach_status: "in.(contacted,follow-up)" }),
           sb.count("leads", { outreach_status: "eq.do-not-contact" }),
           fetchLeadActivity(sb),
         ]);

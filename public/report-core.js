@@ -54,6 +54,7 @@ const OUTREACH_VALUES = new Set([
   "all",
   "to-contact",
   "contacted",
+  "follow-up",
   "do-not-contact",
 ]);
 const RATING_VALUES = new Set(["all", "4.5", "4", "3"]);

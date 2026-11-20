@@ -1521,6 +1521,10 @@
                     class="outreach-progress-fill is-contacted"
                     id="outreachProgressContacted"
                   ></span>
+                  <span
+                    class="outreach-progress-fill is-follow-up"
+                    id="outreachProgressFollowUp"
+                  ></span>
                   <span class="outreach-progress-fill is-dnc" id="outreachProgressDnc"></span>
                 </div>
                 <p class="outreach-meter-note">
@@ -1563,6 +1567,16 @@
                   <span class="outreach-tally-dot is-contacted" aria-hidden="true"></span>
                   <span class="outreach-tally-label">Reached out</span>
                   <span class="outreach-tally-count" data-outreach-count="contacted">0</span>
+                </button>
+                <button
+                  type="button"
+                  class="outreach-tally"
+                  data-outreach-filter="follow-up"
+                  aria-pressed="false"
+                >
+                  <span class="outreach-tally-dot is-follow-up" aria-hidden="true"></span>
+                  <span class="outreach-tally-label">Follow up</span>
+                  <span class="outreach-tally-count" data-outreach-count="followUp">0</span>
                 </button>
                 <button
                   type="button"
@@ -2183,6 +2197,20 @@
             </button>
             <button
               type="button"
+              class="outreach-choice is-follow-up"
+              data-outreach-status="follow-up"
+              aria-pressed="false"
+            >
+              <span class="outreach-choice-mark" aria-hidden="true">
+                <svg class="icon"><use href="#i-clock"></use></svg>
+              </span>
+              <span class="outreach-choice-copy">
+                <strong>Follow up</strong>
+                <small>Reached them before · another touch is due</small>
+              </span>
+            </button>
+            <button
+              type="button"
               class="outreach-choice is-do-not-contact"
               data-outreach-status="do-not-contact"
               aria-pressed="false"
@@ -2648,7 +2676,7 @@
               <section class="call-mode-outcomes" aria-labelledby="callModeOutcomeHeading">
                 <div class="call-mode-section-head">
                   <h3 id="callModeOutcomeHeading">Outcome</h3>
-                  <span class="mono-label">C · X · U</span>
+                  <span class="mono-label">C · F · X · U</span>
                 </div>
 
                 <div
@@ -2689,6 +2717,21 @@
                   </button>
                   <button
                     type="button"
+                    class="outreach-choice is-follow-up"
+                    data-outreach-status="follow-up"
+                    aria-pressed="false"
+                  >
+                    <span class="outreach-choice-mark" aria-hidden="true">
+                      <svg class="icon"><use href="#i-clock"></use></svg>
+                    </span>
+                    <span class="outreach-choice-copy">
+                      <strong>Follow up</strong>
+                      <small>Reached before · another touch is due</small>
+                    </span>
+                    <kbd class="call-mode-key" aria-hidden="true">F</kbd>
+                  </button>
+                  <button
+                    type="button"
                     class="outreach-choice is-do-not-contact"
                     data-outreach-status="do-not-contact"
                     aria-pressed="false"
@@ -2705,8 +2748,8 @@
                 </div>
 
                 <p class="call-mode-outcome-hint">
-                  <kbd>C</kbd> saves reached out and moves on. <kbd>X</kbd> saves do not contact
-                  and moves on.
+                  <kbd>C</kbd> saves reached out and moves on. <kbd>F</kbd> saves follow up and
+                  moves on. <kbd>X</kbd> saves do not contact and moves on.
                 </p>
               </section>
 

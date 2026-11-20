@@ -1,10 +1,10 @@
 # MEMORY.md — Session state
 
-## Last Updated: 2026-11-19
+## Last Updated: 2026-11-20
 
 ## Current Phase: SHIP - live on Vercel at https://lead-atlas-ochre.vercel.app; Supabase email redirect allowlist pending
 
-## Last Completed Task: Scan progress page rebuilt as a chalk survey sheet (2026-11-19)
+## Last Completed Task: Follow up outreach state across the drawer, call mode and table (2026-11-20)
 
 ## Next Task: Review and merge the stack once its previews look right: PR #1
 (`feat/outreach-dashboard-stable-leads`) into `main`, then PR #2
@@ -17,6 +17,22 @@ Configuration**, set the Site URL to `https://lead-atlas-ochre.vercel.app` and a
 `https://lead-atlas-ochre.vercel.app/auth.html` plus
 `https://lead-atlas-ochre.vercel.app/**` to Redirect URLs, then test confirmation,
 magic-link, and password-recovery emails on the live domain.
+
+## Follow up outreach state (2026-11-20)
+- `public/outreach-core.js` now has four exclusive states: `to-contact`, `contacted`,
+  `follow-up`, `do-not-contact`. `FOLLOW_UP` normalizes `follow up`, `followup`,
+  `callback`, and `follow-up due`; `CALL_MARK.FOLLOW_UP` renders the clock marker.
+- `outreachCounts()` reports `followUp`; `marked` and `rate` include follow-ups because a
+  follow-up is another touch after contact.
+- UI: fourth tally/filter and progress segment in the report strip, a fourth mini-button in
+  each row, a **Follow up** choice in the drawer, and a fourth outcome in call mode with the
+  `F` shortcut. The call-mode summary now reports follow-ups separately.
+- Data: `supabase/schema.sql` idempotently replaces `leads_outreach_status_check` with
+  `('to-contact', 'contacted', 'follow-up', 'do-not-contact')`. Existing projects must
+  re-run the file before a follow-up mark can save to Supabase. Dashboard reached count
+  uses `in.(contacted,follow-up)`.
+- Verification: `npm test` 334/334, `node --check` green on the touched browser modules.
+  Version 2.0.1 -> 2.0.2.
 
 ## Scan progress page rebuild (2026-11-19)
 - `#progress` now uses the chalk/paper system instead of the old dark forest radar page:
@@ -436,9 +452,10 @@ magic-link, and password-recovery emails on the live domain.
   (scratch edit was disposable; recovery path itself covered by unit tests).
 
 ## Active Context
-- Current app version: `2.0.1` (report page polish, call mode, instant dashboard boot from
-  an account-scoped cache, signed-in home redirect, outreach analytics, stable lead identity
-  and numbering, review quality gate, account-backed call scripts, multipage public site,
+- Current app version: `2.0.2` (Follow up outreach state, report page polish, call mode,
+  instant dashboard boot from an account-scoped cache, signed-in home redirect, outreach
+  analytics, stable lead identity and numbering, review quality gate, account-backed call
+  scripts, multipage public site,
   account-only workspace/library, deep-linkable workspace routes and the account-bound Apify
   key).
 - Live deployment: `https://lead-atlas-ochre.vercel.app` (Vercel project `lead-atlas`,

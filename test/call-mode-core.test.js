@@ -118,9 +118,11 @@ test("resolveCallShortcut maps navigation keys", () => {
   assert.equal(resolveCallShortcut({ key: "n" }), CALL_ACTIONS.NOTE);
 });
 
-test("resolveCallShortcut maps outcome keys onto the three outreach states", () => {
+test("resolveCallShortcut maps outcome keys onto the four outreach states", () => {
   assert.equal(resolveCallShortcut({ key: "c" }), OUTREACH.CONTACTED);
   assert.equal(resolveCallShortcut({ key: "C" }), OUTREACH.CONTACTED);
+  assert.equal(resolveCallShortcut({ key: "f" }), OUTREACH.FOLLOW_UP);
+  assert.equal(resolveCallShortcut({ key: "F" }), OUTREACH.FOLLOW_UP);
   assert.equal(resolveCallShortcut({ key: "x" }), OUTREACH.DO_NOT_CONTACT);
   assert.equal(resolveCallShortcut({ key: "u" }), OUTREACH.TODO);
 });

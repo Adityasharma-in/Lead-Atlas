@@ -169,8 +169,10 @@ describe("leadMatchesFilters", () => {
   it("treats a missing outreach status as to-contact", () => {
     assert.equal(leadMatchesFilters(lead({ outreachStatus: null }), { outreach: "to-contact" }), true);
     assert.equal(leadMatchesFilters(lead({ outreachStatus: "Reached out" }), { outreach: "contacted" }), true);
+    assert.equal(leadMatchesFilters(lead({ outreachStatus: "Follow up" }), { outreach: "follow-up" }), true);
     assert.equal(leadMatchesFilters(lead({ outreachStatus: "Do not contact" }), { outreach: "do-not-contact" }), true);
     assert.equal(leadMatchesFilters(lead({ outreachStatus: "contacted" }), { outreach: "to-contact" }), false);
+    assert.equal(leadMatchesFilters(lead({ outreachStatus: "follow-up" }), { outreach: "contacted" }), false);
   });
 
   it("applies rating floors and excludes unrated leads from a floor", () => {

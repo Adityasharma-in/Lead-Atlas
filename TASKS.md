@@ -455,3 +455,18 @@
       the dead compass "N" label.
 - [x] G5: Verified at 1440, 820 and 390px; `npm test` 333/333; no API, schema, CSP or
       dependency changes.
+
+## Feature: Follow up outreach state (2026-11-20)
+- [x] F1: `public/outreach-core.js` adds `OUTREACH.FOLLOW_UP` (`follow-up`) to the state set,
+      labels, alias matching (`follow up`, `followup`, `callback`), call marker, and counts;
+      follow-ups count as reached in the progress rate.
+- [x] F2: Reports get a fourth tally/filter, a follow-up progress segment, and a fourth
+      mini-button in the outreach column with a clock marker.
+- [x] F3: The lead drawer and call mode get a **Follow up** choice; call mode adds the `F`
+      shortcut and reports follow-ups in the session summary.
+- [x] F4: `supabase/schema.sql` replaces the three-value `outreach_status` check with a
+      four-value check idempotently; the dashboard reached count includes follow-ups.
+- [x] F5: Tests cover normalization, call markers, counts/rate, filtering, shortcuts and
+      analytics; `npm test` 334/334 and `node --check` green.
+- [x] F6: README, `docs/CALL-MODE.md` and `docs/SUPABASE-SETUP.md` explain the fourth state
+      and the schema re-run; MEMORY updated; patch version bumped to 2.0.2.
