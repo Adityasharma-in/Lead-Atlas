@@ -1,0 +1,3071 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Overview · Lead Atlas</title>
+  <meta name="description" content="Lead Atlas field desk overview — lead volume, source performance, saved reports, and the next calls in one place." />
+  <meta name="theme-color" content="#0c1611" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=Spline+Sans+Mono:ital,wght@0,300..700;1,300..700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    /* ============================================================
+       LEAD ATLAS — OVERVIEW REDESIGN
+       A standalone design study: forest shell, survey-lime signal,
+       chalk sheet, Archivo display, Spline Sans Mono readouts.
+       ============================================================ */
+
+    :root {
+      --canvas: #e9ece6;
+      --shell: #0b0f0c;
+      --panel: #ffffff;
+      --panel-2: #f6f8f2;
+      --panel-3: #eef1e9;
+      --panel-glow: #f7fbe9;
+      --ink: #0c1611;
+      --ink-2: #38443a;
+      --muted: #6c766d;
+      --muted-2: #8a948a;
+      --line: #e8ebe3;
+      --line-strong: #d7ddd1;
+      --track: #f1f4ec;
+      --signal: #d5f94c;
+      --signal-bright: #e6ff82;
+      --signal-deep: #b9e02e;
+      --lime-soft: #f2fbd3;
+      --green: #2f7d54;
+      --green-soft: #e9f6ee;
+      --red: #bd4b40;
+      --red-soft: #fcece9;
+      --focus: #2337e8;
+      --shadow-pop: 0 24px 60px -30px rgba(9, 16, 11, 0.42);
+      --check-bg: #0c1611;
+      --check-fg: #ffffff;
+
+      --serif: "Archivo", "Helvetica Neue", Arial, sans-serif;
+      --sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+      --mono: "Spline Sans Mono", "Courier New", monospace;
+
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+      --radius-shell: 30px;
+      --radius-sheet: 23px;
+      --radius-card: 16px;
+      --sidebar-w: 258px;
+      --gap: 16px;
+    }
+
+    html[data-theme="dark"] {
+      --canvas: #070a08;
+      --shell: #040705;
+      --panel: #111712;
+      --panel-2: #182019;
+      --panel-3: #1d271e;
+      --panel-glow: rgba(213, 249, 76, 0.045);
+      --ink: #f0f5eb;
+      --ink-2: #c1ccbe;
+      --muted: #8d998b;
+      --muted-2: #687466;
+      --line: #243026;
+      --line-strong: #354237;
+      --track: #1a231b;
+      --lime-soft: rgba(213, 249, 76, 0.13);
+      --green: #83dda5;
+      --green-soft: rgba(83, 196, 128, 0.13);
+      --red: #f08e81;
+      --red-soft: rgba(240, 120, 105, 0.13);
+      --focus: #b9c8ff;
+      --shadow-pop: 0 28px 70px -30px rgba(0, 0, 0, 0.8);
+      --check-bg: var(--signal);
+      --check-fg: #0c1611;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+      color-scheme: light;
+    }
+
+    html[data-theme="dark"] {
+      color-scheme: dark;
+    }
+
+    body {
+      height: 100vh;
+      min-height: 100vh;
+      margin: 0;
+      padding: 22px;
+      overflow: hidden;
+      background:
+        radial-gradient(1100px 620px at 8% -8%, rgba(255, 255, 255, 0.78), transparent 58%),
+        radial-gradient(1000px 700px at 98% 108%, rgba(204, 214, 197, 0.55), transparent 60%),
+        var(--canvas);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      overflow-x: hidden;
+    }
+
+    html[data-theme="dark"] body {
+      background:
+        radial-gradient(1000px 600px at 8% -8%, rgba(33, 47, 35, 0.55), transparent 60%),
+        radial-gradient(900px 640px at 98% 108%, rgba(24, 35, 26, 0.7), transparent 60%),
+        var(--canvas);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    p,
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+    }
+
+    ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    svg {
+      display: block;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    ::selection {
+      background: var(--signal);
+      color: #0c1611;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .skip-link {
+      position: fixed;
+      top: 12px;
+      left: 50%;
+      z-index: 200;
+      transform: translate(-50%, -180%);
+      padding: 10px 15px;
+      border-radius: 10px;
+      background: var(--signal);
+      color: #0c1611;
+      font-size: 12px;
+      font-weight: 700;
+      transition: transform 0.2s var(--ease);
+    }
+
+    .skip-link:focus {
+      transform: translate(-50%, 0);
+    }
+
+    .sprite {
+      position: absolute;
+      width: 0;
+      height: 0;
+      overflow: hidden;
+    }
+
+    .icon {
+      width: 1em;
+      height: 1em;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: 0 0 auto;
+    }
+
+    /* ------------------------------------------------------------------
+       APP FRAME
+       ------------------------------------------------------------------ */
+
+    .app {
+      position: relative;
+      display: grid;
+      grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+      gap: 8px;
+      width: min(100%, 1480px);
+      height: calc(100vh - 44px);
+      min-height: 0;
+      margin: 0 auto;
+      padding: 10px;
+      background: var(--shell);
+      border-radius: var(--radius-shell);
+      box-shadow:
+        0 42px 100px -58px rgba(7, 14, 9, 0.72),
+        0 2px 3px rgba(8, 14, 10, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
+      transition: grid-template-columns 0.5s var(--ease), background 0.3s ease;
+    }
+
+    .app.is-collapsed {
+      grid-template-columns: 82px minmax(0, 1fr);
+    }
+
+    .workspace {
+      position: relative;
+      min-width: 0;
+      padding: 26px 30px 24px;
+      border-radius: var(--radius-sheet);
+      background:
+        radial-gradient(900px 460px at 72% -18%, var(--panel-glow), transparent 64%),
+        var(--panel);
+      box-shadow: inset 0 0 0 1px rgba(12, 22, 17, 0.035);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: var(--line-strong) transparent;
+      transition: background 0.3s ease, border-radius 0.3s ease;
+    }
+
+    .workspace::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .workspace::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .workspace::-webkit-scrollbar-thumb {
+      border: 2px solid transparent;
+      border-radius: 99px;
+      background: var(--line-strong);
+      background-clip: content-box;
+    }
+
+    .workspace::-webkit-scrollbar-thumb:hover {
+      background: var(--muted-2);
+      background-clip: content-box;
+    }
+
+    /* ------------------------------------------------------------------
+       SIDEBAR
+       ------------------------------------------------------------------ */
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      padding: 20px 14px 14px 18px;
+      color: #e9efe6;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: #2a322a transparent;
+    }
+
+    .sidebar::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+      border-radius: 99px;
+      background: #2a322a;
+    }
+
+    .sidebar-brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-height: 42px;
+      padding: 0 2px;
+      border-radius: 10px;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      flex: 0 0 36px;
+      border-radius: 50%;
+      background: var(--signal);
+      color: #0c1611;
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.07),
+        0 10px 24px -14px rgba(213, 249, 76, 0.8);
+    }
+
+    .brand-mark .icon {
+      width: 20px;
+      height: 20px;
+      stroke-width: 1.8;
+    }
+
+    .brand-name {
+      color: #f4f8f1;
+      font-size: 15.5px;
+      font-weight: 650;
+      letter-spacing: -0.025em;
+      white-space: nowrap;
+    }
+
+    .sidebar-toggle {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      margin-left: auto;
+      flex: 0 0 30px;
+      border: 1px solid #293029;
+      border-radius: 9px;
+      background: #171d17;
+      color: #a9b4a8;
+      transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease, transform 0.3s var(--ease);
+    }
+
+    .sidebar-toggle .icon {
+      width: 15px;
+      height: 15px;
+      transition: transform 0.45s var(--ease);
+    }
+
+    .sidebar-toggle:hover {
+      border-color: #414c41;
+      background: #1d241d;
+      color: var(--signal);
+    }
+
+    .app.is-collapsed .sidebar-toggle .icon {
+      transform: rotate(180deg);
+    }
+
+    .sidebar-search {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      width: 100%;
+      height: 42px;
+      margin-top: 20px;
+      padding: 0 10px 0 12px;
+      border: 1px solid #2a322a;
+      border-radius: 13px;
+      background: #1a211a;
+      color: #8e998d;
+      text-align: left;
+      transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, width 0.35s var(--ease);
+    }
+
+    .sidebar-search:hover {
+      border-color: #3c473c;
+      background: #1f271f;
+      color: #cbd4c8;
+    }
+
+    .sidebar-search > .icon {
+      width: 15px;
+      height: 15px;
+    }
+
+    .search-copy {
+      overflow: hidden;
+      font-size: 12px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .search-kbd {
+      margin-left: auto;
+      padding: 2px 6px;
+      border: 1px solid #3b463b;
+      border-radius: 6px;
+      background: #242c24;
+      color: #aab5a8;
+      font-family: var(--mono);
+      font-size: 8.5px;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+
+    .sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      margin-top: 26px;
+    }
+
+    .sidebar-label {
+      margin: 0 10px 8px;
+      color: #6e7a6d;
+      font-family: var(--mono);
+      font-size: 8.5px;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .sidebar-label.settings-label {
+      margin-top: 22px;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      height: 43px;
+      padding: 0 12px;
+      border-radius: 12px;
+      color: #b6c0b5;
+      font-size: 13.1px;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: background 0.2s ease, color 0.2s ease, transform 0.2s var(--ease), padding 0.3s var(--ease);
+    }
+
+    .nav-link + .nav-link {
+      margin-top: 1px;
+    }
+
+    .nav-link .icon {
+      width: 17px;
+      height: 17px;
+      color: #8d998d;
+      transition: color 0.2s ease;
+    }
+
+    .nav-link:hover {
+      background: #171d17;
+      color: #f1f6ef;
+    }
+
+    .nav-link:hover .icon {
+      color: var(--signal);
+    }
+
+    .nav-link.is-active {
+      background: var(--signal);
+      color: #0c1611;
+      font-weight: 640;
+      box-shadow: 0 12px 30px -18px rgba(213, 249, 76, 0.8);
+    }
+
+    .nav-link.is-active .icon {
+      color: #0c1611;
+    }
+
+    .nav-link:active {
+      transform: scale(0.985);
+    }
+
+    .sidebar-spacer {
+      flex: 1;
+      min-height: 18px;
+    }
+
+    .sidebar-event {
+      position: relative;
+      padding: 15px 14px 14px;
+      border: 1px solid #2a322a;
+      border-radius: 16px;
+      background:
+        radial-gradient(150px 90px at 90% 0%, rgba(213, 249, 76, 0.08), transparent 70%),
+        linear-gradient(155deg, #1d251d, #161c16);
+      overflow: hidden;
+    }
+
+    .event-label {
+      color: #899487;
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    .event-title {
+      margin-top: 9px;
+      padding-right: 38px;
+      color: #f2f6ed;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .event-time {
+      margin-top: 3px;
+      color: #98a396;
+      font-size: 10px;
+    }
+
+    .event-go {
+      position: absolute;
+      right: 13px;
+      top: 50%;
+      display: grid;
+      place-items: center;
+      width: 29px;
+      height: 29px;
+      border: 0;
+      border-radius: 50%;
+      background: var(--signal);
+      color: #0c1611;
+      transform: translateY(-50%);
+      transition: transform 0.2s var(--ease), background 0.2s ease;
+    }
+
+    .event-go .icon {
+      width: 14px;
+      height: 14px;
+      stroke-width: 2;
+    }
+
+    .event-go:hover {
+      background: var(--signal-bright);
+      transform: translateY(-50%) scale(1.07);
+    }
+
+    .event-tags {
+      display: flex;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .event-tag {
+      padding: 3px 7px;
+      border: 1px solid rgba(133, 226, 162, 0.17);
+      border-radius: 5px;
+      background: rgba(133, 226, 162, 0.09);
+      color: #a6e5b8;
+      font-size: 8.5px;
+      line-height: 1.35;
+      white-space: nowrap;
+    }
+
+    .app.is-collapsed .brand-name,
+    .app.is-collapsed .search-copy,
+    .app.is-collapsed .search-kbd,
+    .app.is-collapsed .sidebar-label,
+    .app.is-collapsed .nav-text,
+    .app.is-collapsed .sidebar-event {
+      display: none;
+    }
+
+    .app.is-collapsed .sidebar {
+      padding: 20px 12px 14px;
+    }
+
+    .app.is-collapsed .sidebar-brand {
+      flex-direction: column;
+      gap: 7px;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .app.is-collapsed .sidebar-toggle {
+      width: 38px;
+      height: 22px;
+      margin-left: 0;
+      flex: 0 0 22px;
+      border-radius: 7px;
+    }
+
+    .app.is-collapsed .sidebar-toggle .icon {
+      width: 14px;
+      height: 14px;
+    }
+
+    .app.is-collapsed .brand-mark {
+      width: 38px;
+      height: 38px;
+      flex-basis: 38px;
+    }
+
+    .app.is-collapsed .sidebar-search {
+      width: 42px;
+      height: 42px;
+      margin: 20px auto 0;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .app.is-collapsed .sidebar-nav {
+      margin-top: 20px;
+    }
+
+    .app.is-collapsed .nav-link {
+      width: 46px;
+      height: 46px;
+      margin: 2px auto;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .nav-scrim {
+      display: none;
+    }
+
+    /* ------------------------------------------------------------------
+       TOPBAR
+       ------------------------------------------------------------------ */
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .menu-btn {
+      display: none;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      flex: 0 0 40px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel-2);
+      color: var(--ink);
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .menu-btn .icon {
+      width: 17px;
+      height: 17px;
+    }
+
+    .menu-btn:hover {
+      border-color: var(--line-strong);
+      background: var(--panel-3);
+    }
+
+    .greeting {
+      min-width: 0;
+    }
+
+    .greeting h1 {
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: clamp(27px, 2.3vw, 33px);
+      font-stretch: 105%;
+      font-weight: 660;
+      letter-spacing: -0.045em;
+      line-height: 1.05;
+    }
+
+    .greeting p {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 12.4px;
+    }
+
+    .top-actions {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      padding-top: 2px;
+    }
+
+    .icon-btn {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      flex: 0 0 38px;
+      border: 1px solid transparent;
+      border-radius: 50%;
+      background: var(--panel-2);
+      color: var(--ink-2);
+      transition: background 0.2s ease, color 0.2s ease, transform 0.2s var(--ease);
+    }
+
+    .icon-btn .icon {
+      width: 16px;
+      height: 16px;
+    }
+
+    .icon-btn:hover {
+      background: var(--lime-soft);
+      color: var(--ink);
+      transform: translateY(-1px);
+    }
+
+    .icon-btn.has-dot::after {
+      content: "";
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--signal-deep);
+      box-shadow: 0 0 0 2px var(--panel);
+    }
+
+    .profile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: 6px;
+      padding-left: 2px;
+    }
+
+    .avatar {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 42px;
+      border-radius: 50%;
+      background:
+        radial-gradient(26px 24px at 34% 24%, rgba(213, 249, 76, 0.3), transparent 70%),
+        linear-gradient(145deg, #304534, #0c1611 72%);
+      color: var(--signal);
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      box-shadow:
+        0 0 0 2px var(--panel),
+        0 0 0 3px var(--line-strong);
+    }
+
+    .avatar::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      bottom: 1px;
+      width: 9px;
+      height: 9px;
+      border: 2px solid var(--panel);
+      border-radius: 50%;
+      background: var(--signal);
+    }
+
+    .profile-copy {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      line-height: 1.25;
+    }
+
+    .profile-copy strong {
+      color: var(--ink);
+      font-size: 11.5px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .profile-copy span {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 9.8px;
+      white-space: nowrap;
+    }
+
+    /* notifications */
+    .notifications {
+      position: absolute;
+      top: 48px;
+      right: 0;
+      z-index: 40;
+      width: min(304px, calc(100vw - 48px));
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+      box-shadow: var(--shadow-pop);
+    }
+
+    .notif-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 5px 7px 7px;
+    }
+
+    .notif-head strong {
+      font-size: 11.5px;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+    }
+
+    .notif-head button {
+      padding: 3px 4px;
+      border: 0;
+      background: none;
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .notif-head button:hover {
+      color: var(--ink);
+    }
+
+    .notif-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 9px 8px;
+      border-radius: 10px;
+      transition: background 0.18s ease;
+    }
+
+    .notif-item:hover {
+      background: var(--panel-2);
+    }
+
+    .notif-icon {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      flex: 0 0 28px;
+      border-radius: 50%;
+      background: var(--lime-soft);
+      color: var(--ink);
+    }
+
+    .notif-icon .icon {
+      width: 13px;
+      height: 13px;
+    }
+
+    .notif-copy {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .notif-copy strong {
+      display: block;
+      color: var(--ink);
+      font-size: 10.8px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .notif-copy span {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .notif-dot {
+      width: 5px;
+      height: 5px;
+      margin-top: 5px;
+      flex: 0 0 5px;
+      border-radius: 50%;
+      background: var(--signal-deep);
+    }
+
+    .notif-item:not(.is-unread) .notif-dot {
+      visibility: hidden;
+    }
+
+    .notif-item:not(.is-unread) strong {
+      font-weight: 500;
+      color: var(--ink-2);
+    }
+
+    /* ------------------------------------------------------------------
+       STATS
+       ------------------------------------------------------------------ */
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 24px;
+    }
+
+    .stat-card {
+      min-width: 0;
+      padding: 14px 16px 13px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: var(--panel);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset;
+      animation: rise 0.55s var(--ease) both;
+      animation-delay: calc(var(--i) * 55ms + 40ms);
+      transition: transform 0.24s var(--ease), border-color 0.24s ease, box-shadow 0.24s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--line-strong);
+      box-shadow: 0 18px 36px -30px rgba(10, 18, 12, 0.38);
+    }
+
+    .stat-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .stat-label {
+      padding-top: 5px;
+      color: var(--ink-2);
+      font-size: 12px;
+      font-weight: 520;
+      letter-spacing: -0.005em;
+    }
+
+    .stat-icon {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      flex: 0 0 28px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--panel-2);
+      color: var(--ink-2);
+    }
+
+    .stat-icon .icon {
+      width: 13px;
+      height: 13px;
+    }
+
+    .stat-value {
+      display: block;
+      margin-top: 13px;
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: clamp(25px, 2.05vw, 30px);
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.05em;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .stat-delta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 11px;
+      color: var(--muted);
+      font-size: 10.3px;
+      white-space: nowrap;
+    }
+
+    .delta-icon {
+      display: grid;
+      place-items: center;
+      width: 15px;
+      height: 15px;
+      flex: 0 0 15px;
+      border-radius: 4px;
+    }
+
+    .delta-icon .icon {
+      width: 9px;
+      height: 9px;
+      stroke-width: 2;
+    }
+
+    .delta-icon.up {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .delta-icon.down {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .stat-delta b {
+      color: var(--ink-2);
+      font-weight: 620;
+    }
+
+    .stat-delta .delta-up {
+      color: var(--green);
+    }
+
+    .stat-delta .delta-down {
+      color: var(--red);
+    }
+
+    /* ------------------------------------------------------------------
+       DASHBOARD GRID / CARDS
+       ------------------------------------------------------------------ */
+
+    .dash-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.9fr) minmax(280px, 1fr);
+      gap: var(--gap);
+      margin-top: var(--gap);
+      align-items: stretch;
+    }
+
+    .dash-col {
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap);
+      min-width: 0;
+    }
+
+    .card {
+      position: relative;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-card);
+      background: var(--panel);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset;
+      animation: rise 0.6s var(--ease) both;
+    }
+
+    .chart-card {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 320px;
+      padding: 19px 22px 15px;
+      animation-delay: 0.28s;
+    }
+
+    .source-card {
+      display: flex;
+      flex-direction: column;
+      padding: 19px 22px 16px;
+      animation-delay: 0.38s;
+    }
+
+    .calendar-card {
+      padding: 19px 20px 18px;
+      animation-delay: 0.34s;
+    }
+
+    .agenda-card {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      padding: 18px 14px 12px;
+      animation-delay: 0.44s;
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .card-head h2 {
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 18px;
+      font-weight: 650;
+      letter-spacing: -0.032em;
+      line-height: 1.2;
+    }
+
+    .range-select {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      height: 33px;
+      padding: 0 29px 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel);
+      color: var(--ink-2);
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .range-select:hover {
+      border-color: var(--line-strong);
+      background: var(--panel-2);
+    }
+
+    .range-select select {
+      max-width: 90px;
+      padding: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: inherit;
+      font-size: 11px;
+      font-weight: 520;
+      appearance: none;
+      cursor: pointer;
+    }
+
+    .range-select .icon {
+      position: absolute;
+      right: 10px;
+      width: 12px;
+      height: 12px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .dots-btn {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid transparent;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--muted);
+      transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+    }
+
+    .dots-btn .icon {
+      width: 15px;
+      height: 15px;
+    }
+
+    .dots-btn:hover,
+    .dots-btn[aria-expanded="true"] {
+      border-color: var(--line);
+      background: var(--panel-2);
+      color: var(--ink);
+    }
+
+    .menu-wrap {
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .menu {
+      position: absolute;
+      top: 33px;
+      right: 0;
+      z-index: 30;
+      min-width: 176px;
+      padding: 5px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      box-shadow: var(--shadow-pop);
+    }
+
+    .menu button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 9px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--ink-2);
+      font-size: 10.5px;
+      text-align: left;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .menu button:hover {
+      background: var(--panel-2);
+      color: var(--ink);
+    }
+
+    .menu button .icon {
+      width: 13px;
+      height: 13px;
+      color: var(--muted);
+    }
+
+    /* ------------------------------------------------------------------
+       CHART
+       ------------------------------------------------------------------ */
+
+    .chart-stage {
+      position: relative;
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr);
+      gap: 8px;
+      margin-top: 22px;
+    }
+
+    .chart-y {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 214px;
+      padding: 1px 0 0;
+      color: var(--muted-2);
+      font-family: var(--mono);
+      font-size: 8.8px;
+      line-height: 1;
+      text-align: right;
+    }
+
+    .chart-plot {
+      position: relative;
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(0, 1fr);
+      gap: 4px;
+      height: 214px;
+      align-items: end;
+    }
+
+    .bar-slot {
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      height: 100%;
+      padding: 0;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+    }
+
+    .bar-slot::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: clamp(11px, 1.55vw, 21px);
+      border-radius: 5px;
+      background: var(--track);
+      transform: translateX(-50%);
+      transition: background 0.2s ease;
+    }
+
+    .bar-slot .bar {
+      position: relative;
+      z-index: 1;
+      width: clamp(11px, 1.55vw, 21px);
+      height: calc(var(--h) * 1%);
+      min-height: 5px;
+      border-radius: 5px;
+      background: linear-gradient(180deg, var(--signal-bright) 0%, var(--signal) 42%, #c9ec3f 100%);
+      box-shadow: 0 10px 20px -16px rgba(160, 201, 44, 0.72);
+      transform-origin: bottom;
+      animation: grow 0.9s var(--ease) both;
+      animation-delay: calc(var(--i) * 34ms + 240ms);
+      transition: filter 0.18s ease;
+    }
+
+    .bar-slot:hover .bar,
+    .bar-slot:focus-visible .bar {
+      filter: brightness(1.035) saturate(1.03);
+    }
+
+    .bar-slot:hover::before {
+      background: var(--panel-3);
+    }
+
+    .bar-slot:focus-visible {
+      outline: none;
+    }
+
+    .bar-slot:focus-visible::after {
+      content: "";
+      position: absolute;
+      inset: -3px -1px 0;
+      border: 2px solid var(--focus);
+      border-radius: 7px;
+      pointer-events: none;
+    }
+
+    .chart-x {
+      display: grid;
+      grid-template-columns: repeat(var(--cols, 12), minmax(0, 1fr));
+      gap: 4px;
+      margin: 9px 0 0 38px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 8.6px;
+      line-height: 1;
+      text-align: center;
+    }
+
+    .chart-x span {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: clip;
+    }
+
+    .chart-tip {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px 16px;
+      min-width: 134px;
+      padding: 8px 11px 9px;
+      border-radius: 10px;
+      background: #111812;
+      color: #f5f9f1;
+      box-shadow: 0 16px 34px -18px rgba(0, 0, 0, 0.62);
+      opacity: 0;
+      transform: translate(-50%, 5px);
+      pointer-events: none;
+      transition: opacity 0.16s ease, transform 0.16s var(--ease);
+    }
+
+    html[data-theme="dark"] .chart-tip {
+      border: 1px solid #2a362b;
+    }
+
+    .chart-tip.is-on {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .chart-tip .tip-label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: #a3ada1;
+      font-family: var(--mono);
+      font-size: 7.5px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .chart-tip .tip-label i {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--signal);
+    }
+
+    .chart-tip .tip-label.is-muted i {
+      background: #626d62;
+    }
+
+    .chart-tip strong {
+      color: #f8fbf5;
+      font-size: 11.5px;
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+
+    /* ------------------------------------------------------------------
+       SOURCE PERFORMANCE
+       ------------------------------------------------------------------ */
+
+    .perf-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 26px;
+      margin-top: 16px;
+    }
+
+    .perf-metric {
+      min-width: 0;
+    }
+
+    .perf-label {
+      color: var(--ink-2);
+      font-size: 11.4px;
+      font-weight: 500;
+    }
+
+    .perf-value {
+      margin-top: 5px;
+      color: var(--ink);
+      font-size: clamp(22px, 1.9vw, 26px);
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.045em;
+      line-height: 1;
+    }
+
+    .perf-track {
+      height: 25px;
+      margin-top: 12px;
+      border-radius: 8px;
+      background: var(--panel-2);
+      overflow: hidden;
+    }
+
+    .perf-fill {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #d9fb61, var(--signal) 70%, #c9ec3f);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38);
+      animation: fill 1s var(--ease) 0.55s forwards;
+    }
+
+    .perf-delta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 9px;
+      color: var(--muted);
+      font-size: 9.9px;
+      white-space: nowrap;
+    }
+
+    .perf-delta b {
+      font-weight: 620;
+    }
+
+    .perf-delta .delta-up {
+      color: var(--green);
+    }
+
+    .perf-delta .delta-down {
+      color: var(--red);
+    }
+
+    .perf-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: auto;
+      padding-top: 13px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .perf-foot span:last-child {
+      white-space: nowrap;
+    }
+
+    /* ------------------------------------------------------------------
+       CALENDAR
+       ------------------------------------------------------------------ */
+
+    .calendar-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .calendar-title {
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 15.5px;
+      font-weight: 650;
+      letter-spacing: -0.025em;
+    }
+
+    .calendar-nav {
+      display: flex;
+      gap: 2px;
+    }
+
+    .cal-arrow {
+      display: grid;
+      place-items: center;
+      width: 27px;
+      height: 27px;
+      border: 1px solid transparent;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--ink-2);
+      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+    }
+
+    .cal-arrow .icon {
+      width: 13px;
+      height: 13px;
+    }
+
+    .cal-arrow:hover {
+      border-color: var(--line);
+      background: var(--panel-2);
+      color: var(--ink);
+    }
+
+    .calendar-weekdays,
+    .calendar-dates {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 3px;
+    }
+
+    .calendar-weekdays {
+      margin-top: 17px;
+    }
+
+    .calendar-weekdays span {
+      color: var(--muted-2);
+      font-family: var(--mono);
+      font-size: 8.2px;
+      letter-spacing: 0.02em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .calendar-dates {
+      margin-top: 7px;
+    }
+
+    .calendar-date {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 36px;
+      padding: 0;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--ink-2);
+      font-size: 11.2px;
+      font-weight: 540;
+      font-variant-numeric: tabular-nums;
+      transition: background 0.18s ease, color 0.18s ease;
+    }
+
+    .calendar-date:hover {
+      background: var(--panel-2);
+      color: var(--ink);
+    }
+
+    .calendar-date .num {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+    }
+
+    .calendar-date.is-selected .num {
+      background: var(--signal);
+      color: #0c1611;
+      font-weight: 660;
+      box-shadow: 0 8px 18px -12px rgba(185, 224, 46, 0.8);
+    }
+
+    .calendar-date.is-today:not(.is-selected) .num::after {
+      content: "";
+      position: absolute;
+      bottom: 1px;
+      left: 50%;
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: var(--signal-deep);
+      transform: translateX(-50%);
+    }
+
+    .calendar-card.is-shifting .calendar-dates {
+      animation: cal-shift 0.25s var(--ease);
+    }
+
+    /* ------------------------------------------------------------------
+       AGENDA
+       ------------------------------------------------------------------ */
+
+    .agenda-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 4px;
+    }
+
+    .agenda-title {
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 15.5px;
+      font-weight: 650;
+      letter-spacing: -0.025em;
+      white-space: nowrap;
+    }
+
+    .agenda-progress {
+      margin-left: auto;
+      padding: 3px 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel-2);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 7.8px;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+
+    .agenda-list {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      min-height: 0;
+      margin-top: 9px;
+    }
+
+    .agenda-row {
+      display: grid;
+      grid-template-columns: 21px 72px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      flex: 1 1 0;
+      min-height: 48px;
+      max-height: 68px;
+      padding: 10px 8px;
+      border-radius: 11px;
+      cursor: pointer;
+      transition: background 0.18s ease;
+    }
+
+    .agenda-row + .agenda-row {
+      margin-top: 1px;
+    }
+
+    .agenda-row:hover {
+      background: var(--panel-2);
+    }
+
+    .agenda-row:has(.agenda-check:checked) {
+      background: var(--panel-2);
+    }
+
+    .agenda-check {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .check-circle {
+      display: grid;
+      place-items: center;
+      width: 19px;
+      height: 19px;
+      border: 1.5px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--panel);
+      color: transparent;
+      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s var(--ease);
+    }
+
+    .check-circle .icon {
+      width: 10px;
+      height: 10px;
+      stroke-width: 2.6;
+    }
+
+    .agenda-row:hover .check-circle {
+      border-color: var(--muted-2);
+    }
+
+    .agenda-check:checked ~ .check-circle {
+      border-color: var(--check-bg);
+      background: var(--check-bg);
+      color: var(--check-fg);
+      transform: scale(1.02);
+    }
+
+    .agenda-check:focus-visible ~ .check-circle {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    .agenda-when {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    .agenda-day {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 8px;
+      line-height: 1.3;
+      white-space: nowrap;
+    }
+
+    .agenda-time {
+      color: var(--ink);
+      font-size: 11.3px;
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+      white-space: nowrap;
+    }
+
+    .agenda-body {
+      min-width: 0;
+    }
+
+    .agenda-name {
+      display: block;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 620;
+      letter-spacing: -0.012em;
+      line-height: 1.35;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .agenda-sub {
+      display: block;
+      overflow: hidden;
+      margin-top: 1px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.3;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .agenda-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: auto;
+      padding: 12px 8px 1px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 9.4px;
+    }
+
+    .agenda-foot a {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--ink);
+      font-size: 9.3px;
+      font-weight: 620;
+      white-space: nowrap;
+    }
+
+    .agenda-foot a:hover {
+      color: var(--green);
+    }
+
+    .agenda-foot .icon {
+      width: 10px;
+      height: 10px;
+      stroke-width: 2;
+    }
+
+    /* ------------------------------------------------------------------
+       COMMAND PALETTE
+       ------------------------------------------------------------------ */
+
+    .cmdk {
+      max-width: none;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .cmdk::backdrop {
+      background: rgba(5, 9, 6, 0.44);
+      backdrop-filter: blur(5px);
+    }
+
+    .cmdk-panel {
+      width: min(600px, calc(100vw - 28px));
+      max-height: min(78vh, 620px);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: 0 50px 110px -44px rgba(0, 0, 0, 0.68);
+      overflow: hidden;
+      animation: pop 0.22s var(--ease) both;
+    }
+
+    .cmdk-top {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 14px 15px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .cmdk-top > .icon {
+      width: 17px;
+      height: 17px;
+      color: var(--muted);
+    }
+
+    .cmdk-top input {
+      min-width: 0;
+      flex: 1;
+      padding: 2px 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--ink);
+      font-size: 15px;
+      letter-spacing: -0.015em;
+    }
+
+    .cmdk-top input::placeholder {
+      color: var(--muted-2);
+    }
+
+    .cmdk-close {
+      display: grid;
+      place-items: center;
+      width: 27px;
+      height: 27px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel-2);
+      color: var(--muted);
+    }
+
+    .cmdk-close .icon {
+      width: 12px;
+      height: 12px;
+    }
+
+    .cmdk-close:hover {
+      color: var(--ink);
+    }
+
+    .cmdk-body {
+      max-height: min(56vh, 430px);
+      padding: 8px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+
+    .cmdk-group + .cmdk-group {
+      margin-top: 4px;
+    }
+
+    .cmdk-label {
+      padding: 9px 9px 5px;
+      color: var(--muted-2);
+      font-family: var(--mono);
+      font-size: 7.8px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .cmdk-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 9px;
+      border-radius: 10px;
+      color: var(--ink-2);
+      transition: background 0.14s ease, color 0.14s ease;
+    }
+
+    .cmdk-item:hover,
+    .cmdk-item.is-active {
+      background: var(--panel-2);
+      color: var(--ink);
+    }
+
+    .cmdk-icon {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      flex: 0 0 30px;
+      border-radius: 9px;
+      background: var(--panel-2);
+      color: var(--ink-2);
+      font-family: var(--mono);
+      font-size: 8.5px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .cmdk-item.is-active .cmdk-icon,
+    .cmdk-item:hover .cmdk-icon {
+      background: var(--lime-soft);
+      color: var(--ink);
+    }
+
+    .cmdk-icon .icon {
+      width: 14px;
+      height: 14px;
+    }
+
+    .cmdk-copy {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .cmdk-copy strong {
+      display: block;
+      overflow: hidden;
+      font-size: 11.4px;
+      font-weight: 600;
+      line-height: 1.35;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .cmdk-copy span {
+      display: block;
+      overflow: hidden;
+      margin-top: 1px;
+      color: var(--muted);
+      font-size: 9px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .cmdk-empty {
+      padding: 26px 12px;
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+    }
+
+    .cmdk-foot {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      padding: 9px 15px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 7.5px;
+      letter-spacing: 0.02em;
+    }
+
+    .cmdk-brand {
+      margin-left: auto;
+      color: var(--muted-2);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* ------------------------------------------------------------------
+       TOAST
+       ------------------------------------------------------------------ */
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 26px;
+      z-index: 300;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 13px 9px 9px;
+      border: 1px solid #2c372d;
+      border-radius: 12px;
+      background: #0d1510;
+      color: #f4f8f1;
+      box-shadow: 0 24px 60px -26px rgba(0, 0, 0, 0.65);
+      font-size: 10.5px;
+      opacity: 0;
+      transform: translate(-50%, 12px);
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.3s var(--ease);
+    }
+
+    .toast.is-on {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .toast-icon {
+      display: grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      flex: 0 0 18px;
+      border-radius: 50%;
+      background: var(--signal);
+      color: #0c1611;
+    }
+
+    .toast-icon .icon {
+      width: 10px;
+      height: 10px;
+      stroke-width: 2.6;
+    }
+
+    /* ------------------------------------------------------------------
+       MOTION
+       ------------------------------------------------------------------ */
+
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes grow {
+      from {
+        transform: scaleY(0.02);
+      }
+      to {
+        transform: scaleY(1);
+      }
+    }
+
+    @keyframes fill {
+      to {
+        width: var(--w);
+      }
+    }
+
+    @keyframes cal-shift {
+      from {
+        opacity: 0.3;
+        transform: translateX(5px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes pop {
+      from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.985);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-delay: 0ms !important;
+        transition-duration: 0.01ms !important;
+      }
+
+      .perf-fill {
+        width: var(--w);
+      }
+    }
+
+    /* ------------------------------------------------------------------
+       RESPONSIVE
+       ------------------------------------------------------------------ */
+
+    @media (max-width: 1180px) {
+      body {
+        height: auto;
+        padding: 10px;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      .app {
+        grid-template-columns: minmax(0, 1fr);
+        height: auto;
+        min-height: calc(100vh - 20px);
+        padding: 8px;
+        border-radius: 26px;
+      }
+
+      .app.is-collapsed {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .sidebar {
+        position: fixed;
+        inset: 10px auto 10px 10px;
+        z-index: 60;
+        width: min(280px, calc(100vw - 40px));
+        padding: 18px 15px 15px;
+        border: 1px solid #242c24;
+        border-radius: 23px;
+        background: var(--shell);
+        overflow-y: auto;
+        transform: translateX(calc(-100% - 26px));
+        transition: transform 0.42s var(--ease);
+      }
+
+      .app.nav-open .sidebar {
+        transform: translateX(0);
+        box-shadow: 0 36px 90px -28px rgba(0, 0, 0, 0.72);
+      }
+
+      .app.is-collapsed .sidebar {
+        padding: 18px 15px 15px;
+      }
+
+      .app.is-collapsed .brand-name,
+      .app.is-collapsed .sidebar-toggle,
+      .app.is-collapsed .search-copy,
+      .app.is-collapsed .search-kbd,
+      .app.is-collapsed .sidebar-label,
+      .app.is-collapsed .nav-text,
+      .app.is-collapsed .sidebar-event {
+        display: revert;
+      }
+
+      .app.is-collapsed .sidebar-brand {
+        flex-direction: row;
+        gap: 11px;
+        justify-content: flex-start;
+      }
+
+      .app.is-collapsed .sidebar-toggle {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        margin-left: auto;
+        flex: 0 0 30px;
+        border-radius: 9px;
+      }
+
+      .app.is-collapsed .brand-mark {
+        width: 36px;
+        height: 36px;
+        flex-basis: 36px;
+      }
+
+      .app.is-collapsed .sidebar-search {
+        width: 100%;
+        height: 42px;
+        margin: 20px 0 0;
+        justify-content: flex-start;
+        padding: 0 10px 0 12px;
+      }
+
+      .app.is-collapsed .sidebar-nav {
+        margin-top: 26px;
+      }
+
+      .app.is-collapsed .nav-link {
+        width: auto;
+        height: 43px;
+        margin: 1px 0 0;
+        justify-content: flex-start;
+        padding: 0 12px;
+      }
+
+      .nav-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: block;
+        border: 0;
+        background: rgba(5, 9, 6, 0.46);
+        backdrop-filter: blur(4px);
+      }
+
+      .workspace {
+        padding: 24px;
+        border-radius: 20px;
+        overflow: visible;
+      }
+
+      .menu-btn {
+        display: grid;
+      }
+
+      .sidebar-toggle {
+        transform: rotate(180deg);
+      }
+
+      body.nav-locked {
+        overflow: hidden;
+      }
+    }
+
+    @media (max-width: 800px) {
+      .topbar {
+        flex-wrap: wrap;
+        row-gap: 10px;
+      }
+
+      .menu-btn {
+        order: 1;
+      }
+
+      .top-actions {
+        order: 2;
+        margin-left: auto;
+        padding-top: 0;
+      }
+
+      .greeting {
+        order: 3;
+        flex-basis: 100%;
+        margin-top: 2px;
+      }
+
+      .greeting h1 {
+        font-size: 27px;
+      }
+
+      .profile-copy {
+        display: none;
+      }
+
+      .profile {
+        margin-left: 2px;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 11px;
+        margin-top: 20px;
+      }
+
+      .stat-value {
+        font-size: 27px;
+      }
+
+      .dash-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .dash-col {
+        display: contents;
+      }
+
+      .chart-card {
+        order: 1;
+      }
+
+      .calendar-card {
+        order: 2;
+      }
+
+      .agenda-card {
+        order: 3;
+        min-height: 340px;
+      }
+
+      .source-card {
+        order: 4;
+      }
+
+      .chart-card,
+      .source-card,
+      .calendar-card,
+      .agenda-card {
+        flex: none;
+      }
+
+      .calendar-weekdays {
+        margin-top: 14px;
+      }
+
+      .calendar-date {
+        height: 38px;
+      }
+
+      .agenda-row {
+        grid-template-columns: 21px 78px minmax(0, 1fr);
+        padding: 10px 8px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      body {
+        padding: 8px;
+      }
+
+      .app {
+        padding: 6px;
+        border-radius: 23px;
+        min-height: calc(100vh - 16px);
+      }
+
+      .workspace {
+        padding: 19px 16px 18px;
+        border-radius: 18px;
+      }
+
+      .greeting h1 {
+        font-size: 25px;
+      }
+
+      .greeting p {
+        font-size: 11.5px;
+      }
+
+      .icon-btn {
+        width: 36px;
+        height: 36px;
+        flex-basis: 36px;
+      }
+
+      .avatar {
+        width: 38px;
+        height: 38px;
+        flex-basis: 38px;
+        font-size: 11.5px;
+      }
+
+      .stats {
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .stat-card {
+        padding: 12px 13px;
+      }
+
+      .stat-label {
+        font-size: 10.5px;
+      }
+
+      .stat-value {
+        font-size: 25px;
+      }
+
+      .stat-delta {
+        font-size: 9px;
+      }
+
+      .stat-delta .delta-note {
+        display: none;
+      }
+
+      .chart-card {
+        min-height: 0;
+        padding: 17px 15px 13px;
+      }
+
+      .chart-stage {
+        grid-template-columns: 24px minmax(0, 1fr);
+        gap: 5px;
+        margin-top: 18px;
+      }
+
+      .chart-y,
+      .chart-plot {
+        height: 180px;
+      }
+
+      .chart-x {
+        margin-left: 29px;
+        gap: 2px;
+      }
+
+      .chart-x span:nth-child(even) {
+        visibility: hidden;
+      }
+
+      .bar-slot::before,
+      .bar-slot .bar {
+        width: clamp(9px, 2.8vw, 15px);
+      }
+
+      .source-card {
+        padding: 17px 15px 14px;
+      }
+
+      .perf-grid {
+        gap: 16px;
+      }
+
+      .perf-track {
+        height: 22px;
+      }
+
+      .perf-foot {
+        font-size: 8.2px;
+      }
+
+      .perf-foot span:last-child {
+        display: none;
+      }
+
+      .calendar-card {
+        padding: 17px 15px;
+      }
+
+      .calendar-date {
+        height: 36px;
+      }
+
+      .calendar-date .num {
+        width: 28px;
+        height: 28px;
+      }
+
+      .agenda-card {
+        padding: 16px 10px 10px;
+      }
+
+      .agenda-head {
+        padding: 0 6px;
+      }
+
+      .agenda-row {
+        grid-template-columns: 20px 70px minmax(0, 1fr);
+        gap: 8px;
+        padding: 9px 6px;
+      }
+
+      .agenda-foot {
+        padding: 11px 6px 1px;
+      }
+
+      .agenda-foot span:first-child {
+        display: none;
+      }
+
+      .agenda-foot a {
+        margin-left: auto;
+      }
+
+      .notifications {
+        right: -2px;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .stats {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .stat-value {
+        font-size: 27px;
+      }
+
+      .profile {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to the overview</a>
+
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-compass" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.6" />
+      <path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1 5.1-2.1Z" fill="currentColor" stroke="none" />
+    </symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24">
+      <rect x="3.5" y="3.5" width="7" height="7" rx="2" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="2" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="2" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="2" />
+    </symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24">
+      <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+    </symbol>
+    <symbol id="i-file" viewBox="0 0 24 24">
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2Z" />
+      <path d="M14 2v6h6" />
+      <path d="M8 13h8" />
+      <path d="M8 17h5" />
+    </symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24">
+      <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c1 .4 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z" />
+    </symbol>
+    <symbol id="i-table" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M3 10h18" />
+      <path d="M9 10v10" />
+      <path d="M15 10v10" />
+    </symbol>
+    <symbol id="i-script" viewBox="0 0 24 24">
+      <path d="M6 3h8l5 5v13H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+      <path d="M14 3v5h5" />
+      <path d="M8 12h7" />
+      <path d="M8 16h7" />
+      <path d="M8 8h3" />
+    </symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24">
+      <path d="M4 6h4" /><path d="M12 6h8" /><circle cx="10" cy="6" r="2" />
+      <path d="M4 12h9" /><path d="M17 12h3" /><circle cx="15" cy="12" r="2" />
+      <path d="M4 18h2" /><path d="M10 18h10" /><circle cx="8" cy="18" r="2" />
+    </symbol>
+    <symbol id="i-help" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.3 9.2a2.8 2.8 0 1 1 4.5 2.3c-.9.6-1.8 1.2-1.8 2.5" />
+      <path d="M12 17.2h.01" />
+    </symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+    </symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24">
+      <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
+    </symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.9 4.9 1.4 1.4" />
+      <path d="m17.7 17.7 1.4 1.4" /><path d="M2 12h2" /><path d="M20 12h2" />
+      <path d="m6.3 17.7-1.4 1.4" /><path d="m19.1 4.9-1.4 1.4" />
+    </symbol>
+    <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+    <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></symbol>
+    <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol>
+    <symbol id="i-arrow-ur" viewBox="0 0 24 24">
+      <path d="M7 17 17 7" /><path d="M8 7h9v9" />
+    </symbol>
+    <symbol id="i-arrow-dr" viewBox="0 0 24 24">
+      <path d="m7 7 10 10" /><path d="M17 8v9H8" />
+    </symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24">
+      <path d="M5 12h14" /><path d="m13 6 6 6-6 6" />
+    </symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24">
+      <path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" />
+    </symbol>
+    <symbol id="i-panel" viewBox="0 0 24 24">
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <path d="M9.5 4.5v15" />
+    </symbol>
+    <symbol id="i-dots" viewBox="0 0 24 24">
+      <circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" />
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7" /></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6 18 18" /><path d="M18 6 6 18" /></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="7" /><path d="m20 20-3.2-3.2" />
+    </symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24">
+      <path d="m12 2 10 5-10 5L2 7l10-5Z" /><path d="m2 12 10 5 10-5" /><path d="m2 17 10 5 10-5" />
+    </symbol>
+    <symbol id="i-ban" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" /><path d="m5.6 5.6 12.8 12.8" />
+    </symbol>
+    <symbol id="i-download" viewBox="0 0 24 24">
+      <path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" />
+    </symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24">
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+    </symbol>
+  </svg>
+
+  <div class="app" id="app">
+    <aside class="sidebar" id="sidebar" aria-label="Workspace navigation">
+      <div class="sidebar-brand">
+        <a class="brand-mark" href="dashboard-redesign.html" aria-label="Lead Atlas overview">
+          <svg class="icon" aria-hidden="true"><use href="#i-compass"></use></svg>
+        </a>
+        <span class="brand-name">Lead Atlas</span>
+        <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Collapse navigation" aria-controls="sidebar" aria-expanded="true">
+          <svg class="icon" aria-hidden="true"><use href="#i-panel"></use></svg>
+        </button>
+      </div>
+
+      <button type="button" class="sidebar-search" id="openSearch" aria-label="Search leads and reports" aria-haspopup="dialog">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+        <span class="search-copy">Search here…</span>
+        <span class="search-kbd" aria-hidden="true">⌘K</span>
+      </button>
+
+      <nav class="sidebar-nav" aria-label="Main">
+        <p class="sidebar-label">Main menu</p>
+        <a class="nav-link is-active" href="dashboard-redesign.html" aria-current="page" aria-label="Overview">
+          <svg class="icon" aria-hidden="true"><use href="#i-grid"></use></svg>
+          <span class="nav-text">Overview</span>
+        </a>
+        <a class="nav-link" href="app.html#library" aria-label="Lead library">
+          <svg class="icon" aria-hidden="true"><use href="#i-folder"></use></svg>
+          <span class="nav-text">Lead library</span>
+        </a>
+        <a class="nav-link" href="app.html#library" aria-label="Saved reports">
+          <svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg>
+          <span class="nav-text">Saved reports</span>
+        </a>
+        <a class="nav-link" href="app.html#dashboard" aria-label="Call mode">
+          <svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg>
+          <span class="nav-text">Call mode</span>
+        </a>
+        <a class="nav-link" href="app.html#data" aria-label="Data desk">
+          <svg class="icon" aria-hidden="true"><use href="#i-table"></use></svg>
+          <span class="nav-text">Data desk</span>
+        </a>
+
+        <p class="sidebar-label settings-label">Settings</p>
+        <a class="nav-link" href="app.html#dashboard" aria-label="Call scripts">
+          <svg class="icon" aria-hidden="true"><use href="#i-script"></use></svg>
+          <span class="nav-text">Call scripts</span>
+        </a>
+        <a class="nav-link" href="app.html#dashboard" aria-label="Settings">
+          <svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg>
+          <span class="nav-text">Settings</span>
+        </a>
+        <a class="nav-link" href="how-it-works.html" aria-label="Help centre">
+          <svg class="icon" aria-hidden="true"><use href="#i-help"></use></svg>
+          <span class="nav-text">Help centre</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-spacer" aria-hidden="true"></div>
+
+      <div class="sidebar-event">
+        <p class="event-label">Upcoming call block</p>
+        <p class="event-title">Roofing follow-ups</p>
+        <p class="event-time">10:00 AM – 11:00 AM</p>
+        <a class="event-go" href="app.html#dashboard" aria-label="Open call mode for roofing follow-ups">
+          <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg>
+        </a>
+        <div class="event-tags">
+          <span class="event-tag">Call mode</span>
+          <span class="event-tag">12 leads</span>
+        </div>
+      </div>
+    </aside>
+
+    <button type="button" class="nav-scrim" id="navScrim" hidden aria-label="Close navigation"></button>
+
+    <main class="workspace" id="main">
+      <header class="topbar">
+        <button type="button" class="menu-btn" id="menuBtn" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">
+          <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+        </button>
+
+        <div class="greeting">
+          <h1>Welcome back, Aditya!</h1>
+          <p>Track your desk and keep every lead moving.</p>
+        </div>
+
+        <div class="top-actions">
+          <button type="button" class="icon-btn" id="themeToggle" aria-label="Switch to dark theme" title="Switch theme">
+            <svg class="icon" aria-hidden="true"><use id="themeIcon" href="#i-moon"></use></svg>
+          </button>
+          <button type="button" class="icon-btn has-dot" id="notificationsBtn" aria-label="Open notifications, 3 unread" aria-haspopup="true" aria-expanded="false" aria-controls="notifications">
+            <svg class="icon" aria-hidden="true"><use href="#i-bell"></use></svg>
+          </button>
+
+          <div class="notifications" id="notifications" hidden>
+            <div class="notif-head">
+              <strong>Notifications</strong>
+              <button type="button" id="markRead">Mark all read</button>
+            </div>
+            <div class="notif-list">
+              <a class="notif-item is-unread" href="app.html#library">
+                <span class="notif-icon"><svg class="icon" aria-hidden="true"><use href="#i-compass"></use></svg></span>
+                <span class="notif-copy">
+                  <strong>12 new leads joined the library</strong>
+                  <span>Northgate Dental · 8 min ago</span>
+                </span>
+                <i class="notif-dot" aria-hidden="true"></i>
+              </a>
+              <a class="notif-item is-unread" href="app.html#library">
+                <span class="notif-icon"><svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg></span>
+                <span class="notif-copy">
+                  <strong>Summit Roofing was marked reached</strong>
+                  <span>Call ledger · 42 min ago</span>
+                </span>
+                <i class="notif-dot" aria-hidden="true"></i>
+              </a>
+              <a class="notif-item is-unread" href="app.html#library">
+                <span class="notif-icon"><svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg></span>
+                <span class="notif-copy">
+                  <strong>Weekly report is ready to review</strong>
+                  <span>Saved reports · 1 hr ago</span>
+                </span>
+                <i class="notif-dot" aria-hidden="true"></i>
+              </a>
+            </div>
+          </div>
+
+          <div class="profile" aria-label="Signed in as Aditya Sharma">
+            <span class="avatar" aria-hidden="true">AS</span>
+            <span class="profile-copy">
+              <strong>Aditya Sharma</strong>
+              <span>aditya@leadatlas.app</span>
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <section class="stats" aria-label="Key metrics">
+        <article class="stat-card" style="--i: 0">
+          <div class="stat-top">
+            <span class="stat-label">Total leads</span>
+            <span class="stat-icon"><svg class="icon" aria-hidden="true"><use href="#i-layers"></use></svg></span>
+          </div>
+          <strong class="stat-value">18,465</strong>
+          <p class="stat-delta">
+            <span class="delta-icon up"><svg class="icon" aria-hidden="true"><use href="#i-arrow-ur"></use></svg></span>
+            <span><b class="delta-up">+16%</b> <span class="delta-note">from last month</span></span>
+          </p>
+        </article>
+
+        <article class="stat-card" style="--i: 1">
+          <div class="stat-top">
+            <span class="stat-label">Reached out</span>
+            <span class="stat-icon"><svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg></span>
+          </div>
+          <strong class="stat-value">9,867</strong>
+          <p class="stat-delta">
+            <span class="delta-icon up"><svg class="icon" aria-hidden="true"><use href="#i-arrow-ur"></use></svg></span>
+            <span><b class="delta-up">+8%</b> <span class="delta-note">from last month</span></span>
+          </p>
+        </article>
+
+        <article class="stat-card" style="--i: 2">
+          <div class="stat-top">
+            <span class="stat-label">Saved reports</span>
+            <span class="stat-icon"><svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg></span>
+          </div>
+          <strong class="stat-value">1,284</strong>
+          <p class="stat-delta">
+            <span class="delta-icon up"><svg class="icon" aria-hidden="true"><use href="#i-arrow-ur"></use></svg></span>
+            <span><b class="delta-up">+6.8%</b> <span class="delta-note">from last month</span></span>
+          </p>
+        </article>
+
+        <article class="stat-card" style="--i: 3">
+          <div class="stat-top">
+            <span class="stat-label">Do not contact</span>
+            <span class="stat-icon"><svg class="icon" aria-hidden="true"><use href="#i-ban"></use></svg></span>
+          </div>
+          <strong class="stat-value">342</strong>
+          <p class="stat-delta">
+            <span class="delta-icon down"><svg class="icon" aria-hidden="true"><use href="#i-arrow-dr"></use></svg></span>
+            <span><b class="delta-down">−3%</b> <span class="delta-note">from last month</span></span>
+          </p>
+        </article>
+      </section>
+
+      <div class="dash-grid">
+        <div class="dash-col">
+          <section class="card chart-card" aria-labelledby="chartTitle">
+            <div class="card-head">
+              <h2 id="chartTitle">Lead volume</h2>
+              <label class="range-select">
+                <span class="sr-only">Chart range</span>
+                <select id="rangeSelect">
+                  <option value="year">12 months</option>
+                  <option value="half">6 months</option>
+                  <option value="month">This month</option>
+                </select>
+                <svg class="icon" aria-hidden="true"><use href="#i-chev-down"></use></svg>
+              </label>
+            </div>
+
+            <div class="chart-stage" id="chartStage">
+              <div class="chart-y" aria-hidden="true">
+                <span>5K</span>
+                <span>4K</span>
+                <span>3K</span>
+                <span>2K</span>
+                <span>1K</span>
+                <span>0K</span>
+              </div>
+              <div class="chart-plot" id="chartPlot" role="group" aria-label="Lead volume by month">
+                <button class="bar-slot" type="button" style="--i: 0" aria-label="January: 3,900 leads, 1,100 reached"><span class="bar" style="--h: 78"></span></button>
+                <button class="bar-slot" type="button" style="--i: 1" aria-label="February: 3,300 leads, 900 reached"><span class="bar" style="--h: 66"></span></button>
+                <button class="bar-slot" type="button" style="--i: 2" aria-label="March: 2,600 leads, 700 reached"><span class="bar" style="--h: 52"></span></button>
+                <button class="bar-slot" type="button" style="--i: 3" aria-label="April: 3,000 leads, 800 reached"><span class="bar" style="--h: 60"></span></button>
+                <button class="bar-slot" type="button" style="--i: 4" aria-label="May: 3,900 leads, 1,200 reached"><span class="bar" style="--h: 78"></span></button>
+                <button class="bar-slot" type="button" style="--i: 5" aria-label="June: 3,300 leads, 1,000 reached"><span class="bar" style="--h: 66"></span></button>
+                <button class="bar-slot" type="button" style="--i: 6" aria-label="July: 4,700 leads, 1,200 reached"><span class="bar" style="--h: 94"></span></button>
+                <button class="bar-slot" type="button" style="--i: 7" aria-label="August: 3,500 leads, 950 reached"><span class="bar" style="--h: 70"></span></button>
+                <button class="bar-slot" type="button" style="--i: 8" aria-label="September: 1,900 leads, 600 reached"><span class="bar" style="--h: 38"></span></button>
+                <button class="bar-slot" type="button" style="--i: 9" aria-label="October: 2,800 leads, 800 reached"><span class="bar" style="--h: 56"></span></button>
+                <button class="bar-slot" type="button" style="--i: 10" aria-label="November: 3,700 leads, 1,100 reached"><span class="bar" style="--h: 74"></span></button>
+                <button class="bar-slot" type="button" style="--i: 11" aria-label="December: 4,400 leads, 1,300 reached"><span class="bar" style="--h: 88"></span></button>
+              </div>
+
+              <div class="chart-tip" id="chartTip" aria-hidden="true">
+                <span class="tip-label"><i></i>Leads</span>
+                <span class="tip-label is-muted"><i></i>Reached</span>
+                <strong data-tip-leads>4.7K</strong>
+                <strong data-tip-reached>1.2K</strong>
+              </div>
+            </div>
+
+            <div class="chart-x" id="chartX" style="--cols: 12" aria-hidden="true">
+              <span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span>
+              <span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span>
+            </div>
+            <p class="sr-only" id="chartSummary">Monthly lead volume from January to December. July is the peak month with 4,700 leads and 1,200 reached.</p>
+          </section>
+
+          <section class="card source-card" aria-labelledby="sourceTitle">
+            <div class="card-head">
+              <h2 id="sourceTitle">Source performance</h2>
+              <div class="menu-wrap">
+                <button type="button" class="dots-btn" id="sourceMenuBtn" aria-label="Source performance options" aria-haspopup="true" aria-expanded="false" aria-controls="sourceMenu">
+                  <svg class="icon" aria-hidden="true"><use href="#i-dots"></use></svg>
+                </button>
+                <div class="menu" id="sourceMenu" hidden>
+                  <button type="button" data-action="export"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>Export CSV</button>
+                  <button type="button" data-action="copy"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg>Copy summary</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="perf-grid">
+              <div class="perf-metric">
+                <p class="perf-label">Scanned leads</p>
+                <p class="perf-value">65.75%</p>
+                <div class="perf-track"><span class="perf-fill" style="--w: 65.75%"></span></div>
+                <p class="perf-delta">
+                  <span class="delta-icon up"><svg class="icon" aria-hidden="true"><use href="#i-arrow-ur"></use></svg></span>
+                  <span><b class="delta-up">+11%</b> from last month</span>
+                </p>
+              </div>
+              <div class="perf-metric">
+                <p class="perf-label">Imported leads</p>
+                <p class="perf-value">34.25%</p>
+                <div class="perf-track"><span class="perf-fill" style="--w: 34.25%"></span></div>
+                <p class="perf-delta">
+                  <span class="delta-icon down"><svg class="icon" aria-hidden="true"><use href="#i-arrow-dr"></use></svg></span>
+                  <span><b class="delta-down">−11%</b> from last month</span>
+                </p>
+              </div>
+            </div>
+
+            <div class="perf-foot">
+              <span>18,465 leads across 1,284 reports</span>
+              <span>Updated 8 min ago</span>
+            </div>
+          </section>
+        </div>
+
+        <div class="dash-col">
+          <section class="card calendar-card" id="calendarCard" aria-labelledby="calendarTitle">
+            <div class="calendar-head">
+              <h2 class="calendar-title" id="calendarTitle">November 2026</h2>
+              <div class="calendar-nav">
+                <button type="button" class="cal-arrow" id="calPrev" aria-label="Previous week">
+                  <svg class="icon" aria-hidden="true"><use href="#i-chev-left"></use></svg>
+                </button>
+                <button type="button" class="cal-arrow" id="calNext" aria-label="Next week">
+                  <svg class="icon" aria-hidden="true"><use href="#i-chev-right"></use></svg>
+                </button>
+              </div>
+            </div>
+            <div class="calendar-weekdays" aria-hidden="true">
+              <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+            </div>
+            <div class="calendar-dates" id="calendarDates">
+              <button type="button" class="calendar-date" aria-label="Monday 16 November 2026"><span class="num">16</span></button>
+              <button type="button" class="calendar-date" aria-label="Tuesday 17 November 2026"><span class="num">17</span></button>
+              <button type="button" class="calendar-date is-selected is-today" aria-label="Today, Wednesday 18 November 2026" aria-pressed="true"><span class="num">18</span></button>
+              <button type="button" class="calendar-date" aria-label="Thursday 19 November 2026"><span class="num">19</span></button>
+              <button type="button" class="calendar-date" aria-label="Friday 20 November 2026"><span class="num">20</span></button>
+              <button type="button" class="calendar-date" aria-label="Saturday 21 November 2026"><span class="num">21</span></button>
+              <button type="button" class="calendar-date" aria-label="Sunday 22 November 2026"><span class="num">22</span></button>
+            </div>
+          </section>
+
+          <section class="card agenda-card" aria-labelledby="agendaTitle">
+            <div class="agenda-head">
+              <h2 class="agenda-title" id="agendaTitle">Upcoming calls</h2>
+              <span class="agenda-progress" id="agendaProgress" aria-live="polite">1 / 5 done</span>
+              <div class="menu-wrap">
+                <button type="button" class="dots-btn" id="agendaMenuBtn" aria-label="Upcoming call options" aria-haspopup="true" aria-expanded="false" aria-controls="agendaMenu">
+                  <svg class="icon" aria-hidden="true"><use href="#i-dots"></use></svg>
+                </button>
+                <div class="menu" id="agendaMenu" hidden>
+                  <button type="button" data-action="mark-all">Mark all done</button>
+                  <button type="button" data-action="reset">Reset checks</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="agenda-list">
+              <label class="agenda-row">
+                <input class="agenda-check" type="checkbox" checked aria-label="Mark Northgate Dental as done" />
+                <span class="check-circle" aria-hidden="true"><svg class="icon"><use href="#i-check"></use></svg></span>
+                <span class="agenda-when">
+                  <span class="agenda-day" data-day-offset="0">Wed, 18 Nov</span>
+                  <span class="agenda-time">08:30 AM</span>
+                </span>
+                <span class="agenda-body">
+                  <span class="agenda-name">Northgate Dental</span>
+                  <span class="agenda-sub">Dental · 3 numbers · 12 leads</span>
+                </span>
+              </label>
+
+              <label class="agenda-row">
+                <input class="agenda-check" type="checkbox" aria-label="Mark Summit Roofing as done" />
+                <span class="check-circle" aria-hidden="true"><svg class="icon"><use href="#i-check"></use></svg></span>
+                <span class="agenda-when">
+                  <span class="agenda-day" data-day-offset="0">Wed, 18 Nov</span>
+                  <span class="agenda-time">10:00 AM</span>
+                </span>
+                <span class="agenda-body">
+                  <span class="agenda-name">Summit Roofing</span>
+                  <span class="agenda-sub">Roofing · saved report · 24 leads</span>
+                </span>
+              </label>
+
+              <label class="agenda-row">
+                <input class="agenda-check" type="checkbox" aria-label="Mark Cedar Lane Plumbing as done" />
+                <span class="check-circle" aria-hidden="true"><svg class="icon"><use href="#i-check"></use></svg></span>
+                <span class="agenda-when">
+                  <span class="agenda-day" data-day-offset="0">Wed, 18 Nov</span>
+                  <span class="agenda-time">02:30 PM</span>
+                </span>
+                <span class="agenda-body">
+                  <span class="agenda-name">Cedar Lane Plumbing</span>
+                  <span class="agenda-sub">Plumbing · 8 to call</span>
+                </span>
+              </label>
+
+              <label class="agenda-row">
+                <input class="agenda-check" type="checkbox" aria-label="Mark the weekly call block as done" />
+                <span class="check-circle" aria-hidden="true"><svg class="icon"><use href="#i-check"></use></svg></span>
+                <span class="agenda-when">
+                  <span class="agenda-day" data-day-offset="1">Thu, 19 Nov</span>
+                  <span class="agenda-time">11:30 AM</span>
+                </span>
+                <span class="agenda-body">
+                  <span class="agenda-name">Weekly call block</span>
+                  <span class="agenda-sub">Across saved reports · 46 leads</span>
+                </span>
+              </label>
+
+              <label class="agenda-row">
+                <input class="agenda-check" type="checkbox" aria-label="Mark the re-import review as done" />
+                <span class="check-circle" aria-hidden="true"><svg class="icon"><use href="#i-check"></use></svg></span>
+                <span class="agenda-when">
+                  <span class="agenda-day" data-day-offset="2">Fri, 20 Nov</span>
+                  <span class="agenda-time">01:00 PM</span>
+                </span>
+                <span class="agenda-body">
+                  <span class="agenda-name">Re-import review</span>
+                  <span class="agenda-sub">CSV batch · 9 staged</span>
+                </span>
+              </label>
+            </div>
+
+            <div class="agenda-foot">
+              <span id="agendaNext">Next up 10:00 AM</span>
+              <a href="app.html#dashboard">Open call mode <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"></use></svg></a>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <dialog class="cmdk" id="cmdk" aria-labelledby="cmdkTitle">
+    <div class="cmdk-panel">
+      <div class="cmdk-top">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+        <h2 class="sr-only" id="cmdkTitle">Search Lead Atlas</h2>
+        <input id="cmdkInput" type="text" placeholder="Search leads, reports, or jump to…" autocomplete="off" spellcheck="false" aria-label="Search leads, reports, or pages" />
+        <button type="button" class="cmdk-close" id="cmdkClose" aria-label="Close search">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+        </button>
+      </div>
+
+      <div class="cmdk-body">
+        <div class="cmdk-group">
+          <p class="cmdk-label">Go to</p>
+          <a class="cmdk-item" href="dashboard-redesign.html" data-search="overview dashboard home desk summary">
+            <span class="cmdk-icon"><svg class="icon" aria-hidden="true"><use href="#i-grid"></use></svg></span>
+            <span class="cmdk-copy"><strong>Overview</strong><span>Field desk summary</span></span>
+          </a>
+          <a class="cmdk-item" href="app.html#library" data-search="lead library all contacts saved">
+            <span class="cmdk-icon"><svg class="icon" aria-hidden="true"><use href="#i-folder"></use></svg></span>
+            <span class="cmdk-copy"><strong>Lead library</strong><span>Every saved lead and note</span></span>
+          </a>
+          <a class="cmdk-item" href="app.html#library" data-search="saved reports scans imports">
+            <span class="cmdk-icon"><svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg></span>
+            <span class="cmdk-copy"><strong>Saved reports</strong><span>Scans and imports in the cloud</span></span>
+          </a>
+          <a class="cmdk-item" href="app.html#dashboard" data-search="call mode dial phone scripts outreach">
+            <span class="cmdk-icon"><svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg></span>
+            <span class="cmdk-copy"><strong>Call mode</strong><span>One lead at a time</span></span>
+          </a>
+          <a class="cmdk-item" href="app.html#data" data-search="data desk table export csv">
+            <span class="cmdk-icon"><svg class="icon" aria-hidden="true"><use href="#i-table"></use></svg></span>
+            <span class="cmdk-copy"><strong>Data desk</strong><span>Tables, exports, and imports</span></span>
+          </a>
+        </div>
+
+        <div class="cmdk-group">
+          <p class="cmdk-label">Recent leads</p>
+          <a class="cmdk-item" href="app.html#library" data-search="northgate dental dental clinic portland john abara">
+            <span class="cmdk-icon">ND</span>
+            <span class="cmdk-copy"><strong>Northgate Dental</strong><span>Dental · Portland, OR · Reached</span></span>
+          </a>
+          <a class="cmdk-item" href="app.html#library" data-search="summit roofing roofing contractor denver lena ortiz">
+            <span class="cmdk-icon">SR</span>
+            <span class="cmdk-copy"><strong>Summit Roofing</strong><span>Roofing · Denver, CO · To call</span></span>
+          </a>
+          <a class="cmdk-item" href="app.html#library" data-search="cedar lane plumbing plumber austin marcus lee">
+            <span class="cmdk-icon">CL</span>
+            <span class="cmdk-copy"><strong>Cedar Lane Plumbing</strong><span>Plumbing · Austin, TX · To call</span></span>
+          </a>
+          <a class="cmdk-item" href="app.html#library" data-search="harbor view cafe restaurant seattle amy chen">
+            <span class="cmdk-icon">HV</span>
+            <span class="cmdk-copy"><strong>Harbor View Cafe</strong><span>Cafe · Seattle, WA · Reached</span></span>
+          </a>
+        </div>
+
+        <p class="cmdk-empty" id="cmdkEmpty" hidden>No matches. Try a business, city, or niche.</p>
+      </div>
+
+      <div class="cmdk-foot">
+        <span>↑↓ Navigate</span>
+        <span>↵ Open</span>
+        <span>Esc Close</span>
+        <span class="cmdk-brand">Lead Atlas</span>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <span class="toast-icon" aria-hidden="true"><svg class="icon"><use href="#i-check"></use></svg></span>
+    <span id="toastText"></span>
+  </div>
+
+  <script src="dashboard-redesign.js"></script>
+</body>
+</html>
