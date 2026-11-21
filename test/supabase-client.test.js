@@ -177,6 +177,57 @@ describe('supabase-client redirect handling', () => {
   });
 });
 
+describe('supabase-client rest writes', () => {
+  const authPayload = {
+    access_token: 'access-token',
+    refresh_token: 'refresh-token',
+    token_type: 'bearer',
+    expires_in: 3600,
+    user: { id: 'user-1' },
+  };
+
+  it('passes keepalive and a narrow returning select to PostgREST', async () => {
+    const calls = [];
+    const fetchImpl = async (url, options = {}) => {
+      calls.push({ url, options });
+      if (url.includes('grant_type=password')) return jsonResponse(authPayload);
+      if (url.includes('/rest/v1/leads') && options.method === 'POST') {
+        return jsonResponse([{ id: 'row-1', lead_key: 'place:acme' }]);
+      }
+      if (url.includes('/rest/v1/leads') && options.method === 'PATCH') {
+        return jsonResponse([{ id: 'row-1' }]);
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    };
+    const { client } = createClient(fetchImpl);
+    await client.signInWithPassword({ email: 'field@example.com', password: 'secret1' });
+
+    const inserted = await client.insert(
+      'leads',
+      [{ report_id: 'report-1', lead_key: 'place:acme' }],
+      { select: 'id,lead_key', keepalive: true },
+    );
+    assert.equal(inserted[0].id, 'row-1');
+
+    const updated = await client.update(
+      'leads',
+      { id: 'eq.row-1' },
+      { outreach_status: 'follow-up' },
+      { keepalive: true },
+    );
+    assert.equal(updated[0].id, 'row-1');
+
+    const insertCall = calls.find((call) => call.options.method === 'POST' && call.url.includes('/rest/v1/leads'));
+    assert.equal(insertCall.options.keepalive, true);
+    const insertUrl = new URL(insertCall.url);
+    assert.equal(insertUrl.searchParams.get('select'), 'id,lead_key');
+
+    const updateCall = calls.find((call) => call.options.method === 'PATCH' && call.url.includes('/rest/v1/leads'));
+    assert.equal(updateCall.options.keepalive, true);
+    assert.equal(new URL(updateCall.url).searchParams.get('select'), '*');
+  });
+});
+
 describe('supabase-client session persistence and refresh', () => {
   const SESSION_KEY = 'leadAtlas.supabaseSession.v1';
   const authPayload = (overrides = {}) => ({

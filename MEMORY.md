@@ -1,22 +1,47 @@
 # MEMORY.md — Session state
 
-## Last Updated: 2026-11-20
+## Last Updated: 2026-11-21
 
-## Current Phase: SHIP - live on Vercel at https://lead-atlas-ochre.vercel.app; Supabase email redirect allowlist pending
+## Current Phase: SHIP - live on Vercel at https://lead-atlas-ochre.vercel.app; Supabase follow-up migration and email redirect allowlist pending
 
-## Last Completed Task: Follow up outreach state across the drawer, call mode and table (2026-11-20)
+## Last Completed Task: Follow-up persistence and durable outreach sync (2026-11-21)
 
-## Next Task: Review and merge the stack once its previews look right: PR #1
-(`feat/outreach-dashboard-stable-leads`) into `main`, then PR #2
-(`feat/instant-dashboard-session`), then PR #3 (`feat/survey-signal-ui`), then PR #4
-(`feat/call-mode`, https://github.com/Adityasharma-in/Lead-Atlas/pull/4), then PR #5
-(`fix/report-page-polish`, stacked on #4). Run the
-account-gated browser smoke listed in `docs/CALL-MODE.md` before merging #4. Let the
-GitHub-connected Vercel project build `main`. In Supabase **Authentication → URL
-Configuration**, set the Site URL to `https://lead-atlas-ochre.vercel.app` and add
+## Next Task: Run the follow-up migration in the live Supabase project
+(`supabase/migrations/20261121_follow_up_outreach_status.sql`, or re-run `supabase/schema.sql`),
+then smoke-test the **Follow up** button on a saved report: mark, reload, and confirm the
+drawer stamp and the `leads` row both keep `follow-up`. After approval, commit/push the
+working tree and deploy to Vercel. Still pending from earlier: in Supabase
+**Authentication → URL Configuration**, set the Site URL to
+`https://lead-atlas-ochre.vercel.app` and add
 `https://lead-atlas-ochre.vercel.app/auth.html` plus
 `https://lead-atlas-ochre.vercel.app/**` to Redirect URLs, then test confirmation,
 magic-link, and password-recovery emails on the live domain.
+
+## Follow-up persistence and durable outreach sync (2026-11-21)
+- Problem: the fourth **Follow up** button only changed the browser because existing Supabase
+  projects still had the three-value `leads_outreach_status_check`; the old fire-and-forget
+  update could also be lost on a closed tab, network drop, or expired session.
+- `public/outreach-sync-core.js` owns the pure sync rules: precise patch/payload builders,
+  legacy downgrade (`follow-up` -> native `contacted` + payload `follow-up`), reconstruction
+  on read, queue coalescing, retry backoff, and UUID checks. `test/outreach-sync-core.test.js`
+  covers them.
+- `public/app.js`: the ledger and queue are account-scoped
+  (`leadAtlas.outreach.v1.<userId>`, `leadAtlas.outreachQueue.v1.<userId>`); the one-time
+  global ledger migrates to the first signed-in account. Marks enqueue a durable write,
+  update by row id first with a report+lead-key fallback, detect zero-row updates, retry
+  with backoff, and flush on sign-in, reconnect, sign-out, visibility change and `pagehide`
+  (`keepalive`). The legacy-schema flag is session-only, so reloading after running the
+  migration resumes native `follow-up` writes.
+- `hydrateOutreach` now prefers pending queue -> saved DB row -> file mark -> local ledger;
+  a local-newer mark is queued to self-heal. Saved-report leads carry `savedRowId`.
+- Saving a report inserts returned row ids, dedupes duplicate `lead_key` values, normalizes
+  `contacted_at`/`review_count`, and rolls back the report row if any lead batch fails.
+- `public/supabase-client.js` supports `keepalive` and a narrow returning `select`.
+- Schema: `supabase/schema.sql` is idempotent and now also repairs rows written with the
+  legacy fallback; `supabase/migrations/20261121_follow_up_outreach_status.sql` is the
+  standalone upgrade. Existing projects should run one of them to store `follow-up` natively.
+- Verification: `npm test` 353/353, `node --check` green. Version 2.0.2 -> 2.0.3. Changes
+  are uncommitted in the working tree; no push or deploy.
 
 ## Follow up outreach state (2026-11-20)
 - `public/outreach-core.js` now has four exclusive states: `to-contact`, `contacted`,
@@ -29,8 +54,9 @@ magic-link, and password-recovery emails on the live domain.
   `F` shortcut. The call-mode summary now reports follow-ups separately.
 - Data: `supabase/schema.sql` idempotently replaces `leads_outreach_status_check` with
   `('to-contact', 'contacted', 'follow-up', 'do-not-contact')`. Existing projects must
-  re-run the file before a follow-up mark can save to Supabase. Dashboard reached count
-  uses `in.(contacted,follow-up)`.
+  re-run the file before a follow-up mark can save natively; until then the app stores
+  `contacted` plus a payload `follow-up` (see the 2026-11-21 section). Dashboard reached
+  count uses `in.(contacted,follow-up)`.
 - Verification: `npm test` 334/334, `node --check` green on the touched browser modules.
   Version 2.0.1 -> 2.0.2.
 
@@ -452,7 +478,8 @@ magic-link, and password-recovery emails on the live domain.
   (scratch edit was disposable; recovery path itself covered by unit tests).
 
 ## Active Context
-- Current app version: `2.0.2` (Follow up outreach state, report page polish, call mode,
+- Current app version: `2.0.3` (Follow up outreach persistence and durable saved-report
+  sync, Follow up outreach state, report page polish, call mode,
   instant dashboard boot from an account-scoped cache, signed-in home redirect, outreach
   analytics, stable lead identity and numbering, review quality gate, account-backed call
   scripts, multipage public site,
@@ -461,7 +488,7 @@ magic-link, and password-recovery emails on the live domain.
 - Live deployment: `https://lead-atlas-ochre.vercel.app` (Vercel project `lead-atlas`,
   Express preset, one serverless function, `SELF_UPDATE=off`).
 - Repo: git clone of https://github.com/Adityasharma-in/Lead-Atlas.git (current branch
-  `feat/survey-signal-ui`), identity `Adityasharma-in` /
+  `main`), identity `Adityasharma-in` /
   `Adityasharma-in@users.noreply.github.com`.
 - Node ≥ 20 (global fetch), Express 4, zero new dependencies.
 - Test harness: `node --test` (`npm test`), mock Apify HTTP server; routes tested via
