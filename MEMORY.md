@@ -2,15 +2,16 @@
 
 ## Last Updated: 2026-11-22
 
-## Current Phase: SHIP - live on Vercel at https://lead-atlas-ochre.vercel.app; PR #8 holds the follow-up persistence and outreach integrity work
+## Current Phase: SHIP - live on Vercel at https://lead-atlas-ochre.vercel.app with 2.0.4; PR #8 merged to main
 
-## Last Completed Task: Outreach status integrity audit (2026-11-22)
+## Last Completed Task: PR #8 merged and production deploy (2026-11-22)
 
-## Next Task: Review and merge PR #8
-(https://github.com/Adityasharma-in/Lead-Atlas/pull/8), then deploy after approval. The
-follow-up migration is already applied to the live Supabase project and statuses reach the
-database. Still pending from earlier: in Supabase **Authentication → URL Configuration**,
-set the Site URL to `https://lead-atlas-ochre.vercel.app` and add
+## Next Task: Smoke-test the outreach flow on the live site
+(https://lead-atlas-ochre.vercel.app): mark a saved lead **Follow up**, reload, and confirm
+the drawer and the `leads` row keep `follow-up`. The follow-up migration is already applied
+to the live Supabase project and statuses reach the database. Still pending from earlier: in
+Supabase **Authentication → URL Configuration**, set the Site URL to
+`https://lead-atlas-ochre.vercel.app` and add
 `https://lead-atlas-ochre.vercel.app/auth.html` plus
 `https://lead-atlas-ochre.vercel.app/**` to Redirect URLs, then test confirmation,
 magic-link, and password-recovery emails on the live domain.
@@ -38,7 +39,9 @@ magic-link, and password-recovery emails on the live domain.
   `follow-up` as soon as the schema is no longer flagged legacy.
 - Verification: `npm test` 365/365 and `node --check` green on `app.js`,
   `outreach-core.js`, `outreach-sync-core.js` and `import-core.js`. Version 2.0.3 -> 2.0.4.
-  Shipped on `fix/follow-up-persistence` for PR #8; no deploy.
+- Ship: PR #8 merged to `main` as `2dc50fa`; production deployment aliased to
+  `https://lead-atlas-ochre.vercel.app` reports `appVersion` 2.0.4 and serves the new
+  outreach modules.
 
 ## Follow-up persistence and durable outreach sync (2026-11-21)
 - Problem: the fourth **Follow up** button only changed the browser because existing Supabase

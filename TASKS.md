@@ -509,5 +509,6 @@
       date.
 - [x] A5: Tests — outreach, sync and import suites extended; `npm test` 365/365 and
       `node --check` green on all touched browser modules.
-- [x] A6: README, TASKS and MEMORY updated; version 2.0.3 -> 2.0.4. Changes stay on
-      `fix/follow-up-persistence` for PR #8; no deploy.
+- [x] A6: README, TASKS and MEMORY updated; version 2.0.3 -> 2.0.4.
+- [x] A7: PR #8 merged to `main` (`2dc50fa`) and deployed to production; the live alias
+      reports version 2.0.4 and serves the updated outreach modules.
