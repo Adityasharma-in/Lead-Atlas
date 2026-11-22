@@ -40,9 +40,12 @@ cp .env.example .env
 ```
 
 Fill in `SUPABASE_URL` and `SUPABASE_ANON_KEY` from your Supabase project, then run
-[`supabase/schema.sql`](supabase/schema.sql) once in the Supabase SQL Editor. The full
-walkthrough — project creation, redirect URLs, email confirmation, and verification — is
-in [docs/SUPABASE-SETUP.md](docs/SUPABASE-SETUP.md).
+[`supabase/schema.sql`](supabase/schema.sql) once in the Supabase SQL Editor. The file is
+idempotent: re-run it after updating an existing project to pick up schema changes. The
+follow-up outreach upgrade also has a standalone copy in
+[`supabase/migrations/`](supabase/migrations/). The full walkthrough — project creation,
+redirect URLs, email confirmation, and verification — is in
+[docs/SUPABASE-SETUP.md](docs/SUPABASE-SETUP.md).
 
 ```bash
 npm start
@@ -219,7 +222,7 @@ same way you would: pull the newest commit and restart, in one click.
 - On page load — and every 5 minutes after that — the app asks the local server to compare
   its build with the tip of your repository's branch on GitHub.
 - When a newer commit exists, a **Update available** chip appears in the header. The footer
-  always shows the version and the build you are running (`Version 2.0.2`, then
+  always shows the version and the build you are running (`Version 2.0.3`, then
   `Build <sha> · <branch>` when the folder is a git clone).
 - Click the chip and the server **stashes any uncommitted local edits**, fetches and resets
   to the remote tip, runs `npm install` only if `package.json` or the lockfile changed, and
@@ -242,7 +245,7 @@ git clone and no process to restart. Ship changes with a commit and push, or wit
 ## Versioning
 
 The app version lives in the `version` field of `package.json` and is shown in the footer
-(`Version 2.0.2`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
+(`Version 2.0.3`), in the startup banner, and via `GET /api/health`, `GET /api/config`, and
 `GET /api/version`.
 
 The scheme is semver-like with one house rule — the minor part stops at 9:
@@ -318,11 +321,25 @@ you come back from the dialer. A **Do not contact** lead keeps its orange stop m
 tapping a number that is already ticked does not move its original call date. The same
 marker appears in the report table/cards and in the drawer's contact book.
 
-Marks are mirrored in `localStorage` under `leadAtlas.outreach.v1`, keyed by place ID, then
-phone, then email, then name + address, so unsaved reports keep their trail and a new scan
-of the same market keeps the marks you already made. On a saved report, each mark is also
-written to that lead's row in your Supabase library. If the write fails, the browser copy
-stays and the app shows a warning. Nothing is sent to Apify.
+Marks for a saved report are mirrored in `localStorage` under
+`leadAtlas.outreach.v1.<account id>`, keyed by report plus the lead's place ID, then phone,
+then email, then name + address. A mark belongs only to the report where you made it: a new
+scan or imported file starts every lead at **To contact** unless the file itself carries an
+explicit status, contact date, or note. The ledger is scoped to the signed-in account, so a
+second account on the same browser never inherits another operator's marks. On a saved
+report, each mark is also written to that lead's row in your Supabase library. Those writes
+go through a small durable queue (`leadAtlas.outreachQueue.v1.<account id>`): a closed tab, a
+brief network drop, or an expired session does not lose the update. The queue retries with
+backoff, flushes once more on sign-out, and resumes on the next sign-in. If a write still
+fails, the browser copy stays and the drawer shows **Will retry**. Nothing is sent to Apify.
+
+Each queued write remembers the row version it was based on. If another device changed the
+same lead in the meantime, the database wins and the stale local mark is dropped instead of
+overwriting the newer state.
+
+If the project has not yet re-run the updated schema, a **Follow up** mark is stored as
+`contacted` in the native column with the precise state in `payload`; the app reconstructs
+it on read and promotes it the next time the updated `supabase/schema.sql` runs.
 
 CSV exports include `Outreach status`, `Contacted at`, `Outreach note`, and
 `Outreach updated at`. JSON exports include the same data on each lead plus an
@@ -581,9 +598,11 @@ the separate employee-level **business leads enrichment** add-on is intentionall
 - Imported lead files are read with the browser `File` API and parsed in memory. They are
   not sent to the local server or Apify. If you choose **Save to library**, the parsed
   report and leads are written to your own Supabase project.
-- Outreach marks and notes are mirrored in this browser under `leadAtlas.outreach.v1` and,
-  for saved reports, written to the corresponding `leads` rows in your Supabase project.
-  They are included in files you download. Nothing goes to Apify.
+- Outreach marks and notes for a saved report are mirrored in this browser under the
+  account-scoped `leadAtlas.outreach.v1.<user-id>` ledger, keyed by report, and written to
+  the corresponding `leads` rows in your Supabase project through a retry queue. Unsaved
+  scans and imports keep marks for the open session only. Marks are included in files you
+  download. Nothing goes to Apify.
 - Call scripts are saved to your Supabase `script_libraries` row and cached under an
   account-scoped `leadAtlas.scripts.v1.<user-id>` key. Script text is never sent to the
   local server or Apify. The JSON script backup is a separate download from the lead
@@ -683,6 +702,7 @@ lead-atlas/
 │   ├── active-run-core.js Active-scan pointer parsing and freshness rules
 │   ├── import-core.js    Browser-side CSV/JSON import parser and exports
 │   ├── outreach-core.js  Outreach states, keys, notes, dates and counts
+│   ├── outreach-sync-core.js Durable saved-report queue, patches and legacy fallback
 │   ├── scripts-core.js   Script normalization, store, placeholders, import/export
 │   ├── call-mode-core.js Queue, stepping, shortcuts and note presets for call mode
 │   └── favicon.svg
@@ -699,7 +719,8 @@ lead-atlas/
 │   ├── config.js         Actor, limits, pricing, security headers, CSP builder
 │   └── errors.js         Typed API errors
 ├── supabase/
-│   └── schema.sql        Tables, indexes, triggers and RLS policies
+│   ├── schema.sql        Tables, indexes, triggers and RLS policies
+│   └── migrations/       Standalone idempotent upgrades for existing projects
 ├── docs/
 │   ├── SUPABASE-SETUP.md Project, schema, redirect URL and verification guide
 │   ├── CALL-SCRIPTS.md   Script-library design record
@@ -715,6 +736,7 @@ lead-atlas/
     ├── import-core.test.js
     ├── account-core.test.js
     ├── outreach-core.test.js
+    ├── outreach-sync-core.test.js
     ├── scripts-core.test.js
     ├── active-run-core.test.js
     ├── boot-cache-core.test.js
@@ -743,12 +765,13 @@ lead-atlas/
   per instance. A poll can repeat an Apify read and a cold start can add latency; the scan
   itself still runs on Apify. Vercel Authentication must stay off for the site to be public.
 - Saved reports and their outreach marks sync through Supabase, so the same account sees
-  them on another device. Unsaved reports use the browser ledger only. If the Supabase
-  project is paused or unreachable, the library and saved-report sync are unavailable.
-- Clearing site data removes the browser outreach ledger, the call-script cache, and the
-  cached Apify key. Saved-report outreach, call scripts, and the Apify token are restored
-  from Supabase when you sign in again; export scripts first if you also lost access to the
-  account.
+  them on another device. Unsaved scans and imports keep their marks in the open session;
+  save the report to keep them. If the Supabase project is paused or unreachable, queued
+  marks stay in the browser and retry when it returns.
+- Clearing site data removes the browser outreach ledger and its retry queue, the
+  call-script cache, and the cached Apify key. Saved-report outreach, call scripts, and the
+  Apify token are restored from Supabase when you sign in again; export scripts first if you
+  also lost access to the account.
 - Call scripts sync through the same Supabase project as your library. They are plain text
   with no rich formatting, teleprompter scrolling, recording, per-lead assignment, or
   campaign automation.
@@ -775,7 +798,7 @@ lead-atlas/
 | A confirmation or magic link returns to the wrong page | Add the exact origin (including `/auth.html`, or the local wildcard) to Supabase **Authentication** → **URL Configuration** → **Redirect URLs**, and open the link in the same browser that requested it. For Vercel, add `https://lead-atlas-ochre.vercel.app/auth.html` and `https://lead-atlas-ochre.vercel.app/**`, then request a fresh link. |
 | The deployed site redirects to `vercel.com/sso-api` | Deployment Protection is on. In Vercel, open the project → **Settings** → **Deployment Protection** and disable **Vercel Authentication**, or run `vercel project protection disable lead-atlas --sso`. |
 | Every deployed page and API hangs, but CSS loads | The deployment was built from an old `src/server.js` that default-exported the app factory. Deploy the current tree, where the default export is the lazy Express request handler. |
-| The Vercel deployment shows an old version | A CLI deploy uploads the current working tree; a Git deploy builds the pushed commit. Redeploy the intended source - `/api/version` should report `2.0.2`. |
+| The Vercel deployment shows an old version | A CLI deploy uploads the current working tree; a Git deploy builds the pushed commit. Redeploy the intended source - `/api/version` should report `2.0.3`. |
 | `/api/*` returns 404 on Vercel | Confirm the project uses the Express preset and the current `vercel.json`. API routes are handled by the single function, not by static output. |
 | “Confirm your email first” | Click the confirmation link Supabase sent, or turn off **Confirm email** for local testing. |
 | The library is empty after a scan | Saving is explicit: open the report and choose **Save to library**. A scan that was never saved is not in the library. |
@@ -787,7 +810,9 @@ lead-atlas/
 | A file will not import | Use CSV, TSV, JSON, or JSONL under 8 MB. The file needs a business-name column or at least one phone, email, or website per row. The error message on the Data desk explains what was missing. |
 | Imported report has no niche or location | That metadata was not in the file. The report still works; its heading falls back to the file name. |
 | The scan says “lost contact” | Check Apify Console; the run may still be running there |
-| Outreach marks disappeared | Saved-report marks are restored from Supabase when you reopen the report. Unsaved reports use the per-browser ledger; export and re-import a CSV/JSON file to restore those, or check that site data was not cleared. |
+| Outreach marks disappeared | Unsaved scans and imports keep marks only for the open session; save the report to keep them. Saved-report marks are restored from Supabase when you reopen the report, and unsynced marks wait in the account-scoped retry queue. Check that site data was not cleared. |
+| A saved-report mark says **Will retry** | The mark is safe in this browser and queued for Supabase. Check the connection and your session; the queue retries with backoff and flushes on sign-out. If it keeps failing, confirm `leads` still has owner RLS and the report row was not deleted. |
+| A **Follow up** mark does not save natively | The project's `outreach_status` check predates the follow-up state. The mark is still saved as `contacted` plus a precise `payload`; run the updated `supabase/schema.sql` (or `supabase/migrations/20261121_follow_up_outreach_status.sql`) to store `follow-up` natively and promote existing rows. |
 | Call scripts disappeared | Sign in with the same account and reload: the library loads from `script_libraries`. If the table is missing, run `supabase/schema.sql`. A JSON script backup can also restore them (**Scripts → Import**); lead report exports do not contain scripts. |
 | Scripts say “Local only” | The browser saved them, but the account write failed. Check the Supabase project is running and run `supabase/schema.sql` if the `script_libraries` table is missing, then edit or reopen the library to retry. Export a backup before clearing site data. |
 | Call scripts are missing on another device | Sign in there with the same account. Scripts load from `script_libraries` and are cached per account in that browser. If the table or RLS policy is missing, re-run `supabase/schema.sql`. |

@@ -88,6 +88,14 @@ alter table public.leads
   add constraint leads_outreach_status_check
   check (outreach_status in ('to-contact', 'contacted', 'follow-up', 'do-not-contact'));
 
+-- Rows written while the old check was still live kept `follow-up` in the
+-- payload and wrote `contacted` natively. Promote them now that the native
+-- column accepts the precise state.
+update public.leads
+set outreach_status = 'follow-up'
+where outreach_status = 'contacted'
+  and payload->>'outreachStatus' = 'follow-up';
+
 -- ------------------------------------------------------------
 -- Call-script library (one row per account)
 -- `scripts` is the same normalized array the editor already uses, so one

@@ -15,14 +15,35 @@ import {
   OUTREACH_STATUSES,
   applyOutreachEntry,
   callMarkForStatus,
+  normalizeOutreachDate,
   normalizeOutreachEntry,
   normalizeOutreachNote,
   normalizeOutreachStatus,
   outreachCounts,
   outreachEntryFromLead,
+  outreachEntryIsNewer,
+  outreachEntryMarkSignature,
+  outreachEntrySignature,
+  outreachEntryStrictlyNewer,
   outreachKeyForLead,
   outreachStatusLabel,
 } from "./outreach-core.js";
+import {
+  coalesceOutreachQueueEntry,
+  isOutreachConstraintError,
+  isUuid,
+  legacyOutreachPatch,
+  nextOutreachRetryDelay,
+  outreachEntryFromPatch,
+  outreachEntryFromSavedRow,
+  outreachPayloadFromLead,
+  outreachStatusForStorage,
+  outreachSyncEntryFromLead,
+  parseOutreachSyncQueue,
+  promoteLegacyOutreachPatch,
+  sameOutreachVersion,
+  serializeOutreachSyncQueue,
+} from "./outreach-sync-core.js";
 import {
   SCRIPT_LIMITS,
   SCRIPT_PLACEHOLDERS,
@@ -84,6 +105,7 @@ import {
     token: "leadAtlas.apifyToken.v1",
     brief: "leadAtlas.brief.v1",
     outreach: "leadAtlas.outreach.v1",
+    outreachQueue: "leadAtlas.outreachQueue.v1",
     scripts: SCRIPT_STORAGE_KEY,
     updated: "leadAtlas.updatedTo.v1",
     activeRun: "leadAtlas.activeRun.v1",
@@ -168,6 +190,18 @@ import {
     pageSize: 12,
     contactPreference: true,
     outreach: { version: 1, entries: {} },
+    outreachSync: {
+      queue: [],
+      legacySchema: false,
+      loadedUserId: null,
+      flushing: false,
+      flushPromise: null,
+      retryTimer: null,
+      noticeShown: false,
+      unsavedNoticeShown: false,
+      errorNoticeShown: false,
+      lastError: null,
+    },
     scripts: emptyScriptStore(),
     scriptUi: {
       selectedId: null,
@@ -554,6 +588,7 @@ import {
       state.auth.session = session;
       state.auth.user = session.user || state.auth.user;
       state.auth.recovery = false;
+      loadOutreachState(state.auth.user?.id);
 
       // Paint the last dashboard this account saw before touching the network.
       // A returning operator sees their counts and recent reports immediately;
@@ -593,6 +628,14 @@ import {
         if (result.status === "rejected") {
           console.warn("[lead-atlas] Workspace refresh failed.", result.reason);
         }
+      }
+
+      // Marks made while offline (or during an earlier session) go out as soon
+      // as the workspace has a session. The queue is already persisted.
+      if (state.outreachSync.queue.length) {
+        flushOutreachQueue().catch((error) => {
+          console.warn("[lead-atlas] Outreach queue could not resume.", error);
+        });
       }
 
       if (state.token) {
@@ -637,6 +680,13 @@ import {
     if (state.auth.user?.id && (state.scriptUi.cloudTimer || hasPendingScripts())) {
       await saveScriptsToAccount({ announceError: false });
     }
+    if (state.outreachSync.queue.length) {
+      // One last attempt while the session is still valid. Anything left stays
+      // in the account-scoped queue and resumes on the next sign-in.
+      await flushOutreachQueue().catch((error) => {
+        console.warn("[lead-atlas] Outreach queue could not flush before sign-out.", error);
+      });
+    }
     try {
       await sb?.signOut();
     } catch (error) {
@@ -653,6 +703,7 @@ import {
     setKeyStatus("empty");
     resetScriptState();
     resetLibraryState();
+    resetOutreachState();
     state.savedReport = null;
     state.results = null;
     state.importDesk = null;
@@ -675,6 +726,7 @@ import {
         setKeyStatus("empty");
         resetScriptState();
         resetLibraryState();
+        resetOutreachState();
         if (!state.auth.signingOut) {
           goToSignIn({ notice: "Your session ended. Sign in again to open your workspace." });
         }
@@ -837,15 +889,43 @@ import {
     return { version: 1, entries: {} };
   }
 
-  function readOutreachLedger() {
+  function outreachLedgerStorageKey(userId = state.auth.user?.id) {
+    return userId ? `${STORAGE.outreach}.${userId}` : null;
+  }
+
+  function outreachQueueStorageKey(userId = state.auth.user?.id) {
+    return userId ? `${STORAGE.outreachQueue}.${userId}` : null;
+  }
+
+  // A local mark belongs to one saved report. Without the report id a mark
+  // from report A could "self-heal" the same contact in report B.
+  function outreachLedgerKey(reportId, leadKey) {
+    if (!reportId || !leadKey) return "";
+    return `${reportId}::${leadKey}`;
+  }
+
+  function readOutreachLedger(userId = state.auth.user?.id) {
+    if (!userId) return emptyOutreachLedger();
+    const key = outreachLedgerStorageKey(userId);
     try {
-      const raw = window.localStorage.getItem(STORAGE.outreach);
+      let raw = window.localStorage.getItem(key);
+      if (!raw) {
+        // Before accounts were scoped, every account shared one ledger. Move it
+        // to the first signed-in account and remove the shared copy so a second
+        // account can never inherit someone else's marks.
+        const legacy = window.localStorage.getItem(STORAGE.outreach);
+        if (legacy) {
+          raw = legacy;
+          window.localStorage.setItem(key, legacy);
+          window.localStorage.removeItem(STORAGE.outreach);
+        }
+      }
       if (!raw) return emptyOutreachLedger();
       const parsed = JSON.parse(raw);
       const entries = {};
-      for (const [key, value] of Object.entries(parsed?.entries || {})) {
+      for (const [entryKey, value] of Object.entries(parsed?.entries || {})) {
         const entry = normalizeOutreachEntry(value);
-        if (key && entry) entries[key] = entry;
+        if (entryKey && entry) entries[entryKey] = entry;
       }
       return { version: 1, entries };
     } catch {
@@ -854,11 +934,76 @@ import {
   }
 
   function writeOutreachLedger() {
+    const key = outreachLedgerStorageKey();
+    if (!key) return;
     try {
-      window.localStorage.setItem(STORAGE.outreach, JSON.stringify(state.outreach));
+      window.localStorage.setItem(key, JSON.stringify(state.outreach));
     } catch {
       /* storage can be unavailable in private mode */
     }
+  }
+
+  function readOutreachSyncQueue(userId = state.auth.user?.id) {
+    const key = outreachQueueStorageKey(userId);
+    if (!key) return [];
+    try {
+      return parseOutreachSyncQueue(window.localStorage.getItem(key)).entries;
+    } catch {
+      return [];
+    }
+  }
+
+  function writeOutreachSyncQueue(userId = state.auth.user?.id) {
+    const key = outreachQueueStorageKey(userId);
+    if (!key) return;
+    try {
+      const raw = serializeOutreachSyncQueue(state.outreachSync.queue);
+      if (raw) window.localStorage.setItem(key, raw);
+      else window.localStorage.removeItem(key);
+    } catch {
+      /* storage can be unavailable in private mode */
+    }
+  }
+
+  function resetOutreachState() {
+    window.clearTimeout(state.outreachSync.retryTimer);
+    state.outreach = emptyOutreachLedger();
+    state.outreachSync = {
+      queue: [],
+      legacySchema: false,
+      loadedUserId: null,
+      flushing: false,
+      flushPromise: null,
+      retryTimer: null,
+      noticeShown: false,
+      unsavedNoticeShown: false,
+      errorNoticeShown: false,
+      lastError: null,
+    };
+  }
+
+  function loadOutreachState(userId = state.auth.user?.id) {
+    if (!userId) {
+      resetOutreachState();
+      return;
+    }
+    if (state.outreachSync.loadedUserId === userId) return;
+    resetOutreachState();
+    state.outreach = readOutreachLedger(userId);
+    state.outreachSync.queue = readOutreachSyncQueue(userId);
+    // A queue written while the old three-state schema was live may still
+    // carry a downgraded follow-up. Rebuild it before the first flush so a
+    // migrated project stores the precise state natively.
+    if (!state.outreachSync.legacySchema) {
+      let promoted = false;
+      state.outreachSync.queue = state.outreachSync.queue.map((entry) => {
+        const patch = promoteLegacyOutreachPatch(entry.patch);
+        if (JSON.stringify(patch) !== JSON.stringify(entry.patch)) promoted = true;
+        return { ...entry, patch };
+      });
+      if (promoted) writeOutreachSyncQueue(userId);
+    }
+    state.outreachSync.loadedUserId = userId;
   }
 
   function outreachLeadKey(lead) {
@@ -867,37 +1012,630 @@ import {
     return lead.outreachKey;
   }
 
-  function outreachEntrySignature(entry) {
-    if (!entry) return "";
-    return [entry.status, entry.contactedAt || "", entry.updatedAt || "", entry.note || ""].join("|");
+  function setOutreachLegacySchema(value) {
+    const next = Boolean(value);
+    if (state.outreachSync.legacySchema === next) return;
+    state.outreachSync.legacySchema = next;
+    state.outreachSync.queue = state.outreachSync.queue.map((entry) => ({
+      ...entry,
+      patch: next ? legacyOutreachPatch(entry.patch) : promoteLegacyOutreachPatch(entry.patch),
+    }));
+    writeOutreachSyncQueue();
+    if (next) showLegacyOutreachNotice();
   }
 
-  function hydrateOutreach(leads = []) {
-    const entries = state.outreach?.entries || {};
+  function showLegacyOutreachNotice() {
+    if (state.outreachSync.noticeShown) return;
+    state.outreachSync.noticeShown = true;
+    const fix = `alter table public.leads drop constraint if exists leads_outreach_status_check;
+alter table public.leads add constraint leads_outreach_status_check
+  check (outreach_status in ('to-contact', 'contacted', 'follow-up', 'do-not-contact'));
+
+update public.leads
+set outreach_status = 'follow-up'
+where outreach_status = 'contacted'
+  and payload->>'outreachStatus' = 'follow-up';`;
+    showToast(
+      "This library still uses the old outreach states. Follow up is saved safely; run the updated supabase/schema.sql, then reload to store it natively.",
+      "info",
+      {
+        duration: 14000,
+        actionLabel: "Copy SQL",
+        onAction: async () => {
+          const copied = await copyText(fix);
+          showToast(
+            copied
+              ? "SQL copied. Run it in Supabase → SQL Editor."
+              : "Copy failed. Open supabase/schema.sql and run it in the Supabase SQL editor.",
+            copied ? "success" : "error",
+          );
+        },
+      },
+    );
+  }
+
+  function showUnsavedOutreachNotice() {
+    if (state.outreachSync.unsavedNoticeShown) return;
+    state.outreachSync.unsavedNoticeShown = true;
+    showToast(
+      "Outreach marks stay with this open report. Save it to your library so they follow you to every device.",
+      "info",
+      {
+        duration: 9000,
+        actionLabel: "Save report",
+        onAction: openSaveReportDialog,
+      },
+    );
+  }
+
+  function queueSavedLeadSync(lead) {
+    const reportId = state.results?.savedReportId;
+    const userId = state.auth.user?.id;
+    // Queue even when the access token has expired. The write stays in local
+    // storage and flushes after the next successful sign-in instead of being
+    // lost with the session.
+    if (!reportId || !lead || !userId) return false;
+    const entry = outreachSyncEntryFromLead(lead, {
+      reportId,
+      userId,
+      legacy: state.outreachSync.legacySchema,
+    });
+    if (!entry) return false;
+    state.outreachSync.queue = coalesceOutreachQueueEntry(state.outreachSync.queue, entry);
+    lead.outreachSyncState = isAuthed() ? "pending" : "error";
+    writeOutreachSyncQueue();
+    scheduleOutreachFlush(0);
+    return true;
+  }
+
+  function scheduleOutreachFlush(delay = 0) {
+    const sync = state.outreachSync;
+    if (!sync.queue.length || !isAuthed()) return;
+    window.clearTimeout(sync.retryTimer);
+    sync.retryTimer = window.setTimeout(() => {
+      sync.retryTimer = null;
+      flushOutreachQueue().catch((error) => {
+        console.warn("[lead-atlas] Outreach queue flush failed.", error);
+      });
+    }, Math.max(0, Number(delay) || 0));
+  }
+
+  function scheduleNextOutreachFlush() {
+    const queue = state.outreachSync.queue;
+    if (!queue.length || !isAuthed()) return;
+    const next = Math.min(...queue.map((entry) => entry.nextAttemptAt || 0));
+    scheduleOutreachFlush(Math.max(0, next - Date.now()));
+  }
+
+  function outreachQueueEntryLead(entry) {
+    const results = state.results;
+    if (!entry || !results || results.savedReportId !== entry.reportId) return null;
+    return (
+      (results.leads || []).find((lead) => {
+        if (entry.rowId && lead.savedRowId === entry.rowId) return true;
+        return (lead.outreachKey || outreachKeyForLead(lead)) === entry.leadKey;
+      }) || null
+    );
+  }
+
+  function outreachEntryFilters(
+    entry,
+    rowId = entry.rowId,
+    baseUpdatedAt = entry.baseUpdatedAt,
+  ) {
+    const filters = isUuid(rowId)
+      ? { id: `eq.${rowId}` }
+      : entry.leadKey
+        ? { report_id: `eq.${entry.reportId}`, lead_key: `eq.${entry.leadKey}` }
+        : null;
+    if (!filters) return null;
+    // Keep the version string exactly as the row reported it. Normalizing to
+    // milliseconds would drop Postgres microseconds and never match.
+    const base = typeof baseUpdatedAt === "string" ? baseUpdatedAt.trim() : "";
+    if (base) filters.updated_at = `eq.${base}`;
+    return filters;
+  }
+
+  async function writeOutreachQueueEntry(
+    sb,
+    entry,
+    patch,
+    { keepalive = false, rowId = entry.rowId, baseUpdatedAt = entry.baseUpdatedAt } = {},
+  ) {
+    let guard = null;
+    if (baseUpdatedAt) {
+      // Read the exact row version first. The update then uses the raw string
+      // PostgREST returned, so a microsecond-precision timestamp still matches.
+      const current = await fetchOutreachQueueRow(sb, entry, { rowId });
+      if (!current || !sameOutreachVersion(current.updated_at, baseUpdatedAt)) return [];
+      guard = current.updated_at || null;
+    }
+    const filters = outreachEntryFilters(entry, rowId, guard);
+    if (!filters) return [];
+    const rows = await sb.update("leads", filters, patch, { returning: true, keepalive });
+    return Array.isArray(rows) ? rows : rows ? [rows] : [];
+  }
+
+  async function fetchOutreachQueueRow(sb, entry, { rowId = entry.rowId } = {}) {
+    const filters = isUuid(rowId)
+      ? { id: `eq.${rowId}` }
+      : entry.leadKey
+        ? { report_id: `eq.${entry.reportId}`, lead_key: `eq.${entry.leadKey}` }
+        : null;
+    if (!filters) return null;
+    return sb.select("leads", { ...filters, select: "*", limit: 1 }, { single: true });
+  }
+
+  function outreachRowMatchesPatch(row, patch) {
+    if (!row) return false;
+    return (
+      outreachEntryMarkSignature(outreachEntryFromSavedRow(row)) ===
+      outreachEntryMarkSignature(outreachEntryFromPatch(patch))
+    );
+  }
+
+  function removeOutreachQueueEntry(key) {
+    const before = state.outreachSync.queue.length;
+    state.outreachSync.queue = state.outreachSync.queue.filter((item) => item.key !== key);
+    return state.outreachSync.queue.length !== before;
+  }
+
+  function markOutreachSyncError(entry, error) {
+    entry.attempts = Math.max(0, Number(entry.attempts) || 0) + 1;
+    entry.nextAttemptAt = Date.now() + nextOutreachRetryDelay(entry.attempts);
+    entry.lastError = error?.message || "The library sync failed.";
+    state.outreachSync.lastError = entry.lastError;
+    const lead = outreachQueueEntryLead(entry);
+    if (lead) {
+      lead.outreachSyncState = "error";
+      updateDrawerSyncStamp(lead);
+    }
+    if (!state.outreachSync.errorNoticeShown) {
+      state.outreachSync.errorNoticeShown = true;
+      showToast(
+        "Outreach saved in this browser. The library sync will retry automatically.",
+        "info",
+        { duration: 7000 },
+      );
+    }
+  }
+
+  function clearOutreachLedgerEntry(reportId, leadKey, baseline = null) {
+    const key = outreachLedgerKey(reportId, leadKey);
+    if (!key || !state.outreach.entries[key]) return false;
+    const local = normalizeOutreachEntry(state.outreach.entries[key]);
+    if (baseline && outreachEntryIsNewer(local, baseline)) return false;
+    delete state.outreach.entries[key];
+    writeOutreachLedger();
+    return true;
+  }
+
+  function applyRemoteOutreachRow(entry, row) {
+    if (!entry || !row) return;
+    const lead = outreachQueueEntryLead(entry);
+    const savedEntry = outreachEntryFromSavedRow(row);
+    if (lead) {
+      applyOutreachEntry(lead, savedEntry);
+      lead.outreachSource = "saved";
+      lead.outreachSyncState = "saved";
+      lead.outreachSyncedAt = row.updated_at || lead.outreachSyncedAt || null;
+      if (row.id && isUuid(row.id)) lead.savedRowId = row.id;
+      clearOutreachLedgerEntry(entry.reportId, lead.outreachKey || entry.leadKey, savedEntry);
+      recordSavedLeadActivity(lead);
+    } else {
+      clearOutreachLedgerEntry(entry.reportId, entry.leadKey, savedEntry);
+    }
+  }
+
+  function updateQueuedOutreachBase(entry, baseUpdatedAt) {
+    if (!entry || !baseUpdatedAt) return;
     let changed = false;
+    state.outreachSync.queue = state.outreachSync.queue.map((item) => {
+      if (item.reportId !== entry.reportId) return item;
+      const sameLead =
+        (entry.rowId && item.rowId === entry.rowId) ||
+        (entry.leadKey && item.leadKey === entry.leadKey);
+      if (!sameLead || sameOutreachVersion(item.baseUpdatedAt, baseUpdatedAt)) return item;
+      changed = true;
+      return { ...item, baseUpdatedAt: normalizeOutreachDate(baseUpdatedAt) };
+    });
+    if (changed) writeOutreachSyncQueue();
+  }
+
+  function applyOutreachSyncSuccess(entry, row) {
+    const savedEntry =
+      row && typeof row === "object" && row.outreach_status
+        ? outreachEntryFromSavedRow(row)
+        : outreachEntryFromPatch(entry.patch);
+    const lead = outreachQueueEntryLead(entry);
+    if (!lead) {
+      // The report is no longer open. Still retire its local copy once the
+      // database holds the same mark.
+      clearOutreachLedgerEntry(entry.reportId, entry.leadKey, savedEntry);
+      return;
+    }
+    const currentEntry = outreachEntryFromLead(lead);
+
+    // A newer local mark may have been made while this write was in flight.
+    // The older response must not roll it back; it only refreshes the base
+    // version the newer queued write will compare against.
+    if (outreachEntryIsNewer(currentEntry, savedEntry)) {
+      lead.outreachSyncedAt = row?.updated_at || lead.outreachSyncedAt || null;
+      updateQueuedOutreachBase(entry, lead.outreachSyncedAt);
+      return;
+    }
+
+    lead.outreachSyncState = "saved";
+    lead.outreachSource = "saved";
+    lead.outreachSyncedAt = row?.updated_at || lead.outreachSyncedAt || null;
+    if (row?.id && isUuid(row.id)) lead.savedRowId = row.id;
+    applyOutreachEntry(lead, savedEntry);
+    // The queue (not the ledger) owns unsynced marks. Once the database has
+    // the same state, drop the local copy so it can never resurrect later.
+    clearOutreachLedgerEntry(entry.reportId, lead.outreachKey || entry.leadKey, savedEntry);
+    recordSavedLeadActivity(lead);
+  }
+
+  function dropOutreachQueueForReport(reportId) {
+    if (!reportId) return;
+    const prefix = `${reportId}::`;
+    let ledgerChanged = false;
+    for (const key of Object.keys(state.outreach.entries || {})) {
+      if (key.startsWith(prefix)) {
+        delete state.outreach.entries[key];
+        ledgerChanged = true;
+      }
+    }
+    if (ledgerChanged) writeOutreachLedger();
+    const next = state.outreachSync.queue.filter((entry) => entry.reportId !== reportId);
+    if (next.length === state.outreachSync.queue.length) return;
+    state.outreachSync.queue = next;
+    writeOutreachSyncQueue();
+    scheduleNextOutreachFlush();
+  }
+
+  async function flushOutreachQueue({ keepalive = false } = {}) {
+    const sb = supabaseClient();
+    const userId = state.auth.user?.id;
+    const sync = state.outreachSync;
+    if (!sb || !isAuthed() || !userId || sync.loadedUserId !== userId) return null;
+    if (sync.flushing) return sync.flushPromise;
+
+    const due = sync.queue.filter(
+      (entry) => !entry.nextAttemptAt || entry.nextAttemptAt <= Date.now(),
+    );
+    if (!due.length) {
+      scheduleNextOutreachFlush();
+      return null;
+    }
+
+    sync.flushing = true;
+    sync.lastError = null;
+    sync.flushPromise = (async () => {
+      let queueChanged = false;
+      let synced = false;
+
+      for (const entry of due) {
+        if (state.auth.user?.id !== userId) break;
+
+        // A newer mark for the same lead may have replaced this entry while the
+        // request was in flight. Never let the older response win.
+        let current = state.outreachSync.queue.find((item) => item.key === entry.key);
+        if (!current || JSON.stringify(current.patch) !== JSON.stringify(entry.patch)) continue;
+
+        // Persist the precise patch whenever the schema supports it. A queue
+        // entry written during a legacy session is promoted here, so a later
+        // flush cannot keep storing `contacted` after the migration.
+        let patch = state.outreachSync.legacySchema
+          ? legacyOutreachPatch(current.patch)
+          : promoteLegacyOutreachPatch(current.patch);
+        if (JSON.stringify(patch) !== JSON.stringify(current.patch)) {
+          current.patch = patch;
+          queueChanged = true;
+        }
+
+        let rows = [];
+        try {
+          rows = await writeOutreachQueueEntry(sb, current, patch, { keepalive });
+        } catch (error) {
+          if (isOutreachConstraintError(error) && !state.outreachSync.legacySchema) {
+            setOutreachLegacySchema(true);
+            current = state.outreachSync.queue.find((item) => item.key === entry.key);
+            if (!current) continue;
+            patch = current.patch;
+            queueChanged = true;
+            try {
+              rows = await writeOutreachQueueEntry(sb, current, patch, { keepalive });
+            } catch (retryError) {
+              markOutreachSyncError(current, retryError);
+              queueChanged = true;
+              continue;
+            }
+          } else {
+            markOutreachSyncError(current, error);
+            queueChanged = true;
+            continue;
+          }
+        }
+
+        if (!rows.length) {
+          // Zero rows means the optimistic `updated_at` guard did not match,
+          // the row id moved, or the row was deleted. Read the current row and
+          // decide without ever overwriting a newer database state.
+          let remote = null;
+          try {
+            remote = await fetchOutreachQueueRow(sb, current);
+          } catch (error) {
+            markOutreachSyncError(current, error);
+            queueChanged = true;
+            continue;
+          }
+
+          if (remote) {
+            if (outreachRowMatchesPatch(remote, patch)) {
+              // The write landed but the response was lost (or the guard was
+              // stale by exactly this write). Treat the row as the success.
+              rows = [remote];
+            } else {
+              const remoteEntry = outreachEntryFromSavedRow(remote);
+              const localEntry = outreachEntryFromPatch(patch);
+              // The row moved because our own earlier write landed but its
+              // response was lost. A strictly newer user mark may still land;
+              // anything else loses to the database.
+              if (outreachEntryStrictlyNewer(localEntry, remoteEntry)) {
+                try {
+                  rows = await writeOutreachQueueEntry(sb, current, patch, {
+                    keepalive,
+                    baseUpdatedAt: null,
+                  });
+                  if (rows.length && rows[0]?.id && isUuid(rows[0].id)) {
+                    current.rowId = rows[0].id;
+                    queueChanged = true;
+                  }
+                } catch (error) {
+                  markOutreachSyncError(current, error);
+                  queueChanged = true;
+                  continue;
+                }
+              } else {
+                // Another device changed this lead after the mark was queued.
+                // The database wins; the local write must not resurrect.
+                applyRemoteOutreachRow(current, remote);
+                removeOutreachQueueEntry(current.key);
+                queueChanged = true;
+                synced = true;
+                continue;
+              }
+            }
+          } else if (current.rowId && current.leadKey) {
+            // The row id changed but the report + lead key still identifies
+            // the lead. Retry by key without the stale row version.
+            try {
+              rows = await writeOutreachQueueEntry(sb, current, patch, {
+                keepalive,
+                rowId: null,
+                baseUpdatedAt: null,
+              });
+              if (rows.length && rows[0]?.id && isUuid(rows[0].id)) {
+                current.rowId = rows[0].id;
+                queueChanged = true;
+              }
+            } catch (error) {
+              markOutreachSyncError(current, error);
+              queueChanged = true;
+              continue;
+            }
+          }
+        }
+
+        if (!rows.length) {
+          // The row was deleted or its key changed. Keep the local mark, but
+          // stop retrying a write that can never land.
+          removeOutreachQueueEntry(current.key);
+          const lead = outreachQueueEntryLead(current);
+          if (lead) {
+            lead.outreachSyncState = "error";
+            updateDrawerSyncStamp(lead);
+          }
+          queueChanged = true;
+          if (!state.outreachSync.errorNoticeShown) {
+            state.outreachSync.errorNoticeShown = true;
+            showToast(
+              "A saved lead changed or was removed. Reopen the report to refresh it; this mark stays in the browser.",
+              "info",
+              { duration: 8000 },
+            );
+          }
+          continue;
+        }
+
+        // Only clear the queue entry if no newer edit replaced it.
+        const latest = state.outreachSync.queue.find((item) => item.key === current.key);
+        if (!latest || JSON.stringify(latest.patch) !== JSON.stringify(current.patch)) {
+          continue;
+        }
+        removeOutreachQueueEntry(current.key);
+        applyOutreachSyncSuccess(current, rows[0]);
+        queueChanged = true;
+        synced = true;
+      }
+
+      if (queueChanged) writeOutreachSyncQueue();
+      if (synced) {
+        scheduleSavedReportSummary();
+        refreshOutreachViews({
+          table: false,
+          drawer: Boolean(state.drawerLead),
+          callMode: false,
+        });
+      }
+      scheduleNextOutreachFlush();
+    })()
+      .catch((error) => {
+        state.outreachSync.lastError = error?.message || String(error);
+        console.warn("[lead-atlas] Outreach queue flush failed.", error);
+        scheduleOutreachFlush(error?.status === 401 ? 30000 : 5000);
+      })
+      .finally(() => {
+        sync.flushing = false;
+        sync.flushPromise = null;
+      });
+
+    return sync.flushPromise;
+  }
+
+  function pendingOutreachMaps(reportId) {
+    const byRow = new Map();
+    const byKey = new Map();
+    if (!reportId) return { byRow, byKey };
+    for (const entry of state.outreachSync.queue) {
+      if (entry.reportId !== reportId) continue;
+      if (entry.rowId) byRow.set(entry.rowId, entry);
+      if (entry.leadKey) byKey.set(entry.leadKey, entry);
+    }
+    return { byRow, byKey };
+  }
+
+  function hydrateOutreach(
+    leads = [],
+    { reportId = state.results?.savedReportId || null, useLedger = Boolean(reportId) } = {},
+  ) {
+    const entries = state.outreach?.entries || {};
+    const pending = pendingOutreachMaps(reportId);
+    let changed = false;
+    let queueChanged = false;
     for (const lead of leads) {
       if (!lead) continue;
       const key = outreachLeadKey(lead);
-      const localEntry = normalizeOutreachEntry(entries[key]);
-      // A file mark is explicit only when it carried a real status, a date, or
-      // a note. A bare “To contact” cell is just the default, so the browser
-      // ledger is still allowed to fill in a newer local mark.
+      const ledgerKey = useLedger ? outreachLedgerKey(reportId, key) : "";
+      const localEntry = ledgerKey ? normalizeOutreachEntry(entries[ledgerKey]) : null;
+      const pendingEntry = pending.byRow.get(lead.savedRowId) || pending.byKey.get(key) || null;
+      const pendingValue = pendingEntry ? outreachEntryFromPatch(pendingEntry.patch) : null;
+      // A saved row is explicit only when it came from the library. A file mark
+      // is explicit only when it carried a real status, a date, or a note. A
+      // bare “To contact” cell is still allowed to be replaced by a newer mark.
+      const savedEntry = lead.outreachSource === "saved" ? outreachEntryFromLead(lead) : null;
       const fileEntry = lead.outreachSource === "file" ? outreachEntryFromLead(lead) : null;
-      const chosen = fileEntry || localEntry;
-      if (chosen) {
-        applyOutreachEntry(lead, chosen);
-      } else {
-        lead.outreachStatus = OUTREACH.TODO;
-        lead.contactedAt = null;
-        lead.outreachUpdatedAt = null;
-        lead.outreachNote = null;
+
+      let chosen = null;
+      let source = null;
+      let healLocal = false;
+      let dropPending = false;
+
+      if (pendingEntry && pendingValue) {
+        // The queued mark was based on one exact row version. If the row has
+        // moved on since then, the database wins unless it already contains
+        // this exact mark (a lost success response).
+        const baseMatches =
+          !pendingEntry.baseUpdatedAt ||
+          sameOutreachVersion(pendingEntry.baseUpdatedAt, lead.outreachSyncedAt);
+        const alreadyApplied =
+          Boolean(savedEntry) &&
+          outreachEntryMarkSignature(savedEntry) === outreachEntryMarkSignature(pendingValue);
+        const pendingIsStrictlyNewer =
+          Boolean(savedEntry) && outreachEntryStrictlyNewer(pendingValue, savedEntry);
+        if (alreadyApplied) {
+          chosen = savedEntry;
+          source = "saved";
+          dropPending = true;
+        } else if (savedEntry && !baseMatches && !pendingIsStrictlyNewer) {
+          // The row changed after this mark was queued, and the database mark
+          // is at least as new. Never overwrite it with the local copy.
+          chosen = savedEntry;
+          source = "saved";
+          dropPending = true;
+        } else {
+          chosen = pendingValue;
+          source = "pending";
+          if (savedEntry && !baseMatches) {
+            // The row moved because of our own earlier write (a lost response
+            // or a coalesced retry). The pending mark is strictly newer, so
+            // target the version we just observed.
+            updateQueuedOutreachBase(pendingEntry, lead.outreachSyncedAt);
+          }
+        }
+      } else if (savedEntry && localEntry) {
+        if (outreachEntryIsNewer(localEntry, savedEntry)) {
+          chosen = localEntry;
+          source = "local";
+          healLocal = true;
+        } else {
+          chosen = savedEntry;
+          source = "saved";
+        }
+      } else if (savedEntry) {
+        chosen = savedEntry;
+        source = "saved";
+      } else if (fileEntry && localEntry) {
+        if (outreachEntryIsNewer(localEntry, fileEntry)) {
+          chosen = localEntry;
+          source = "local";
+        } else {
+          chosen = fileEntry;
+          source = "file";
+        }
+      } else if (fileEntry) {
+        chosen = fileEntry;
+        source = "file";
+      } else if (localEntry) {
+        chosen = localEntry;
+        source = "local";
       }
-      if (fileEntry && outreachEntrySignature(fileEntry) !== outreachEntrySignature(localEntry)) {
-        entries[key] = fileEntry;
+
+      applyOutreachEntry(lead, chosen);
+      if (source === "pending") {
+        lead.outreachSource = reportId ? "saved" : "local";
+        lead.outreachSyncState =
+          pendingEntry.lastError || !isAuthed() ? "error" : "pending";
+      } else if (source === "saved") {
+        lead.outreachSource = "saved";
+        lead.outreachSyncState = "saved";
+      } else if (source === "file") {
+        lead.outreachSource = "file";
+      } else if (source === "local") {
+        if (lead.savedRowId && reportId) {
+          lead.outreachSource = "saved";
+          lead.outreachSyncState = isAuthed() ? "pending" : "error";
+        } else {
+          lead.outreachSource = "local";
+        }
+      }
+
+      // The ledger is a fallback for a local user mark, never a copy of a
+      // database or file status. A saved/file row that wins removes the stale
+      // local mark so it cannot self-heal on the next open.
+      if (source === "local" && ledgerKey) {
+        if (outreachEntrySignature(chosen) !== outreachEntrySignature(localEntry)) {
+          entries[ledgerKey] = chosen;
+          changed = true;
+        }
+      } else if (ledgerKey && localEntry && source !== "pending") {
+        delete entries[ledgerKey];
         changed = true;
+      }
+
+      if (dropPending && pendingEntry) {
+        removeOutreachQueueEntry(pendingEntry.key);
+        queueChanged = true;
+        if (ledgerKey && localEntry) {
+          delete entries[ledgerKey];
+          changed = true;
+        }
+      }
+
+      if (healLocal && reportId && queueSavedLeadSync(lead)) {
+        // The queue now owns the newer mark; the ledger copy is redundant.
+        if (ledgerKey && entries[ledgerKey]) {
+          delete entries[ledgerKey];
+          changed = true;
+        }
       }
     }
     if (changed) writeOutreachLedger();
+    if (queueChanged) {
+      writeOutreachSyncQueue();
+      scheduleNextOutreachFlush();
+    }
     return leads;
   }
 
@@ -923,26 +1661,36 @@ import {
       note === undefined
         ? normalizeOutreachNote(lead.outreachNote)
         : normalizeOutreachNote(note);
+    const now = new Date().toISOString();
+    const currentStatus = normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO;
+    const currentContactedAt = normalizeOutreachDate(lead.contactedAt);
+    const contactedAt =
+      nextStatus === OUTREACH.CONTACTED || nextStatus === OUTREACH.FOLLOW_UP
+        ? currentStatus === OUTREACH.TODO
+          ? now
+          : currentContactedAt || now
+        : nextStatus === OUTREACH.DO_NOT_CONTACT
+          ? currentContactedAt
+          : null;
+    // Compare the call date too. Returning a lead to "To contact" must clear a
+    // stale contact date even when the status and note already match.
     if (
-      (normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO) === nextStatus &&
-      (normalizeOutreachNote(lead.outreachNote) || "") === effectiveNote
+      currentStatus === nextStatus &&
+      normalizeOutreachNote(lead.outreachNote) === effectiveNote &&
+      currentContactedAt === contactedAt
     ) {
       return false;
     }
 
     const key = outreachLeadKey(lead);
+    const reportId = state.results?.savedReportId || null;
+    const ledgerKey = outreachLedgerKey(reportId, key);
     const previousEntry = outreachEntryFromLead(lead);
     const previousSource = lead.outreachSource || null;
-    const previousLedger = state.outreach.entries[key]
-      ? { ...state.outreach.entries[key] }
-      : null;
-    const now = new Date().toISOString();
-    const contactedAt =
-      nextStatus === OUTREACH.CONTACTED || nextStatus === OUTREACH.FOLLOW_UP
-        ? lead.contactedAt || now
-        : nextStatus === OUTREACH.DO_NOT_CONTACT
-          ? lead.contactedAt || null
-          : null;
+    const previousLedger =
+      ledgerKey && state.outreach.entries[ledgerKey]
+        ? { ...state.outreach.entries[ledgerKey] }
+        : null;
     const entry = {
       status: nextStatus,
       contactedAt,
@@ -952,21 +1700,21 @@ import {
 
     applyOutreachEntry(lead, entry);
     lead.outreachSource = "local";
-    state.outreach.entries[key] = entry;
+    if (ledgerKey) state.outreach.entries[ledgerKey] = entry;
     writeOutreachLedger();
     state.drawerNoteDirty = false;
-    if (!deferRender) refreshOutreachViews({ drawer: true });
     syncSavedLead(lead);
+    if (!deferRender) refreshOutreachViews({ drawer: true });
 
     if (announce) {
       const undo = () => {
-        if (previousLedger) state.outreach.entries[key] = previousLedger;
-        else delete state.outreach.entries[key];
+        if (previousLedger && ledgerKey) state.outreach.entries[ledgerKey] = previousLedger;
+        else if (ledgerKey) delete state.outreach.entries[ledgerKey];
         writeOutreachLedger();
         applyOutreachEntry(lead, previousLedger || previousEntry);
         lead.outreachSource = previousSource;
-        refreshOutreachViews({ drawer: true });
         syncSavedLead(lead);
+        refreshOutreachViews({ drawer: true });
         showToast("Outreach mark undone.", "info", { duration: 2200 });
       };
 
@@ -1049,16 +1797,20 @@ import {
     const note = normalizeOutreachNote(value);
     if (note === normalizeOutreachNote(lead.outreachNote)) return null;
     const key = outreachLeadKey(lead);
+    const reportId = state.results?.savedReportId || null;
+    const ledgerKey = outreachLedgerKey(reportId, key);
     const now = new Date().toISOString();
+    const status = normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO;
     const entry = {
-      status: normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO,
-      contactedAt: lead.contactedAt || null,
+      status,
+      contactedAt:
+        status === OUTREACH.TODO ? null : normalizeOutreachDate(lead.contactedAt),
       updatedAt: now,
       note: note || null,
     };
     applyOutreachEntry(lead, entry);
     lead.outreachSource = "local";
-    state.outreach.entries[key] = entry;
+    if (ledgerKey) state.outreach.entries[ledgerKey] = entry;
     writeOutreachLedger();
     syncSavedLead(lead);
     return now;
@@ -1076,9 +1828,7 @@ import {
 
     refreshOutreachViews({ drawer: false });
     updateDrawerNoteCount();
-    if (els.drawerOutreachStamp) {
-      els.drawerOutreachStamp.textContent = `Updated ${formatDate(savedAt, true)}`;
-    }
+    updateDrawerSyncStamp(lead);
     if (notify) {
       showToast("Outreach note saved.", "success", { duration: 2200 });
     }
@@ -4201,7 +4951,9 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       runStatus: data.runStatus || apiRun.status,
       cost: run.cost,
     };
-    hydrateOutreach(state.results.leads || []);
+    // A fresh scan starts every lead at "To contact". Only an explicit file
+    // mark may carry a state; a browser ledger from another report must not.
+    hydrateOutreach(state.results.leads || [], { reportId: null, useLedger: false });
     state.results.summary = {
       ...(state.results.summary || summarize(state.results.leads || [])),
       outreach: outreachCounts(state.results.leads || []),
@@ -4961,7 +5713,10 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     const importedAt = new Date().toISOString();
     const sourceName = parsed.sourceName || fileName || "Imported leads";
 
-    hydrateOutreach(leads);
+    // The previous view may still be a saved report; an imported file has no
+    // report id, so it must never queue writes against that old report and it
+    // must not inherit marks from the browser ledger either.
+    hydrateOutreach(leads, { reportId: null, useLedger: false });
     state.savedReport = null;
     state.results = {
       mode: "import",
@@ -5100,6 +5855,28 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     return `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`;
   }
 
+  function drawerOutreachStampText(lead) {
+    const stamp = lead?.outreachUpdatedAt || lead?.contactedAt;
+    if (!stamp) return "Not marked";
+    const syncLabel =
+      lead.outreachSyncState === "pending"
+        ? "Syncing…"
+        : lead.outreachSyncState === "error"
+          ? "Will retry"
+          : lead.outreachSource === "saved"
+            ? "In library"
+            : lead.outreachSource === "local"
+              ? "This browser"
+              : "";
+    const updated = `Updated ${formatDate(stamp, true)}`;
+    return syncLabel ? `${updated} · ${syncLabel}` : updated;
+  }
+
+  function updateDrawerSyncStamp(lead) {
+    if (!lead || state.drawerLead !== lead || !els.drawerOutreachStamp) return;
+    els.drawerOutreachStamp.textContent = drawerOutreachStampText(lead);
+  }
+
   function renderDrawerOutreach(lead, { syncNote = false } = {}) {
     if (!lead) return;
     const status = normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO;
@@ -5118,12 +5895,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     }
 
     if (els.drawerOutreachStamp) {
-      const stamp = lead.outreachUpdatedAt || lead.contactedAt;
-      if (stamp) {
-        els.drawerOutreachStamp.textContent = `Updated ${formatDate(stamp, true)}`;
-      } else {
-        els.drawerOutreachStamp.textContent = "Not marked";
-      }
+      els.drawerOutreachStamp.textContent = drawerOutreachStampText(lead);
     }
 
     if (syncNote && els.drawerOutreachNote) {
@@ -5324,7 +6096,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       );
       const counts = outreachCounts(results.leads);
       const markSummary = counts.marked
-        ? ` · ${pluralize(counts.contacted, "reached out")}, ${pluralize(
+        ? ` · ${pluralize(counts.contacted + counts.followUp, "reached out")}, ${pluralize(
             counts.doNotContact,
             "do not contact",
           )}`
@@ -5952,11 +6724,24 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     });
 
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState !== "visible" || !state.results) return;
+      if (document.visibilityState === "hidden") {
+        // `keepalive` gives the last pending mark a chance to land even if the
+        // tab is closed or backgrounded immediately after this event.
+        flushOutreachQueue({ keepalive: true }).catch(() => {});
+        return;
+      }
+      if (!state.results) return;
       // A dirty call-mode note is saved before the refresh so a dialer return
       // can never replace typed text with the last stored note.
       if (state.callMode.open && state.callMode.noteDirty) saveCallModeNote();
       refreshOutreachViews({ drawer: Boolean(state.drawerLead) });
+      flushOutreachQueue().catch(() => {});
+    });
+    window.addEventListener("pagehide", () => {
+      flushOutreachQueue({ keepalive: true }).catch(() => {});
+    });
+    window.addEventListener("online", () => {
+      flushOutreachQueue().catch(() => {});
     });
     window.addEventListener("pageshow", (event) => {
       if (!event.persisted || !state.results) return;
@@ -5994,6 +6779,12 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     if (code === "NOT_CONFIGURED") {
       return "Supabase is not connected. Add SUPABASE_URL and SUPABASE_ANON_KEY to .env, then restart.";
     }
+    if (
+      /outreach_status/i.test(message) &&
+      (code === "23514" || /check constraint|violates/i.test(message))
+    ) {
+      return "This project still uses the old outreach states. Run the updated supabase/schema.sql in the SQL Editor, then save the report again.";
+    }
     if (error?.status === 404 || /does not exist|schema cache|relation .* not found/i.test(message)) {
       return "The Supabase schema is missing. Run supabase/schema.sql in the Supabase SQL editor, then try again.";
     }
@@ -6006,8 +6797,12 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
   function reportOutreach(report) {
     const summary = report?.summary || {};
     const outreach = summary.outreach || {};
+    const contacted = Number(outreach.contacted) || 0;
+    const followUp = Number(outreach.followUp) || 0;
     return {
-      contacted: Number(outreach.contacted) || 0,
+      contacted,
+      followUp,
+      reached: contacted + followUp,
       doNotContact: Number(outreach.doNotContact) || 0,
       marked: Number(outreach.marked) || 0,
     };
@@ -6349,7 +7144,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
               </span>
               <span class="dash-report-side">
                 <em>${escapeHtml(formatRelative(report.created_at))}</em>
-                <span class="dash-report-pill">${outreach.contacted ? `${formatNumber(outreach.contacted)} reached` : reportSourceLabel(report.source)}</span>
+                <span class="dash-report-pill">${outreach.reached ? `${formatNumber(outreach.reached)} reached` : reportSourceLabel(report.source)}</span>
               </span>
             </button>`;
           })
@@ -6484,7 +7279,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
   function renderLibraryCard(report) {
     const outreach = reportOutreach(report);
     const leads = reportLeadCount(report);
-    const rate = leads ? Math.min(100, Math.round((outreach.contacted / leads) * 100)) : 0;
+    const rate = leads ? Math.min(100, Math.round((outreach.reached / leads) * 100)) : 0;
     const place = [report.niche, report.location].filter(Boolean).join(" · ") || "Saved field report";
     const avg = Number(report.summary?.avgRating);
     const busy = state.library.busyReportId === report.id;
@@ -6498,7 +7293,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       <p class="library-card-place">${escapeHtml(place)}</p>
       <div class="library-card-stats">
         <span><strong>${formatNumber(leads)}</strong> leads</span>
-        <span><strong>${formatNumber(outreach.contacted)}</strong> reached</span>
+        <span><strong>${formatNumber(outreach.reached)}</strong> reached</span>
         <span><strong>${avg ? avg.toFixed(1) : "—"}</strong> avg ★</span>
       </div>
       <div class="library-card-progress"><span style="width: ${rate}%"></span></div>
@@ -6527,12 +7322,13 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       city: payload.city || row.city || "",
       phone: payload.phone || row.phone || "",
       website: payload.website || row.website || "",
-      outreachStatus: row.outreach_status,
-      outreachNote: row.outreach_note,
-      contactedAt: row.contacted_at,
-      outreachSource: "file",
-      outreachKey: row.lead_key,
+      outreachKey: row.lead_key || payload.outreachKey || outreachKeyForLead(payload),
     };
+    applyOutreachEntry(lead, outreachEntryFromSavedRow(row));
+    lead.outreachSource = "saved";
+    lead.savedRowId = row.id || null;
+    lead.outreachSyncedAt = row.updated_at || null;
+    lead.outreachSyncState = "saved";
     if (!lead.emails?.length && row.email) lead.emails = [row.email];
     if (!lead.phones?.length && row.phone) lead.phones = [row.phone];
     return lead;
@@ -6566,17 +7362,11 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       ]);
       if (!report) throw new Error("That saved report no longer exists.");
 
-      hydrateOutreach(leads);
-      const summary = {
-        ...(report.summary && typeof report.summary === "object" ? report.summary : {}),
-        ...summarize(leads),
-        outreach: outreachCounts(leads),
-      };
       state.results = {
         mode: "saved",
         savedReportId: report.id,
         leads,
-        summary,
+        summary: {},
         query: { niche: report.niche, location: report.location },
         sourceName: report.name,
         format: "saved",
@@ -6594,6 +7384,15 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
         requested: null,
         runStatus: null,
       };
+      // Hydration needs the report id so it can see pending writes for this
+      // exact report before deciding that the saved row is authoritative.
+      hydrateOutreach(leads, { reportId: report.id, useLedger: true });
+      const summary = {
+        ...(report.summary && typeof report.summary === "object" ? report.summary : {}),
+        ...summarize(leads),
+        outreach: outreachCounts(leads),
+      };
+      state.results.summary = summary;
       state.savedReport = {
         id: report.id,
         name: report.name,
@@ -6625,6 +7424,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     const sb = supabaseClient();
     try {
       await sb.remove("lead_reports", { id: `eq.${reportId}` });
+      dropOutreachQueueForReport(reportId);
       if (state.results?.savedReportId === reportId) {
         state.results = null;
         state.savedReport = null;
@@ -6770,17 +7570,29 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     syncDialogState();
   }
 
-  function leadRowsForReport(reportId, userId, leads) {
+  function leadRowsForReport(reportId, userId, leads, { legacy = false } = {}) {
     const seen = new Set();
     return leads.map((lead, index) => {
       let key = lead.outreachKey || outreachKeyForLead(lead);
       if (!key) key = `lead-${index + 1}`;
-      if (seen.has(key)) key = `${key}-${index + 1}`;
+      if (seen.has(key)) {
+        let suffix = 2;
+        let candidate = `${key}-${suffix}`;
+        while (seen.has(candidate)) {
+          suffix += 1;
+          candidate = `${key}-${suffix}`;
+        }
+        key = candidate;
+      }
       seen.add(key);
+      // Save the deduped key back onto the lead so every later update targets
+      // this exact row instead of the first lead that shared the old key.
+      lead.outreachKey = key;
       const phone = lead.phone || lead.phones?.[0] || null;
       const email = lead.email || lead.emails?.[0] || null;
       const rating = Number(lead.rating);
-      const reviews = Number(lead.reviewCount);
+      const reviews = Number(lead.reviewsCount ?? lead.reviewCount);
+      const status = normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO;
       return {
         report_id: reportId,
         user_id: userId,
@@ -6794,12 +7606,66 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
         website: lead.website || null,
         rating: Number.isFinite(rating) ? Math.max(0, Math.min(5, rating)) : null,
         review_count: Number.isFinite(reviews) ? Math.round(reviews) : null,
-        outreach_status: normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO,
+        outreach_status: outreachStatusForStorage(status, { legacy }),
         outreach_note: normalizeOutreachNote(lead.outreachNote) || null,
-        contacted_at: lead.contactedAt || null,
-        payload: lead,
+        contacted_at: normalizeOutreachDate(lead.contactedAt),
+        payload: outreachPayloadFromLead(lead),
       };
     });
+  }
+
+  function applySavedLeadRowIds(leads, rows) {
+    const byKey = new Map();
+    for (const row of rows) {
+      if (row?.lead_key) byKey.set(row.lead_key, row);
+    }
+    for (const lead of leads) {
+      const row = byKey.get(lead.outreachKey);
+      if (!row) continue;
+      if (row.id && isUuid(row.id)) lead.savedRowId = row.id;
+      lead.outreachSource = "saved";
+      lead.outreachSyncState = "saved";
+      // Store the row's own version exactly. A client clock here would make
+      // the next optimistic write target a version that never existed.
+      lead.outreachSyncedAt = row.updated_at || null;
+    }
+  }
+
+  async function insertReportLeads(sb, reportId, userId, leads) {
+    // Always try the precise state first. A stale in-session `legacySchema`
+    // flag must not keep writing `contacted` after the project was migrated.
+    let rows = leadRowsForReport(reportId, userId, leads);
+    const savedRows = [];
+    for (let index = 0; index < rows.length; index += 250) {
+      let batch = rows.slice(index, index + 250);
+      let inserted;
+      try {
+        inserted = await sb.insert("leads", batch, { select: "id,lead_key,updated_at" });
+        // A native insert proves the schema accepts every state again.
+        if (state.outreachSync.legacySchema) setOutreachLegacySchema(false);
+      } catch (error) {
+        // A project that has not re-run schema.sql still rejects `follow-up`.
+        // Keep the precise state in payload and write `contacted` natively.
+        if (!isOutreachConstraintError(error)) throw error;
+        setOutreachLegacySchema(true);
+        rows = leadRowsForReport(reportId, userId, leads, { legacy: true });
+        batch = rows.slice(index, index + 250);
+        inserted = await sb.insert("leads", batch, { select: "id,lead_key,updated_at" });
+      }
+      if (Array.isArray(inserted)) savedRows.push(...inserted);
+    }
+
+    // If PostgREST returned no representation for a batch, read the ids once.
+    if (savedRows.length < rows.length) {
+      const fetched = await sb.select("leads", {
+        report_id: `eq.${reportId}`,
+        select: "id,lead_key,updated_at",
+        limit: 5000,
+      });
+      if (Array.isArray(fetched)) savedRows.push(...fetched);
+    }
+    applySavedLeadRowIds(leads, savedRows);
+    return savedRows;
   }
 
   async function handleSaveReportSubmit(event) {
@@ -6841,6 +7707,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
     }
 
     const results = state.results;
+    const previousSavedReport = state.savedReport;
     const notes = String(els.saveReportNotes?.value || "").trim();
     const summary = {
       ...(results.summary || summarize(leads)),
@@ -6865,14 +7732,16 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
           },
         );
         const row = Array.isArray(updated) ? updated[0] : updated;
-        state.savedReport = {
-          id: savedId,
-          name,
-          notes,
-          createdAt: state.savedReport?.createdAt || row?.created_at || new Date().toISOString(),
-          updatedAt: row?.updated_at || new Date().toISOString(),
-        };
-        state.results.summary = summary;
+        if (state.results === results) {
+          state.savedReport = {
+            id: savedId,
+            name,
+            notes,
+            createdAt: previousSavedReport?.createdAt || row?.created_at || new Date().toISOString(),
+            updatedAt: row?.updated_at || new Date().toISOString(),
+          };
+          state.results.summary = summary;
+        }
         showToast(`Updated “${name}”.`, "success");
       } else {
         const source = results.mode === "import" ? "import" : "scan";
@@ -6889,19 +7758,32 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
         const report = Array.isArray(inserted) ? inserted[0] : inserted;
         if (!report?.id) throw new Error("Supabase did not return the saved report.");
 
-        const rows = leadRowsForReport(report.id, user.id, leads);
-        for (let index = 0; index < rows.length; index += 250) {
-          await sb.insert("leads", rows.slice(index, index + 250), { returning: false });
+        try {
+          await insertReportLeads(sb, report.id, user.id, leads);
+        } catch (error) {
+          // A report row without its leads is worse than no report: remove the
+          // partial row (cascades any inserted leads) before surfacing the error.
+          try {
+            await sb.remove("lead_reports", { id: `eq.${report.id}` });
+          } catch (cleanupError) {
+            console.warn("[lead-atlas] Partial report rollback failed.", cleanupError);
+            throw new Error(
+              `The report could not be fully saved and its partial row could not be removed. Delete it from your library, then save again.${error?.message ? ` (${error.message})` : ""}`,
+            );
+          }
+          throw error;
         }
-        state.results.savedReportId = report.id;
-        state.savedReport = {
-          id: report.id,
-          name,
-          notes,
-          createdAt: report.created_at,
-          updatedAt: report.updated_at || report.created_at,
-        };
-        state.results.summary = summary;
+        if (state.results === results) {
+          state.results.savedReportId = report.id;
+          state.savedReport = {
+            id: report.id,
+            name,
+            notes,
+            createdAt: report.created_at,
+            updatedAt: report.updated_at || report.created_at,
+          };
+          state.results.summary = summary;
+        }
         showToast(
           `Saved “${name}” — ${pluralize(leads.length, "lead")} in your library.`,
           "success",
@@ -6980,31 +7862,20 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
   }
 
   function syncSavedLead(lead) {
+    if (!lead) return;
     const reportId = state.results?.savedReportId;
-    const sb = supabaseClient();
-    if (!reportId || !lead || !isAuthed() || !sb) return;
-    const key = lead.outreachKey || outreachKeyForLead(lead);
-    if (!key) return;
     recordSavedLeadActivity(lead);
-    const patch = {
-      outreach_status: normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO,
-      outreach_note: normalizeOutreachNote(lead.outreachNote) || null,
-      contacted_at: lead.contactedAt || null,
-      payload: lead,
-    };
-    sb.update(
-      "leads",
-      { report_id: `eq.${reportId}`, lead_key: `eq.${key}` },
-      patch,
-      { returning: false },
-    ).catch((error) => {
-      console.warn("[lead-atlas] Outreach mark could not sync.", error);
-      showToast(
-        "That outreach mark saved in this browser but could not sync to your library.",
-        "error",
-        { duration: 7000 },
-      );
-    });
+    if (!reportId) {
+      showUnsavedOutreachNotice();
+      return;
+    }
+    if (!state.auth.user?.id || !supabaseClient()) {
+      lead.outreachSyncState = "error";
+      return;
+    }
+    // The queue is local and account-scoped, so an expired token does not lose
+    // the mark; it flushes after the next successful sign-in.
+    if (!queueSavedLeadSync(lead)) return;
     scheduleSavedReportSummary();
   }
 
@@ -7086,7 +7957,7 @@ Would it be worth two minutes this week to see whether [the problem you solve] i
       // The account copy loads after sign-in; localStorage is only a cache and
       // migration source, never the token's home.
       state.token = "";
-      state.outreach = readOutreachLedger();
+      resetOutreachState();
       state.scripts = readScriptStore();
       state.scriptUi.selectedId = activeScript(state.scripts)?.id || null;
       renderScriptPlaceholders();

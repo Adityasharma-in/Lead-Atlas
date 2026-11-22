@@ -333,6 +333,7 @@
     prefer,
     range,
     returnHeaders = false,
+    keepalive = false,
   } = {}) {
     if (!isConfigured()) {
       throw new SupabaseError(
@@ -358,12 +359,21 @@
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
+      keepalive,
     });
 
     if (response.status === 401) {
       const refreshed = await refreshSession().catch(() => null);
       if (refreshed) {
-        return restRequest(table, { method, query, body, prefer, range, returnHeaders });
+        return restRequest(table, {
+          method,
+          query,
+          body,
+          prefer,
+          range,
+          returnHeaders,
+          keepalive,
+        });
       }
     }
 
@@ -702,22 +712,24 @@
     return Array.isArray(data) ? data : [];
   }
 
-  async function insert(table, rows, { returning = true } = {}) {
+  async function insert(table, rows, { returning = true, select = "*", keepalive = false } = {}) {
     const data = await restRequest(table, {
       method: "POST",
-      query: returning ? "?select=*" : "",
+      query: returning ? encodeQuery({ select }) : "",
       body: rows,
       prefer: returning ? "return=representation" : "return=minimal",
+      keepalive,
     });
     return returning ? (Array.isArray(data) ? data : [data]) : null;
   }
 
-  async function update(table, filters, patch, { returning = true } = {}) {
+  async function update(table, filters, patch, { returning = true, keepalive = false } = {}) {
     const data = await restRequest(table, {
       method: "PATCH",
       query: `${encodeQuery(filters)}${returning ? `${encodeQuery(filters) ? "&" : "?"}select=*` : ""}`,
       body: patch,
       prefer: returning ? "return=representation" : "return=minimal",
+      keepalive,
     });
     return returning ? (Array.isArray(data) ? data : [data]) : null;
   }

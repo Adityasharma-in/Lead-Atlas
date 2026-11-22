@@ -333,6 +333,62 @@ test("bare 'To contact' stays a default so a browser mark can win", () => {
   assert.equal(result.leads[0].outreachSource, null);
 });
 
+test("timestamps and false flags are not imported as outreach marks", () => {
+  const csv = [
+    "Business name,Phone,Outreach updated at,Do not contact,Contacted",
+    "Timestamp only,5125550100,2026-10-21T09:00:00.000Z,,",
+    "False flags,5125550101,,false,false",
+    "Bare status,5125550102,,,",
+  ].join("\n");
+
+  const result = parseImportContent({ name: "not-marks.csv", text: csv });
+  const [timestampOnly, falseFlags, bareStatus] = result.leads;
+
+  for (const lead of [timestampOnly, falseFlags, bareStatus]) {
+    assert.equal(lead.outreachStatus, "to-contact");
+    assert.equal(lead.outreachSource, null);
+  }
+  assert.equal(timestampOnly.outreachUpdatedAt, "2026-10-21T09:00:00.000Z");
+});
+
+test("a contacted flag or call date never weakens a stronger imported state", () => {
+  const csv = [
+    "Business name,Phone,Outreach status,Contacted,Contacted at,Do not contact",
+    "Flagged opt-out,5125550100,Do not contact,true,,",
+    "DNC column,5125550101,Do not contact,,,true",
+    "Follow up,5125550102,Follow up,true,2026-10-20T15:30:00.000Z,",
+    "Date only,5125550103,,2026-10-20T15:30:00.000Z,,",
+    "Contradiction,5125550104,To contact,2026-10-20T15:30:00.000Z,,",
+  ].join("\n");
+
+  const result = parseImportContent({ name: "stronger.csv", text: csv });
+  const [flaggedOptOut, dncColumn, followUp, dateOnly, contradiction] = result.leads;
+
+  assert.equal(flaggedOptOut.outreachStatus, "do-not-contact");
+  assert.equal(dncColumn.outreachStatus, "do-not-contact");
+  assert.equal(followUp.outreachStatus, "follow-up");
+  assert.equal(followUp.contactedAt, "2026-10-20T15:30:00.000Z");
+  assert.equal(dateOnly.outreachStatus, "contacted");
+  assert.equal(dateOnly.outreachSource, "file");
+  // A call date proves contact, so it outranks a bare "To contact" cell.
+  assert.equal(contradiction.outreachStatus, "contacted");
+});
+
+test("a merged 'To contact' row never keeps an older call date", () => {
+  const csv = [
+    "Business name,Phone,Outreach status,Contacted at,Outreach updated at,Outreach note",
+    "Acme,5125550100,Reached out,2026-10-20T15:30:00.000Z,2026-10-21T09:00:00.000Z,Spoke to Sam",
+    "Acme,5125550100,To contact,,2026-10-22T09:00:00.000Z,Call after lunch",
+  ].join("\n");
+
+  const result = parseImportContent({ name: "merge.csv", text: csv });
+  assert.equal(result.leads.length, 1);
+  const [lead] = result.leads;
+  assert.equal(lead.outreachStatus, "to-contact");
+  assert.equal(lead.contactedAt, null);
+  assert.equal(lead.outreachNote, "Call after lunch");
+});
+
 test("outreach survives CSV and JSON export round-trips", () => {
   const csv = [
     "Business name,Phone,Outreach status,Contacted at,Outreach note,Outreach updated at",

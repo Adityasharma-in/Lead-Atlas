@@ -1,22 +1,70 @@
 # MEMORY.md — Session state
 
-## Last Updated: 2026-11-20
+## Last Updated: 2026-11-22
 
-## Current Phase: SHIP - live on Vercel at https://lead-atlas-ochre.vercel.app; Supabase email redirect allowlist pending
+## Current Phase: SHIP - live on Vercel at https://lead-atlas-ochre.vercel.app; PR #8 holds the follow-up persistence and outreach integrity work
 
-## Last Completed Task: Follow up outreach state across the drawer, call mode and table (2026-11-20)
+## Last Completed Task: Outreach status integrity audit (2026-11-22)
 
-## Next Task: Review and merge the stack once its previews look right: PR #1
-(`feat/outreach-dashboard-stable-leads`) into `main`, then PR #2
-(`feat/instant-dashboard-session`), then PR #3 (`feat/survey-signal-ui`), then PR #4
-(`feat/call-mode`, https://github.com/Adityasharma-in/Lead-Atlas/pull/4), then PR #5
-(`fix/report-page-polish`, stacked on #4). Run the
-account-gated browser smoke listed in `docs/CALL-MODE.md` before merging #4. Let the
-GitHub-connected Vercel project build `main`. In Supabase **Authentication → URL
-Configuration**, set the Site URL to `https://lead-atlas-ochre.vercel.app` and add
+## Next Task: Review and merge PR #8
+(https://github.com/Adityasharma-in/Lead-Atlas/pull/8), then deploy after approval. The
+follow-up migration is already applied to the live Supabase project and statuses reach the
+database. Still pending from earlier: in Supabase **Authentication → URL Configuration**,
+set the Site URL to `https://lead-atlas-ochre.vercel.app` and add
 `https://lead-atlas-ochre.vercel.app/auth.html` plus
 `https://lead-atlas-ochre.vercel.app/**` to Redirect URLs, then test confirmation,
 magic-link, and password-recovery emails on the live domain.
+
+## Outreach status integrity audit (2026-11-22)
+- Goal: no code path may change a lead's outreach status without an explicit user action or
+  a database write, and every new lead must start at **To contact**.
+- Identity: `outreachKeyForLead` now follows the same canonical rules as duplicate
+  detection (place ID -> canonical phone/email -> name + address -> stable id), so a report
+  row, ledger entry and queue entry cannot disagree about which lead they describe.
+- Marks: a timestamp alone is not a mark. `normalizeOutreachEntry` rejects it, and a false
+  DNC flag or an outreach timestamp in an import no longer makes the row explicit.
+- Ledger: entries are report-scoped (`<reportId>::<leadKey>`) and only user marks are
+  stored. New scans and imports hydrate with `useLedger: false`; they start at **To
+  contact** unless the file carries a real status, contact date or note. Unsaved reports
+  keep marks for the open session only.
+- Sync: queued writes carry `baseUpdatedAt` (the exact `leads.updated_at`). A flush filters
+  on that version; a zero-row result reads the row and reconciles. A lost success response
+  is recognised by the visible mark signature; a strictly newer user mark may still land,
+  otherwise the database wins and the local mark is dropped. Native status always outranks
+  its payload, including the row write time, and `to-contact` never keeps a call date.
+- Imports: a contacted flag or call date upgrades a fresh lead but never downgrades
+  follow-up or do-not-contact; a merged **To contact** row drops an inherited call date.
+- Legacy: queued `contacted` + payload `follow-up` patches are promoted to native
+  `follow-up` as soon as the schema is no longer flagged legacy.
+- Verification: `npm test` 365/365 and `node --check` green on `app.js`,
+  `outreach-core.js`, `outreach-sync-core.js` and `import-core.js`. Version 2.0.3 -> 2.0.4.
+  Shipped on `fix/follow-up-persistence` for PR #8; no deploy.
+
+## Follow-up persistence and durable outreach sync (2026-11-21)
+- Problem: the fourth **Follow up** button only changed the browser because existing Supabase
+  projects still had the three-value `leads_outreach_status_check`; the old fire-and-forget
+  update could also be lost on a closed tab, network drop, or expired session.
+- `public/outreach-sync-core.js` owns the pure sync rules: precise patch/payload builders,
+  legacy downgrade (`follow-up` -> native `contacted` + payload `follow-up`), reconstruction
+  on read, queue coalescing, retry backoff, and UUID checks. `test/outreach-sync-core.test.js`
+  covers them.
+- `public/app.js`: the ledger and queue are account-scoped
+  (`leadAtlas.outreach.v1.<userId>`, `leadAtlas.outreachQueue.v1.<userId>`); the one-time
+  global ledger migrates to the first signed-in account. Marks enqueue a durable write,
+  update by row id first with a report+lead-key fallback, detect zero-row updates, retry
+  with backoff, and flush on sign-in, reconnect, sign-out, visibility change and `pagehide`
+  (`keepalive`). The legacy-schema flag is session-only, so reloading after running the
+  migration resumes native `follow-up` writes.
+- `hydrateOutreach` now prefers pending queue -> saved DB row -> file mark -> local ledger;
+  a local-newer mark is queued to self-heal. Saved-report leads carry `savedRowId`.
+- Saving a report inserts returned row ids, dedupes duplicate `lead_key` values, normalizes
+  `contacted_at`/`review_count`, and rolls back the report row if any lead batch fails.
+- `public/supabase-client.js` supports `keepalive` and a narrow returning `select`.
+- Schema: `supabase/schema.sql` is idempotent and now also repairs rows written with the
+  legacy fallback; `supabase/migrations/20261121_follow_up_outreach_status.sql` is the
+  standalone upgrade. Existing projects should run one of them to store `follow-up` natively.
+- Verification: `npm test` 353/353, `node --check` green. Version 2.0.2 -> 2.0.3. Shipped on
+  `fix/follow-up-persistence` as PR #8; the live migration has since been applied.
 
 ## Follow up outreach state (2026-11-20)
 - `public/outreach-core.js` now has four exclusive states: `to-contact`, `contacted`,
@@ -29,8 +77,9 @@ magic-link, and password-recovery emails on the live domain.
   `F` shortcut. The call-mode summary now reports follow-ups separately.
 - Data: `supabase/schema.sql` idempotently replaces `leads_outreach_status_check` with
   `('to-contact', 'contacted', 'follow-up', 'do-not-contact')`. Existing projects must
-  re-run the file before a follow-up mark can save to Supabase. Dashboard reached count
-  uses `in.(contacted,follow-up)`.
+  re-run the file before a follow-up mark can save natively; until then the app stores
+  `contacted` plus a payload `follow-up` (see the 2026-11-21 section). Dashboard reached
+  count uses `in.(contacted,follow-up)`.
 - Verification: `npm test` 334/334, `node --check` green on the touched browser modules.
   Version 2.0.1 -> 2.0.2.
 
@@ -452,16 +501,16 @@ magic-link, and password-recovery emails on the live domain.
   (scratch edit was disposable; recovery path itself covered by unit tests).
 
 ## Active Context
-- Current app version: `2.0.2` (Follow up outreach state, report page polish, call mode,
-  instant dashboard boot from an account-scoped cache, signed-in home redirect, outreach
-  analytics, stable lead identity and numbering, review quality gate, account-backed call
-  scripts, multipage public site,
-  account-only workspace/library, deep-linkable workspace routes and the account-bound Apify
-  key).
+- Current app version: `2.0.4` (outreach status integrity audit, follow-up outreach
+  persistence and durable saved-report sync, Follow up outreach state, report page polish,
+  call mode, instant dashboard boot from an account-scoped cache, signed-in home redirect,
+  outreach analytics, stable lead identity and numbering, review quality gate, account-backed
+  call scripts, multipage public site, account-only workspace/library, deep-linkable
+  workspace routes and the account-bound Apify key).
 - Live deployment: `https://lead-atlas-ochre.vercel.app` (Vercel project `lead-atlas`,
   Express preset, one serverless function, `SELF_UPDATE=off`).
 - Repo: git clone of https://github.com/Adityasharma-in/Lead-Atlas.git (current branch
-  `feat/survey-signal-ui`), identity `Adityasharma-in` /
+  `main`), identity `Adityasharma-in` /
   `Adityasharma-in@users.noreply.github.com`.
 - Node ≥ 20 (global fetch), Express 4, zero new dependencies.
 - Test harness: `node --test` (`npm test`), mock Apify HTTP server; routes tested via
@@ -612,9 +661,10 @@ magic-link, and password-recovery emails on the live domain.
   Auth/PostgREST is the one deliberate direct-browser third-party path.
 - The library is explicit: a scan/import is not persisted until the user chooses **Save to
   library**. This keeps the Data desk privacy promise and avoids surprise uploads.
-- Saved-report outreach writes through to Supabase, with the existing localStorage ledger
-  retained as a fallback and for unsaved reports. Call scripts write through to
-  `script_libraries` with an account-scoped local cache.
+- Saved-report outreach writes through to Supabase; the account-scoped localStorage ledger
+  is report-scoped and holds only unsynced user marks. Unsaved scans and imports keep marks
+  for the open session only. Call scripts write through to `script_libraries` with an
+  account-scoped local cache.
 - The site is multipage, not one document: public pages are separate files; `auth.html`
   is the only auth surface; `app.html` is the account-only workspace. Workspace views are
   hash routes so they remain deep-linkable without a router dependency.

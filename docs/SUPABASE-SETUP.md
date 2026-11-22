@@ -32,6 +32,16 @@ personal use.
 The script is idempotent: it creates tables, indexes, triggers, and RLS policies only
 when they are missing, so it is safe to run again after an update.
 
+### Upgrading an existing project
+
+Re-running the whole file after an update is the supported upgrade path; every statement
+is idempotent. The follow-up outreach change replaces the old three-value
+`outreach_status` check and promotes rows that kept `follow-up` in `payload`. To apply only
+that change, run
+[`supabase/migrations/20261121_follow_up_outreach_status.sql`](../supabase/migrations/20261121_follow_up_outreach_status.sql)
+instead. The app keeps working before the upgrade: a follow-up is stored as `contacted`
+with the precise state in `payload` and reconstructed on read.
+
 It creates:
 
 | Object | Purpose |
@@ -146,8 +156,10 @@ real accounts.
 Signing out clears the browser cache of the Apify key, not the account copy. Signing in on
 another browser loads the same key from `profiles.apify_token`; **Forget key** clears both.
 
-Outreach marks made on a saved report are written back to its `leads` rows. If a write
-fails, the mark still stays in this browser's local ledger and the app shows a warning.
+Outreach marks made on a saved report are written back to its `leads` rows through a
+durable, account-scoped retry queue. If a write fails, the mark stays in this browser's
+local ledger and the drawer shows **Will retry**; the queue resumes on the next sign-in,
+when the connection returns, and once more during sign-out. Nothing is sent to Apify.
 
 Open **Scripts** in the workspace header, create or edit a script, and watch the save
 badge. **Saved to account** means the library is in `public.script_libraries` for this
@@ -230,7 +242,8 @@ export was the `createApp` factory. Deploy the current handler.
 | The auth page says **Supabase is not connected yet** | Add `SUPABASE_URL` and `SUPABASE_ANON_KEY` to `.env`, then restart the server. Check `/api/config` reports `"configured": true`. |
 | **The Supabase schema is missing** | Run [`supabase/schema.sql`](../supabase/schema.sql) in the SQL Editor. If you just ran it, wait a moment for PostgREST's schema cache to refresh, then retry. |
 | **The key dialog says the Apify-key column is missing** | The schema predates account-level keys. Re-run [`supabase/schema.sql`](../supabase/schema.sql); it adds `profiles.apify_token` without touching existing rows. Reload and save the key again. |
-| **A Follow up mark does not save** | The project's `outreach_status` check predates the follow-up state. Re-run [`supabase/schema.sql`](../supabase/schema.sql); it replaces the three-value check with the four-value one and leaves existing rows alone. Reload and mark the lead again. |
+| **A Follow up mark does not save natively** | The project's `outreach_status` check predates the follow-up state. Run the updated [`supabase/schema.sql`](../supabase/schema.sql) or the standalone [follow-up migration](../supabase/migrations/20261121_follow_up_outreach_status.sql). Until then the app saves `contacted` plus a precise `payload`, so no mark is lost. |
+| **A saved-report mark says “Will retry”** | The mark is queued in this browser. Check the connection and session; the queue retries with backoff and flushes on sign-out. If it keeps failing, confirm `leads` still has owner RLS and the report row was not deleted. |
 | **“The key is valid, but it could not be saved to your account”** | Retry while signed in. If it repeats, confirm the project is not paused, the `profiles` owner RLS policies exist, and `apify_token` is present. The key is not marked connected until the account write succeeds. |
 | **Scripts say “Local only”** | The browser saved them, but the account write failed. Check the project is not paused and that `script_libraries` exists with owner-only RLS (re-run [`supabase/schema.sql`](../supabase/schema.sql)). Then edit a script or reopen the library to retry. Export a backup before clearing site data. |
 | **Call scripts are empty on another device** | Sign in there with the same account and reload. If they are still missing, check the `script_libraries` row count above; the table or its RLS policies may be missing. A JSON backup can restore them from **Scripts → Import**. |
