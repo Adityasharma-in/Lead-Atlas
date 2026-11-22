@@ -18,6 +18,8 @@ import {
   outreachSyncEntryFromLead,
   outreachSyncKey,
   parseOutreachSyncQueue,
+  promoteLegacyOutreachPatch,
+  sameOutreachVersion,
   serializeOutreachSyncQueue,
 } from "../public/outreach-sync-core.js";
 
@@ -45,6 +47,19 @@ test("recognizes Supabase UUIDs and rejects other identifiers", () => {
   assert.equal(isUuid("lead-1"), false);
   assert.equal(isUuid(""), false);
   assert.equal(isUuid(null), false);
+});
+
+test("row versions compare by instant, not string format", () => {
+  assert.equal(
+    sameOutreachVersion("2026-11-20T10:06:00+00:00", "2026-11-20T10:06:00.000Z"),
+    true,
+  );
+  assert.equal(
+    sameOutreachVersion("2026-11-20T10:06:00.100Z", "2026-11-20T10:06:00.000Z"),
+    false,
+  );
+  assert.equal(sameOutreachVersion(null, "2026-11-20T10:06:00.000Z"), false);
+  assert.equal(sameOutreachVersion("not a date", "2026-11-20T10:06:00.000Z"), false);
 });
 
 test("maps follow-up to contacted only for a legacy schema", () => {
@@ -326,15 +341,19 @@ test("a changed lead key cannot leave a stale write for the same row", () => {
 });
 
 test("builds a queue entry from a lead and prefers its saved row id", () => {
-  const entry = outreachSyncEntryFromLead(lead(), {
-    reportId: REPORT_ID,
-    userId: "user-1",
-    now: 1_700_000_000_000,
-  });
+  const entry = outreachSyncEntryFromLead(
+    lead({ outreachSyncedAt: "2026-11-20T10:06:00+00:00" }),
+    {
+      reportId: REPORT_ID,
+      userId: "user-1",
+      now: 1_700_000_000_000,
+    },
+  );
   assert.equal(entry.key, `${REPORT_ID}:row:${ROW_ID}`);
   assert.equal(entry.rowId, ROW_ID);
   assert.equal(entry.leadKey, "place:acme-1");
   assert.equal(entry.userId, "user-1");
+  assert.equal(entry.baseUpdatedAt, "2026-11-20T10:06:00.000Z");
   assert.equal(entry.patch.outreach_status, "follow-up");
   assert.equal(entry.queuedAt, "2023-11-14T22:13:20.000Z");
 
@@ -357,4 +376,89 @@ test("downgrades a precise patch for the legacy schema without losing the mark",
   assert.equal(legacy.contacted_at, "2026-11-20T10:00:00.000Z");
   assert.equal(legacy.payload.outreachStatus, "follow-up");
   assert.equal(legacy.payload.outreachUpdatedAt, "2026-11-20T10:05:00.000Z");
+});
+
+test("promotes a legacy queued patch once the schema is migrated", () => {
+  const patch = outreachPatchFromLead(lead());
+  const legacy = legacyOutreachPatch(patch);
+  const promoted = promoteLegacyOutreachPatch(legacy);
+
+  assert.equal(promoted.outreach_status, "follow-up");
+  assert.equal(promoted.outreach_note, "Call back Friday");
+  assert.equal(promoted.contacted_at, "2026-11-20T10:00:00.000Z");
+  assert.equal(promoted.payload.outreachStatus, "follow-up");
+  assert.equal(promoted.payload.outreachUpdatedAt, "2026-11-20T10:05:00.000Z");
+
+  // Idempotent: promoting an already precise patch changes nothing.
+  assert.deepEqual(promoteLegacyOutreachPatch(promoted), promoted);
+});
+
+test("a native state that disagrees with its payload uses the row write time", () => {
+  const reset = outreachEntryFromSavedRow({
+    outreach_status: "to-contact",
+    contacted_at: null,
+    updated_at: "2026-11-20T12:00:00.000Z",
+    payload: {
+      outreachStatus: "contacted",
+      contactedAt: "2026-11-20T09:00:00.000Z",
+      outreachUpdatedAt: "2026-11-20T09:00:00.000Z",
+    },
+  });
+  assert.equal(reset.status, "to-contact");
+  assert.equal(reset.contactedAt, null);
+  assert.equal(reset.updatedAt, "2026-11-20T12:00:00.000Z");
+
+  const blocked = outreachEntryFromSavedRow({
+    outreach_status: "do-not-contact",
+    contacted_at: "2026-11-20T09:00:00.000Z",
+    updated_at: "2026-11-20T12:00:00.000Z",
+    payload: {
+      outreachStatus: "contacted",
+      contactedAt: "2026-11-20T09:00:00.000Z",
+      outreachUpdatedAt: "2026-11-20T09:00:00.000Z",
+    },
+  });
+  assert.equal(blocked.status, "do-not-contact");
+  assert.equal(blocked.updatedAt, "2026-11-20T12:00:00.000Z");
+});
+
+test("a 'To contact' row never keeps a stale call date", () => {
+  const reset = outreachEntryFromPatch({
+    outreach_status: "to-contact",
+    contacted_at: "2026-11-20T09:00:00.000Z",
+    updated_at: "2026-11-20T12:00:00.000Z",
+    payload: { outreachStatus: "contacted", contactedAt: "2026-11-20T09:00:00.000Z" },
+  });
+  assert.equal(reset.status, "to-contact");
+  assert.equal(reset.contactedAt, null);
+
+  // A note-only row is still a real mark; only the impossible date is dropped.
+  const noted = outreachEntryFromPatch({
+    outreach_status: "to-contact",
+    contacted_at: "2026-11-20T09:00:00.000Z",
+    outreach_note: "Call after lunch",
+    payload: { outreachStatus: "to-contact" },
+  });
+  assert.equal(noted.status, "to-contact");
+  assert.equal(noted.contactedAt, null);
+  assert.equal(noted.note, "Call after lunch");
+});
+
+test("a parsed queue keeps the row version each mark was based on", () => {
+  const parsed = parseOutreachSyncQueue({
+    entries: [
+      {
+        reportId: REPORT_ID,
+        rowId: ROW_ID,
+        leadKey: "place:acme-1",
+        baseUpdatedAt: "2026-11-20T10:06:00+00:00",
+        patch: { outreach_status: "contacted" },
+        queuedAt: "2026-11-20T10:07:00.000Z",
+      },
+    ],
+  });
+  assert.equal(parsed.entries[0].baseUpdatedAt, "2026-11-20T10:06:00.000Z");
+
+  const roundTrip = parseOutreachSyncQueue(serializeOutreachSyncQueue(parsed.entries));
+  assert.equal(roundTrip.entries[0].baseUpdatedAt, "2026-11-20T10:06:00.000Z");
 });

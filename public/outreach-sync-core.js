@@ -44,6 +44,17 @@ export function isUuid(value) {
 }
 
 /**
+ * True when two row versions describe the same instant. PostgREST returns
+ * `2026-11-20T10:06:00+00:00` while the queue stores the normalized
+ * `2026-11-20T10:06:00.000Z`; comparing the strings would always fail.
+ */
+export function sameOutreachVersion(left, right) {
+  const a = normalizeOutreachDate(left);
+  const b = normalizeOutreachDate(right);
+  return Boolean(a && b && a === b);
+}
+
+/**
  * The value written to the native `outreach_status` column.
  *
  * Projects created before the follow-up state only allow three values. The
@@ -66,6 +77,7 @@ export function outreachPayloadFromLead(lead = {}) {
   delete payload.savedRowId;
   delete payload.outreachSyncedAt;
   delete payload.outreachSyncState;
+  delete payload.savedNativeStatus;
 
   const entry = outreachEntryFromLead(lead);
   payload.outreachStatus = entry.status;
@@ -101,19 +113,39 @@ export function outreachEntryFromPatch(patch = {}) {
     payload.outreachStatus ?? payload.outreach_status,
   );
   let status = nativeStatus || preciseStatus || OUTREACH.TODO;
-  if (nativeStatus === OUTREACH.CONTACTED && preciseStatus === OUTREACH.FOLLOW_UP) {
-    status = OUTREACH.FOLLOW_UP;
-  }
+  const legacyFollowUp =
+    nativeStatus === OUTREACH.CONTACTED && preciseStatus === OUTREACH.FOLLOW_UP;
+  if (legacyFollowUp) status = OUTREACH.FOLLOW_UP;
 
-  const contactedAt = normalizeOutreachDate(patch.contacted_at ?? payload.contactedAt);
+  // A native column that disagrees with its payload (outside the documented
+  // legacy follow-up case) is authoritative. Its write time is the only safe
+  // stamp; the payload timestamp belongs to an older, superseded mark.
+  const nativeWins =
+    Boolean(nativeStatus) &&
+    !legacyFollowUp &&
+    Boolean(preciseStatus) &&
+    preciseStatus !== nativeStatus;
+
+  // When the native state wins, its contact date wins too. A stale payload
+  // date must not survive a reset back to "To contact".
+  const nativeAuthoritative =
+    nativeWins || (nativeStatus === OUTREACH.TODO && !legacyFollowUp);
+  const rawContactedAt = normalizeOutreachDate(
+    nativeAuthoritative ? patch.contacted_at : patch.contacted_at ?? payload.contactedAt,
+  );
+  // "To contact" means no call has happened, so it can never carry a call date.
+  const contactedAt = status === OUTREACH.TODO ? null : rawContactedAt;
   const note = normalizeOutreachNote(patch.outreach_note ?? payload.outreachNote) || null;
   const hasMark = status !== OUTREACH.TODO || Boolean(contactedAt) || Boolean(note);
+  const payloadTime = normalizeOutreachDate(payload.outreachUpdatedAt);
+  // A native reset can leave no visible mark at all, but the row write time is
+  // still the truth: the stale payload timestamp must not outrank it.
+  const rowTime =
+    nativeWins || hasMark ? normalizeOutreachDate(patch.updated_at) : null;
   return {
     status,
     contactedAt,
-    updatedAt:
-      normalizeOutreachDate(payload.outreachUpdatedAt) ||
-      (hasMark ? normalizeOutreachDate(patch.updated_at) : null),
+    updatedAt: nativeWins ? rowTime || payloadTime : payloadTime || rowTime,
     note,
   };
 }
@@ -171,6 +203,10 @@ export function normalizeOutreachQueueEntry(raw) {
     userId: text(raw.userId) || null,
     rowId,
     leadKey,
+    // The row version this mark was based on. A flush only writes when the
+    // row still carries this exact updated_at, so a change from another
+    // device can never be silently overwritten by an older queued mark.
+    baseUpdatedAt: normalizeOutreachDate(raw.baseUpdatedAt),
     patch,
     queuedAt: normalizeOutreachDate(raw.queuedAt),
     attempts: Math.max(0, Math.floor(Number(raw.attempts) || 0)),
@@ -274,6 +310,30 @@ export function legacyOutreachPatch(patch = {}) {
   };
 }
 
+/**
+ * Undo a legacy downgrade once the schema accepts the precise state again.
+ * A queued `contacted` + payload `follow-up` becomes native `follow-up`; every
+ * other patch is rebuilt from its authoritative entry so stale payload fields
+ * cannot survive a retry.
+ */
+export function promoteLegacyOutreachPatch(patch = {}) {
+  const entry = outreachEntryFromPatch(patch);
+  const payload = objectOrEmpty(patch.payload);
+  return {
+    ...patch,
+    outreach_status: entry.status,
+    outreach_note: entry.note || null,
+    contacted_at: entry.contactedAt,
+    payload: {
+      ...payload,
+      outreachStatus: entry.status,
+      contactedAt: entry.contactedAt,
+      outreachUpdatedAt: entry.updatedAt,
+      outreachNote: entry.note,
+    },
+  };
+}
+
 /** Build the durable queue entry for one lead in one saved report. */
 export function outreachSyncEntryFromLead(
   lead,
@@ -295,6 +355,7 @@ export function outreachSyncEntryFromLead(
     userId: text(userId) || null,
     rowId,
     leadKey,
+    baseUpdatedAt: normalizeOutreachDate(lead.outreachSyncedAt),
     patch: outreachPatchFromLead(lead, { legacy }),
     queuedAt: new Date(timestamp).toISOString(),
     attempts: 0,

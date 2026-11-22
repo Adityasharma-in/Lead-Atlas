@@ -6,6 +6,8 @@
  * them so marks survive a CSV or JSON round-trip.
  */
 
+import { leadIdentityKeys } from "./lead-identity-core.js";
+
 export const OUTREACH = Object.freeze({
   TODO: "to-contact",
   CONTACTED: "contacted",
@@ -105,8 +107,6 @@ const FOLLOW_UP_PATTERNS = [
   /^fu$/,
 ];
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
 function text(value) {
   if (typeof value === "string") return value.trim();
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -119,15 +119,6 @@ function normalizeStatusKey(value) {
     .replace(/[\u2018\u2019']/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
-}
-
-function phoneDigits(value) {
-  return text(value).replace(/[^\d]/g, "");
-}
-
-function isEmail(value) {
-  const email = text(value).replace(/^mailto:/i, "").toLowerCase();
-  return email.length <= 254 && EMAIL_PATTERN.test(email) ? email : null;
 }
 
 /**
@@ -194,7 +185,10 @@ export function normalizeOutreachEntry(raw = {}) {
     raw.note ?? raw.outreachNote ?? raw.contactNote ?? "",
   );
 
-  if (!status && !contactedAt && !updatedAt && !note) return null;
+  // A timestamp on its own is not an outreach mark. It must never be allowed
+  // to turn a lead back into "To contact" (or into a mark) just because a row
+  // carried a write time.
+  if (!status && !contactedAt && !note) return null;
 
   return {
     status: status || (contactedAt ? OUTREACH.CONTACTED : OUTREACH.TODO),
@@ -206,34 +200,94 @@ export function normalizeOutreachEntry(raw = {}) {
 
 /**
  * A stable identity for a lead across scans and file imports. Place ID wins,
- * then a phone number, then an email, then name + address.
+ * then the canonical phone/email/name identity used by the duplicate engine.
+ * A name alone is not enough: requiring the address keeps every branch of the
+ * same chain from sharing one outreach ledger entry.
  */
 export function outreachKeyForLead(lead = {}) {
   const placeId = text(lead.placeId);
   if (placeId) return `place:${placeId.toLowerCase()}`;
 
-  const phone = [...(Array.isArray(lead.phones) ? lead.phones : []), lead.phone]
-    .map(phoneDigits)
-    .find((digits) => digits.length >= 6);
-  if (phone) return `phone:${phone}`;
+  const key = leadIdentityKeys(lead).find(
+    (candidate) => !candidate.startsWith("place:") && !candidate.startsWith("id:"),
+  );
+  if (key) return key;
 
-  const email = (Array.isArray(lead.emails) ? lead.emails : []).map(isEmail).find(Boolean);
-  if (email) return `email:${email}`;
-
-  const name = text(lead.name).toLowerCase();
-  const address = text(lead.address).toLowerCase();
-  if (name || address) return `name:${name}|${address}`;
-  return `id:${text(lead.id) || "unknown"}`;
+  const id = text(lead.id).toLowerCase();
+  return id ? `id:${id}` : "id:unknown";
 }
 
 export function outreachEntryFromLead(lead = {}) {
-  const status = normalizeOutreachStatus(lead.outreachStatus) || OUTREACH.TODO;
-  return {
-    status,
-    contactedAt: normalizeOutreachDate(lead.contactedAt),
-    updatedAt: normalizeOutreachDate(lead.outreachUpdatedAt),
-    note: normalizeOutreachNote(lead.outreachNote) || null,
-  };
+  const entry = normalizeOutreachEntry({
+    status: lead.outreachStatus,
+    contactedAt: lead.contactedAt,
+    updatedAt: lead.outreachUpdatedAt,
+    note: lead.outreachNote,
+  });
+  return (
+    entry || {
+      status: OUTREACH.TODO,
+      contactedAt: null,
+      updatedAt: null,
+      note: null,
+    }
+  );
+}
+
+/** Comparable text for an outreach entry; equal signatures mean no new mark. */
+export function outreachEntrySignature(entry) {
+  if (!entry) return "";
+  return [
+    normalizeOutreachStatus(entry.status) || OUTREACH.TODO,
+    entry.contactedAt || "",
+    entry.updatedAt || "",
+    normalizeOutreachNote(entry.note) || "",
+  ].join("|");
+}
+
+/**
+ * The visible mark without its write time. Two entries with the same status,
+ * call date and note describe the same state even if one was read from a row's
+ * `updated_at` and the other from a payload timestamp.
+ */
+export function outreachEntryMarkSignature(entry) {
+  if (!entry) return "";
+  return [
+    normalizeOutreachStatus(entry.status) || OUTREACH.TODO,
+    entry.contactedAt || "",
+    normalizeOutreachNote(entry.note) || "",
+  ].join("|");
+}
+
+/** The mark time, or 0 when the entry has no usable timestamp. */
+export function outreachEntryTime(entry) {
+  const time = Date.parse(entry?.updatedAt || "");
+  return Number.isFinite(time) ? time : 0;
+}
+
+/**
+ * True only when `candidate` is strictly newer than `baseline`. Equal stamps
+ * resolve in favour of the baseline (the database), never the local copy.
+ */
+export function outreachEntryIsNewer(candidate, baseline) {
+  if (!candidate) return false;
+  if (!baseline) return true;
+  const candidateTime = outreachEntryTime(candidate);
+  const baselineTime = outreachEntryTime(baseline);
+  if (!candidateTime) return false;
+  if (!baselineTime) return true;
+  return candidateTime > baselineTime;
+}
+
+/**
+ * True only when both entries carry a timestamp and the candidate is later.
+ * Use this when a version conflict must be resolved: an untimestamped row is
+ * never treated as older than a local mark.
+ */
+export function outreachEntryStrictlyNewer(candidate, baseline) {
+  const candidateTime = outreachEntryTime(candidate);
+  const baselineTime = outreachEntryTime(baseline);
+  return candidateTime > 0 && baselineTime > 0 && candidateTime > baselineTime;
 }
 
 export function applyOutreachEntry(lead, entry) {

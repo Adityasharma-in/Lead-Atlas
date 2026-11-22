@@ -321,16 +321,21 @@ you come back from the dialer. A **Do not contact** lead keeps its orange stop m
 tapping a number that is already ticked does not move its original call date. The same
 marker appears in the report table/cards and in the drawer's contact book.
 
-Marks are mirrored in `localStorage` under `leadAtlas.outreach.v1.<account id>`, keyed by
-place ID, then phone, then email, then name + address, so unsaved reports keep their trail
-and a new scan of the same market keeps the marks you already made. The ledger is scoped to
-the signed-in account, so a second account on the same browser never inherits another
-operator's marks. On a saved report, each mark is also written to that lead's row in your
-Supabase library. Those writes go through a small durable queue
-(`leadAtlas.outreachQueue.v1.<account id>`): a closed tab, a brief network drop, or an
-expired session does not lose the update. The queue retries with backoff, flushes once more
-on sign-out, and resumes on the next sign-in. If a write still fails, the browser copy stays
-and the drawer shows **Will retry**. Nothing is sent to Apify.
+Marks for a saved report are mirrored in `localStorage` under
+`leadAtlas.outreach.v1.<account id>`, keyed by report plus the lead's place ID, then phone,
+then email, then name + address. A mark belongs only to the report where you made it: a new
+scan or imported file starts every lead at **To contact** unless the file itself carries an
+explicit status, contact date, or note. The ledger is scoped to the signed-in account, so a
+second account on the same browser never inherits another operator's marks. On a saved
+report, each mark is also written to that lead's row in your Supabase library. Those writes
+go through a small durable queue (`leadAtlas.outreachQueue.v1.<account id>`): a closed tab, a
+brief network drop, or an expired session does not lose the update. The queue retries with
+backoff, flushes once more on sign-out, and resumes on the next sign-in. If a write still
+fails, the browser copy stays and the drawer shows **Will retry**. Nothing is sent to Apify.
+
+Each queued write remembers the row version it was based on. If another device changed the
+same lead in the meantime, the database wins and the stale local mark is dropped instead of
+overwriting the newer state.
 
 If the project has not yet re-run the updated schema, a **Follow up** mark is stored as
 `contacted` in the native column with the precise state in `payload`; the app reconstructs
@@ -593,10 +598,11 @@ the separate employee-level **business leads enrichment** add-on is intentionall
 - Imported lead files are read with the browser `File` API and parsed in memory. They are
   not sent to the local server or Apify. If you choose **Save to library**, the parsed
   report and leads are written to your own Supabase project.
-- Outreach marks and notes are mirrored in this browser under the account-scoped
-  `leadAtlas.outreach.v1.<user-id>` ledger and, for saved reports, written to the
-  corresponding `leads` rows in your Supabase project through a retry queue. They are
-  included in files you download. Nothing goes to Apify.
+- Outreach marks and notes for a saved report are mirrored in this browser under the
+  account-scoped `leadAtlas.outreach.v1.<user-id>` ledger, keyed by report, and written to
+  the corresponding `leads` rows in your Supabase project through a retry queue. Unsaved
+  scans and imports keep marks for the open session only. Marks are included in files you
+  download. Nothing goes to Apify.
 - Call scripts are saved to your Supabase `script_libraries` row and cached under an
   account-scoped `leadAtlas.scripts.v1.<user-id>` key. Script text is never sent to the
   local server or Apify. The JSON script backup is a separate download from the lead
@@ -759,9 +765,9 @@ lead-atlas/
   per instance. A poll can repeat an Apify read and a cold start can add latency; the scan
   itself still runs on Apify. Vercel Authentication must stay off for the site to be public.
 - Saved reports and their outreach marks sync through Supabase, so the same account sees
-  them on another device. Unsaved reports use the account-scoped browser ledger only. If the
-  Supabase project is paused or unreachable, queued marks stay in the browser and retry when
-  it returns.
+  them on another device. Unsaved scans and imports keep their marks in the open session;
+  save the report to keep them. If the Supabase project is paused or unreachable, queued
+  marks stay in the browser and retry when it returns.
 - Clearing site data removes the browser outreach ledger and its retry queue, the
   call-script cache, and the cached Apify key. Saved-report outreach, call scripts, and the
   Apify token are restored from Supabase when you sign in again; export scripts first if you
@@ -804,7 +810,7 @@ lead-atlas/
 | A file will not import | Use CSV, TSV, JSON, or JSONL under 8 MB. The file needs a business-name column or at least one phone, email, or website per row. The error message on the Data desk explains what was missing. |
 | Imported report has no niche or location | That metadata was not in the file. The report still works; its heading falls back to the file name. |
 | The scan says “lost contact” | Check Apify Console; the run may still be running there |
-| Outreach marks disappeared | Saved-report marks are restored from Supabase when you reopen the report. Unsaved reports use the account-scoped browser ledger; export and re-import a CSV/JSON file to restore those, or check that site data was not cleared. |
+| Outreach marks disappeared | Unsaved scans and imports keep marks only for the open session; save the report to keep them. Saved-report marks are restored from Supabase when you reopen the report, and unsynced marks wait in the account-scoped retry queue. Check that site data was not cleared. |
 | A saved-report mark says **Will retry** | The mark is safe in this browser and queued for Supabase. Check the connection and your session; the queue retries with backoff and flushes on sign-out. If it keeps failing, confirm `leads` still has owner RLS and the report row was not deleted. |
 | A **Follow up** mark does not save natively | The project's `outreach_status` check predates the follow-up state. The mark is still saved as `contacted` plus a precise `payload`; run the updated `supabase/schema.sql` (or `supabase/migrations/20261121_follow_up_outreach_status.sql`) to store `follow-up` natively and promote existing rows. |
 | Call scripts disappeared | Sign in with the same account and reload: the library loads from `script_libraries`. If the table is missing, run `supabase/schema.sql`. A JSON script backup can also restore them (**Scripts → Import**); lead report exports do not contain scripts. |

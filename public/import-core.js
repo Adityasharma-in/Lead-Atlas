@@ -850,34 +850,46 @@ function parseOutreach(map) {
 
   let explicit = false;
   if (status !== null) {
-    // A bare “To contact” cell is the same as no mark, so a local outreach
-    // ledger is still allowed to fill in a newer contacted state.
-    explicit = status !== OUTREACH.TODO || Boolean(contactedAt || updatedAt || note);
+    // A bare “To contact” cell is the same as no mark, so a new lead keeps the
+    // default state. A timestamp alone is not a mark either; only a real
+    // status, a contact date or a note makes the row explicit.
+    explicit = status !== OUTREACH.TODO || Boolean(contactedAt || note);
   }
 
   if (doNotContactFlag === true) {
     status = OUTREACH.DO_NOT_CONTACT;
     explicit = true;
   } else if (contactedFlag === true) {
-    status = OUTREACH.CONTACTED;
+    // A contacted flag can only move a fresh lead forward. It must never
+    // downgrade an explicit follow-up or override a do-not-contact mark.
+    if (!status || status === OUTREACH.TODO || status === OUTREACH.CONTACTED) {
+      status = OUTREACH.CONTACTED;
+    }
     explicit = true;
   } else if (contactedFlag === false) {
-    status = OUTREACH.TODO;
-    explicit = true;
-  } else if (doNotContactFlag === false) {
+    // "Not contacted" is the default, not a user mark.
     status = status || OUTREACH.TODO;
-    explicit = true;
+  } else if (doNotContactFlag === false) {
+    // A false DNC flag is the default, not a user mark.
+    status = status || OUTREACH.TODO;
   }
 
   if (contactedDate) {
+    // A call date confirms contact, but follow-up and do-not-contact stay the
+    // stronger, more specific states the file asked for.
+    if (!status || status === OUTREACH.TODO || status === OUTREACH.CONTACTED) {
+      status = OUTREACH.CONTACTED;
+    }
+    explicit = true;
+  }
+  if (
+    contactedAt &&
+    (!status || status === OUTREACH.TODO || status === OUTREACH.CONTACTED)
+  ) {
     status = OUTREACH.CONTACTED;
     explicit = true;
   }
-  if (!status && contactedAt) {
-    status = OUTREACH.CONTACTED;
-    explicit = true;
-  }
-  if (!explicit && (note || updatedAt)) {
+  if (!explicit && note) {
     status = status || OUTREACH.TODO;
     explicit = true;
   }
@@ -1167,7 +1179,12 @@ function mergeLead(existing, incoming) {
   ) {
     merged.outreachStatus = incoming.outreachStatus;
     merged.outreachSource = "file";
-    merged.contactedAt = incoming.contactedAt || existing.contactedAt || null;
+    // A "To contact" state can never inherit a call date from the row it
+    // merged with; the visible state must stay internally consistent.
+    merged.contactedAt =
+      incoming.outreachStatus === OUTREACH.TODO
+        ? null
+        : incoming.contactedAt || existing.contactedAt || null;
     merged.outreachUpdatedAt = incoming.outreachUpdatedAt || existing.outreachUpdatedAt || null;
     merged.outreachNote = incoming.outreachNote || existing.outreachNote || null;
   } else if (!merged.outreachNote && incoming.outreachNote) {

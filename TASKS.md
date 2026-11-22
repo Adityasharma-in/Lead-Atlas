@@ -489,3 +489,25 @@
       `test/supabase-client.test.js` covers the request shape.
 - [x] P7: README and `docs/SUPABASE-SETUP.md` document the queue, account scoping, fallback,
       and migration; `npm test` 353/353 and `node --check` green; version 2.0.2 -> 2.0.3.
+
+## Fix: outreach status integrity audit (2026-11-22)
+- [x] A1: `public/outreach-core.js` — `outreachKeyForLead` now shares the canonical
+      duplicate identity (place -> phone/email -> name + address -> id); a timestamp-only
+      entry is not a mark; `outreachEntryIsNewer`, `outreachEntryStrictlyNewer` and
+      `outreachEntryMarkSignature` make equal stamps resolve to the database.
+- [x] A2: `public/outreach-sync-core.js` — a native status that disagrees with its payload
+      is authoritative, including the row's `updated_at`; a `to-contact` row never keeps a
+      stale call date; queued legacy patches promote to the precise state once the schema
+      is migrated.
+- [x] A3: `public/app.js` — the ledger is report-scoped (`<reportId>::<leadKey>`); scans and
+      imports hydrate with `useLedger: false`, so every new lead starts **To contact**
+      unless the file itself carries a status, date or note. Queued writes carry
+      `baseUpdatedAt`; a zero-row update reads the row and only lets a strictly newer user
+      mark land, otherwise the database wins.
+- [x] A4: `public/import-core.js` — a contacted flag or call date can never downgrade a
+      follow-up or do-not-contact mark; a merged **To contact** row drops an inherited call
+      date.
+- [x] A5: Tests — outreach, sync and import suites extended; `npm test` 365/365 and
+      `node --check` green on all touched browser modules.
+- [x] A6: README, TASKS and MEMORY updated; version 2.0.3 -> 2.0.4. Changes stay on
+      `fix/follow-up-persistence` for PR #8; no deploy.

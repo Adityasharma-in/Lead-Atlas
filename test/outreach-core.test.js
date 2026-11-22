@@ -13,6 +13,9 @@ import {
   normalizeOutreachStatus,
   outreachCounts,
   outreachEntryFromLead,
+  outreachEntryIsNewer,
+  outreachEntryMarkSignature,
+  outreachEntryStrictlyNewer,
   outreachKeyForLead,
   outreachStatusLabel,
 } from "../public/outreach-core.js";
@@ -102,6 +105,76 @@ test("builds a stable key in place -> phone -> email -> name order", () => {
   assert.equal(
     outreachKeyForLead({ name: " Acme ", address: "1 Main St" }),
     "name:acme|1 main st",
+  );
+});
+
+test("uses the same identity rules as duplicate detection", () => {
+  // A country code must not create a second key for the same number.
+  assert.equal(
+    outreachKeyForLead({ phones: ["+1 (512) 555-0100"], name: "Acme" }),
+    "phone:5125550100",
+  );
+  // A name alone is too collision-prone; the stable id takes over.
+  assert.equal(
+    outreachKeyForLead({ name: "Acme", id: "lead-abc123" }),
+    "id:lead-abc123",
+  );
+  assert.equal(outreachKeyForLead({}), "id:unknown");
+});
+
+test("a timestamp alone is not an outreach mark", () => {
+  assert.equal(
+    normalizeOutreachEntry({ updatedAt: "2026-11-20T10:00:00.000Z" }),
+    null,
+  );
+  assert.equal(
+    normalizeOutreachEntry({ outreachUpdatedAt: "2026-11-20T10:00:00.000Z" }),
+    null,
+  );
+  assert.equal(
+    normalizeOutreachEntry({ status: "to contact", updatedAt: "2026-11-20T10:00:00.000Z" })
+      .status,
+    OUTREACH.TODO,
+  );
+});
+
+test("resolves equal stamps to the database and only accepts strictly newer marks", () => {
+  const saved = {
+    status: OUTREACH.CONTACTED,
+    contactedAt: "2026-11-20T10:00:00.000Z",
+    updatedAt: "2026-11-20T10:05:00.000Z",
+    note: null,
+  };
+  const sameTime = { ...saved, status: OUTREACH.FOLLOW_UP };
+  const newer = { ...saved, status: OUTREACH.FOLLOW_UP, updatedAt: "2026-11-20T10:06:00.000Z" };
+  const older = { ...saved, status: OUTREACH.TODO, updatedAt: "2026-11-20T10:04:00.000Z" };
+
+  assert.equal(outreachEntryIsNewer(sameTime, saved), false);
+  assert.equal(outreachEntryIsNewer(newer, saved), true);
+  assert.equal(outreachEntryIsNewer(older, saved), false);
+  assert.equal(outreachEntryStrictlyNewer(sameTime, saved), false);
+  assert.equal(outreachEntryStrictlyNewer(newer, saved), true);
+  assert.equal(outreachEntryStrictlyNewer(older, saved), false);
+  assert.equal(
+    outreachEntryStrictlyNewer({ status: OUTREACH.CONTACTED }, saved),
+    false,
+  );
+});
+
+test("compares visible marks without their write time", () => {
+  assert.equal(
+    outreachEntryMarkSignature({
+      status: "follow-up",
+      contactedAt: "2026-11-20T10:00:00.000Z",
+      updatedAt: "2026-11-20T10:05:00.000Z",
+      note: "Call Friday",
+    }),
+    outreachEntryMarkSignature({
+      status: "follow up",
+      contactedAt: "2026-11-20T10:00:00.000Z",
+      updatedAt: "2026-11-20T10:06:00.000Z",
+      note: "Call Friday",
+    }),
   );
 });
 
